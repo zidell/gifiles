@@ -1394,6 +1394,10 @@ private slots:
         QVERIFY(dlg);
         auto *body = dlg->findChild<QWidget *>(QStringLiteral("colorRows"));
         QVERIFY(body);
+        // 초기화 sits small above the colors: at the bottom center it was taken for the OK button.
+        auto *colorsReset = dlg->findChild<QPushButton *>(QStringLiteral("colorsReset"));
+        QVERIFY(colorsReset && colorsReset->isVisible());
+        QVERIFY(colorsReset->mapTo(dlg, QPoint()).y() < body->mapTo(dlg, QPoint()).y());
         auto rows = [body] { return body->findChildren<QWidget *>(QStringLiteral("colorRow"), Qt::FindDirectChildrenOnly); };
         QCOMPARE(rows().size(), Settings::defaultFileColors().size());
         dlg->findChild<QPushButton *>(QStringLiteral("colorAdd"))->click();
