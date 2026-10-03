@@ -130,11 +130,13 @@ jobs:
     env:
       # Developer ID signing and notarization (see docs/history.md "Automatic updates"). Without
       # them the app is still built and tested, but no macOS package is published.
-      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
-      MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-      NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
-      NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
-      NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
+      # Same secret names as the user's other apps (Tauri's): the .p12 and its password, the Apple ID
+      # with an app-specific password for notarytool, and the team.
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: jurplel/install-qt-action@v4
@@ -160,7 +162,7 @@ jobs:
         run: ./build/gifiles_unit_fileops && ./build/gifiles_unit_core && ./build/gifiles_unit_update
       - name: Package (signed and notarized)
         run: |
-          if [ -z "$MACOS_CERTIFICATE" ] || [ -z "$NOTARY_KEY" ]; then
+          if [ -z "$APPLE_CERTIFICATE" ] || [ -z "$APPLE_PASSWORD" ]; then
             echo "::notice::No signing secrets: the macOS package is not published."
             exit 0
           fi
@@ -169,8 +171,8 @@ jobs:
           security create-keychain -p "$kcpw" "$kc"
           security set-keychain-settings -lut 21600 "$kc"
           security unlock-keychain -p "$kcpw" "$kc"
-          printf '%s' "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           rm "$RUNNER_TEMP/cert.p12"
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$kcpw" "$kc" >/dev/null
           security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
@@ -181,11 +183,9 @@ jobs:
           codesign --verify --deep --strict \
             -R '=identifier "dev.zidell.gifiles" and anchor apple generic and certificate leaf[subject.OU] = "AF68GKBM82"' \
             build/Gifiles.app
-          printf '%s' "$NOTARY_KEY" | base64 --decode > "$RUNNER_TEMP/notary.p8"
           ditto -c -k --keepParent build/Gifiles.app "$RUNNER_TEMP/notarize.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --key "$RUNNER_TEMP/notary.p8" \
-            --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" --wait
-          rm "$RUNNER_TEMP/notary.p8"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" --wait
           xcrun stapler staple build/Gifiles.app
           spctl --assess --type execute -vv build/Gifiles.app
           [ "$(build/Gifiles.app/Contents/MacOS/Gifiles --version)" = "Gifiles $VERSION" ]

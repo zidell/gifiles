@@ -164,9 +164,10 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   restore the old on failure). Off: builds by hand, Linux without `$APPIMAGE`, a folder the app
   can't write, `general.auto_update = false` (automatic checks only). Tests never update (they don't
   call `allowUpdates`); `tests/unit_update.cpp` runs the whole flow against file:// releases.
-  macOS packages need the secrets `MACOS_CERTIFICATE` (Developer ID .p12, base64),
-  `MACOS_CERTIFICATE_PASSWORD`, `NOTARY_KEY` (App Store Connect API .p8, base64), `NOTARY_KEY_ID`,
-  `NOTARY_ISSUER`; without them no macOS asset is published and Macs simply see no update.
+  macOS packages need the secrets (same names as the user's other apps) `APPLE_CERTIFICATE`
+  (Developer ID .p12, base64; copy in `local/developer-id.p12`), `APPLE_CERTIFICATE_PASSWORD`,
+  `APPLE_ID` + `APPLE_PASSWORD` (app-specific password, for notarytool), `APPLE_TEAM_ID`; without them
+  no macOS asset is published and Macs simply see no update.
 - **System preview:** what Qt can't draw goes to the OS (`SystemPreview`): office documents first
   (`isOfficeDocument`, before the text view), then anything that would end as an info card. macOS embeds
   `QLPreviewView` in a window container (a key monitor takes the keyboard back from it so Space/Esc/arrows

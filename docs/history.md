@@ -532,3 +532,6 @@ shortcuts in `../README.md`. Dates are 2026.
   backend is FFmpeg; the AVFoundation-only resume never went on there. macOS is pinned to the darwin
   backend (what Homebrew's Qt, used daily, has). Windows/Linux: a drop test inherited Ctrl from the
   ⌘Z before it (offscreen keeps the last modifiers; Ctrl+drop copies there) — test side.
+- macOS signing secrets use the same names as the user's other apps (Tauri's): `APPLE_CERTIFICATE`,
+  `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD` (app-specific password), `APPLE_TEAM_ID`.
+  An App Store Connect API key was set up first and dropped for this, to match them.
