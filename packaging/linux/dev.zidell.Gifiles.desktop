@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Gifiles
+Comment=Finder-style file manager with a built-in terminal
+Exec=Gifiles %U
+Icon=gifiles
+Categories=System;FileTools;FileManager;
+MimeType=inode/directory;
+Terminal=false
+StartupWMClass=dev.zidell.Gifiles

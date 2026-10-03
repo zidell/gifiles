@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Gifiles app icon: the file list (selected row, MIME-colored names) over the terminal, on navy. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2553b8"/>
+      <stop offset="1" stop-color="#0f2a6b"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="184.5" fill="none" stroke="#ffffff" stroke-opacity="0.14"/>
+  <rect x="196" y="212" width="632" height="84" rx="42" fill="#5aa0ff"/>
+  <circle cx="252" cy="254" r="20" fill="#ffffff"/>
+  <rect x="296" y="242" width="300" height="24" rx="12" fill="#ffffff"/>
+  <circle cx="252" cy="354" r="20" fill="#ffb454"/>
+  <rect x="296" y="342" width="360" height="24" rx="12" fill="#ffb454"/>
+  <circle cx="252" cy="440" r="20" fill="#5fe39a"/>
+  <rect x="296" y="428" width="250" height="24" rx="12" fill="#5fe39a"/>
+  <rect x="160" y="530" width="704" height="334" rx="64" fill="#07122e"/>
+  <path d="M244 640l70 56-70 56" fill="none" stroke="#5fe39a" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="360" y="664" width="64" height="96" rx="10" fill="#e8edf5"/>
+</svg>

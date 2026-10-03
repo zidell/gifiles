@@ -1,0 +1,252 @@
+name: build
+
+# Every push to main that passes on all three platforms becomes a release (v0.1.<run number>) that
+# the installed apps update to (src/Updater): signed update.json + the three packages.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per branch at a time; on main a newer push waits (releases stay in order), on a pull
+# request it replaces the older run.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  VERSION: 0.1.${{ github.run_number }}
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.1'
+          arch: win64_msvc2022_64
+          modules: 'qtmultimedia qtpdf qtimageformats'
+          cache: true
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGIFILES_VERSION="$env:VERSION" -DGIFILES_UPDATES=ON
+      - name: Build
+        run: cmake --build build
+      - name: Smoke tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: .\build\gifiles_smoke.exe -o smoke.txt,txt -o -,txt
+      - name: Unit tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          foreach ($t in 'fileops', 'core', 'update') {
+            & ".\build\gifiles_unit_$t.exe" -o "unit-$t.txt,txt" -o -,txt
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: smoke-windows
+          path: |
+            smoke.txt
+            unit-*.txt
+      - name: Package
+        run: |
+          New-Item -ItemType Directory dist/Gifiles | Out-Null
+          Copy-Item build/Gifiles.exe dist/Gifiles/
+          Copy-Item packaging/readme.txt, LICENSE dist/Gifiles/
+          Copy-Item -Recurse packaging/licenses dist/Gifiles/licenses
+          windeployqt --release --compiler-runtime --no-translations dist/Gifiles/Gifiles.exe
+          # Updates are downloaded over HTTPS: without a TLS plugin they could never arrive.
+          if (-not (Get-ChildItem dist/Gifiles/tls -ErrorAction SilentlyContinue)) { throw "no Qt TLS plugin deployed" }
+          if ((& dist/Gifiles/Gifiles.exe --version | Out-String).Trim() -ne "Gifiles $env:VERSION") { throw "wrong version" }
+          Compress-Archive -Path dist/Gifiles -DestinationPath "Gifiles-$env:VERSION-windows-x64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gifiles-windows-x64
+          path: Gifiles-${{ env.VERSION }}-windows-x64.zip
+
+  linux:
+    runs-on: ubuntu-22.04 # oldest supported glibc, so the AppImage runs on more distributions
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config zip unzip libfuse2 libtiff5 \
+            libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libgl1-mesa-dev
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.1'
+          arch: linux_gcc_64
+          modules: 'qtmultimedia qtpdf qtimageformats'
+          cache: true
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGIFILES_BUNDLED_VTERM=ON \
+            -DGIFILES_VERSION="$VERSION" -DGIFILES_UPDATES=ON
+          cmake --build build
+      - name: Smoke tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          mkdir -p ~/.local/share # fresh runners lack it; Qt's XDG trash needs the parent to exist
+          ./build/gifiles_smoke
+      - name: Unit tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ./build/gifiles_unit_fileops && ./build/gifiles_unit_core && ./build/gifiles_unit_update
+      - name: Package (AppImage)
+        run: |
+          mkdir -p AppDir/usr/bin
+          cp build/Gifiles AppDir/usr/bin/
+          mkdir -p AppDir/usr/share/doc/gifiles && cp -R packaging/readme.txt LICENSE packaging/licenses AppDir/usr/share/doc/gifiles/
+          curl -sSLo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -sSLo linuxdeploy-plugin-qt https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy linuxdeploy-plugin-qt
+          export QMAKE="$QT_ROOT_DIR/bin/qmake" EXTRA_QT_MODULES="svg;multimedia;network"
+          export LDAI_OUTPUT="Gifiles-$VERSION-linux-x86_64.AppImage"
+          ./linuxdeploy --appdir AppDir --executable AppDir/usr/bin/Gifiles \
+            --desktop-file packaging/linux/dev.zidell.Gifiles.desktop --icon-file packaging/icon/gifiles.svg \
+            --plugin qt --output appimage
+          # Updates are downloaded over HTTPS: without a TLS plugin they could never arrive.
+          ls AppDir/usr/plugins/tls/*.so
+          [ "$(./"$LDAI_OUTPUT" --appimage-extract-and-run --version)" = "Gifiles $VERSION" ]
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gifiles-linux-x86_64
+          path: Gifiles-${{ env.VERSION }}-linux-x86_64.AppImage
+
+  macos:
+    runs-on: macos-latest
+    env:
+      # Developer ID signing and notarization (see docs/history.md "Automatic updates"). Without
+      # them the app is still built and tested, but no macOS package is published.
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+      NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
+      NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+      NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.1'
+          arch: clang_64 # universal (arm64 + x86_64)
+          modules: 'qtmultimedia qtpdf qtimageformats'
+          cache: true
+      - name: Dependencies
+        run: brew install ninja
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGIFILES_BUNDLED_VTERM=ON \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DGIFILES_VERSION="$VERSION" -DGIFILES_UPDATES=ON
+          cmake --build build
+      - name: Smoke tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ./build/gifiles_smoke
+      - name: Unit tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ./build/gifiles_unit_fileops && ./build/gifiles_unit_core && ./build/gifiles_unit_update
+      - name: Package (signed and notarized)
+        run: |
+          if [ -z "$MACOS_CERTIFICATE" ] || [ -z "$NOTARY_KEY" ]; then
+            echo "::notice::No signing secrets: the macOS package is not published."
+            exit 0
+          fi
+          set -e
+          kc="$RUNNER_TEMP/build.keychain-db"; kcpw=$(openssl rand -hex 16)
+          security create-keychain -p "$kcpw" "$kc"
+          security set-keychain-settings -lut 21600 "$kc"
+          security unlock-keychain -p "$kcpw" "$kc"
+          printf '%s' "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$kcpw" "$kc" >/dev/null
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          identity=$(security find-identity -v -p codesigning "$kc" | awk -F'"' '/Developer ID Application/ {print $2; exit}')
+          [ -n "$identity" ]
+          macdeployqt build/Gifiles.app -sign-for-notarization="$identity"
+          # The updater only installs an app with this identifier signed by this team.
+          codesign --verify --deep --strict \
+            -R '=identifier "dev.zidell.gifiles" and anchor apple generic and certificate leaf[subject.OU] = "AF68GKBM82"' \
+            build/Gifiles.app
+          printf '%s' "$NOTARY_KEY" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          ditto -c -k --keepParent build/Gifiles.app "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --key "$RUNNER_TEMP/notary.p8" \
+            --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER" --wait
+          rm "$RUNNER_TEMP/notary.p8"
+          xcrun stapler staple build/Gifiles.app
+          spctl --assess --type execute -vv build/Gifiles.app
+          [ "$(build/Gifiles.app/Contents/MacOS/Gifiles --version)" = "Gifiles $VERSION" ]
+          ditto -c -k --keepParent build/Gifiles.app "Gifiles-$VERSION-macos.zip"
+      - name: Remove the signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/build.keychain-db" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Gifiles-macos
+          path: Gifiles-${{ env.VERSION }}-macos.zip
+          if-no-files-found: ignore
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # release upload
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: src/Updater.cpp
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: update.json
+        run: |
+          python3 - <<'EOF'
+          import hashlib, json, os, pathlib
+          version = os.environ["VERSION"]
+          keys = {"-macos.zip": "macos", "-windows-x64.zip": "windows-x64", "-linux-x86_64.AppImage": "linux-x86_64"}
+          assets = {}
+          for f in sorted(pathlib.Path("dist").iterdir()):
+              for suffix, key in keys.items():
+                  if f.name == f"Gifiles-{version}{suffix}":
+                      assets[key] = {"file": f.name, "sha256": hashlib.sha256(f.read_bytes()).hexdigest(),
+                                     "size": f.stat().st_size}
+          assert "windows-x64" in assets and "linux-x86_64" in assets, assets
+          pathlib.Path("dist/update.json").write_text(json.dumps({"version": version, "assets": assets}, indent=1))
+          print(json.dumps(assets, indent=1))
+          EOF
+      - name: Sign update.json
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          [ -n "$UPDATE_SIGNING_KEY" ] || { echo "::error::UPDATE_SIGNING_KEY secret is missing"; exit 1; }
+          umask 077
+          key="$RUNNER_TEMP/update.pem"
+          printf '%s\n' "$UPDATE_SIGNING_KEY" > "$key"
+          # The key must be the one whose public half the app carries (src/Updater.cpp kPublicKey).
+          have=$(openssl pkey -in "$key" -pubout -outform DER | tail -c 32 | xxd -p -c 64)
+          want=$(python3 -c "import re; s=open('src/Updater.cpp').read(); b=re.search(r'kPublicKey\[32\] = \{([^}]*)\}', s).group(1); print(''.join('%02x' % int(x, 16) for x in re.findall(r'0x[0-9a-fA-F]{2}', b)))")
+          [ "$have" = "$want" ] || { echo "::error::UPDATE_SIGNING_KEY doesn't match the app's public key"; exit 1; }
+          openssl pkeyutl -sign -rawin -inkey "$key" -in dist/update.json -out "$RUNNER_TEMP/update.sig"
+          openssl pkey -in "$key" -pubout -out "$RUNNER_TEMP/update.pub"
+          openssl pkeyutl -verify -rawin -pubin -inkey "$RUNNER_TEMP/update.pub" -in dist/update.json -sigfile "$RUNNER_TEMP/update.sig"
+          base64 -w0 "$RUNNER_TEMP/update.sig" > dist/update.json.sig
+          rm "$key"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Gifiles $VERSION" --generate-notes --latest

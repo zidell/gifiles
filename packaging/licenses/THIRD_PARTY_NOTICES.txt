@@ -1,0 +1,49 @@
+Gifiles — third-party software
+==============================
+
+Gifiles itself is under the MIT License (LICENSE). The builds published for
+Windows (zip) and Linux (AppImage) also contain the libraries below, each
+under its own license. The license texts are in this folder.
+
+Qt 6 (The Qt Company Ltd. and other contributors)
+  Modules: Core, Gui, Widgets, Concurrent, Multimedia, MultimediaWidgets,
+  Svg, Pdf, PdfWidgets, image format plugins.
+  License: GNU LGPL version 3 (LGPL-3.0.txt, which adds to GPL-3.0.txt).
+  Gifiles links Qt dynamically: the Qt libraries next to Gifiles.exe (Windows)
+  or inside the AppImage (Linux) can be replaced with your own build of the
+  same Qt version. Source code: https://download.qt.io/official_releases/qt/
+  (the release builds use Qt 6.10.1). Qt's own third-party components
+  (e.g. PDFium in Qt PDF, image codecs) and their licenses are listed at
+  https://doc.qt.io/qt-6/licenses-used-in-qt.html
+
+FFmpeg (used by Qt Multimedia, where shipped with it)
+  License: GNU LGPL version 2.1 or later (LGPL-2.1.txt).
+  Source code: https://ffmpeg.org/download.html
+
+TweetNaCl 20140427 (Daniel J. Bernstein, Bernard van Gastel, Wesley Janssen,
+  Tanja Lange, Peter Schwabe, Sjaak Smetsers) — third_party/tweetnacl, built
+  into Gifiles to verify the signature of update information.
+  License: public domain (https://tweetnacl.cr.yp.to)
+
+libvterm 0.3.3 (Paul Evans) — third_party/libvterm, built into Gifiles
+  License: MIT
+
+  Copyright (c) 2008 Paul Evans <leonerd@leonerd.org.uk>
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to
+  deal in the Software without restriction, including without limitation the
+  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+  sell copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+  IN THE SOFTWARE.
