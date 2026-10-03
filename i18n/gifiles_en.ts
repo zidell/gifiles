@@ -623,6 +623,10 @@ It is also installed when you quit the app later.</translation>
         <translation>Sidebar</translation>
     </message>
     <message>
+        <source>폴더 트리 (` 키)</source>
+        <translation>Folder tree (` key)</translation>
+    </message>
+    <message>
         <source>목록의 컨텍스트 메뉴 &quot;선택한 항목들로…&quot;</source>
         <translation>The list&apos;s context menu &quot;With Selected Items…&quot;</translation>
     </message>
@@ -791,6 +795,28 @@ Shell scripts work too. Example:
     <message>
         <source>이 줄이 없으면 기본 목록(홈, 데스크탑, 문서, 다운로드 등)을 씁니다.</source>
         <translation>Without this line the default list (Home, Desktop, Documents, Downloads, etc.) is used.</translation>
+    </message>
+    <message>
+        <source>폴더 트리(파일 목록에서 ` 키)에 보일 폴더들. []이면 드라이브 전체 (macOS·Linux는 &quot;/&quot;, Windows는 모든 고정 드라이브).
+네트워크·FUSE 드라이브는 여기에 직접 적었을 때만 들어갑니다.</source>
+        <translation>Folders shown in the folder tree (the ` key in the file list). [] means the whole drive (&quot;/&quot; on macOS and Linux, every fixed drive on Windows).
+Network and FUSE drives are included only when listed here.</translation>
+    </message>
+    <message>
+        <source>목록은 백그라운드에서 만들어 캐시에 두고, 오래됐거나 앱에서 폴더를 바꾸면 다시 읽습니다.</source>
+        <translation>The list is built in the background and cached; it is read again when it gets old or when folders change in the app.</translation>
+    </message>
+    <message>
+        <source>폴더 트리에서 뺄 폴더 (그 안의 모든 폴더도). 이름만 적으면 어디에 있든 그 이름의 폴더를 빼고 (&quot;node_modules&quot;),
+/ 나 ~ 나 드라이브 문자로 시작하면 그 경로 하나만 뺍니다 (&quot;~/Library&quot;). * 와 ? 를 쓸 수 있습니다 (&quot;*.tmp&quot;).</source>
+        <translation>Folders to leave out of the folder tree (with every folder inside). A bare name leaves out folders of that name anywhere (&quot;node_modules&quot;);
+an entry starting with /, ~ or a drive letter leaves out that one path (&quot;~/Library&quot;). * and ? are allowed (&quot;*.tmp&quot;).</translation>
+    </message>
+    <message>
+        <source>주석 처리돼 있으면 앱의 기본 목록을 씁니다. macOS에서는 .app 같은 패키지 안은 늘 빠지고, 전체 디스크 접근 권한이 없으면
+데스크탑·문서·다운로드는 앱에서 한 번 열어 본 뒤부터 들어갑니다 (macOS가 권한을 묻지 않도록).</source>
+        <translation>Commented out, the app&apos;s default list is used. On macOS the inside of packages such as .app is always left out, and without Full Disk Access
+Desktop, Documents and Downloads are included only after you have opened them in the app once (so macOS doesn&apos;t ask for permission).</translation>
     </message>
     <message>
         <source>Set-Location -LiteralPath {dir}; $d = &apos;새 폴더&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;새 폴더 $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</source>
@@ -1571,6 +1597,10 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>Go to Folder…</translation>
     </message>
     <message>
+        <source>폴더 트리</source>
+        <translation>Folder Tree</translation>
+    </message>
+    <message>
         <source>최소화</source>
         <translation>Minimize</translation>
     </message>
@@ -1641,6 +1671,26 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
     <message>
         <source>경로 입력 취소</source>
         <translation>Cancel Path Entry</translation>
+    </message>
+    <message>
+        <source>폴더 트리에서 이동</source>
+        <translation>Go to Folder in Tree</translation>
+    </message>
+    <message>
+        <source>폴더 트리 조작</source>
+        <translation>Folder Tree Keys</translation>
+    </message>
+    <message>
+        <source>폴더 트리 닫기</source>
+        <translation>Close Folder Tree</translation>
+    </message>
+    <message>
+        <source>폴더 트리 다음 일치</source>
+        <translation>Next Match in Folder Tree</translation>
+    </message>
+    <message>
+        <source>폴더 트리 이전 일치</source>
+        <translation>Previous Match in Folder Tree</translation>
     </message>
     <message>
         <source>퀵 뷰어 닫기</source>
@@ -2081,6 +2131,30 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
     <message>
         <source>업데이트 정보를 읽을 수 없습니다.</source>
         <translation>Can&apos;t read the update information.</translation>
+    </message>
+    <message>
+        <source>폴더 이름을 치면 바로 찾아갑니다 · Tab 다음 · Enter 이동 · Esc 닫기</source>
+        <translation>Type a folder name to jump to it · Tab next · Enter go · Esc close</translation>
+    </message>
+    <message>
+        <source>폴더 목록을 만드는 중… %1개</source>
+        <translation>Listing folders… %1</translation>
+    </message>
+    <message>
+        <source>폴더 목록이 없습니다</source>
+        <translation>No folder list</translation>
+    </message>
+    <message>
+        <source>일치하는 폴더 없음</source>
+        <translation>No matching folder</translation>
+    </message>
+    <message>
+        <source>폴더 %1개</source>
+        <translation>%1 folders</translation>
+    </message>
+    <message>
+        <source>새로 읽는 중</source>
+        <translation>refreshing</translation>
     </message>
 </context>
 </TS>

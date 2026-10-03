@@ -4,44 +4,6 @@
 
 #include <QMimeData>
 
-namespace {
-// Natural order by hand, for the C/POSIX locale, where QCollator ignores numeric mode (e.g. Linux
-// sessions with LANG=C.UTF-8): digit runs compare by value, the rest case-insensitively.
-int naturalCompare(QStringView a, QStringView b)
-{
-    qsizetype i = 0, j = 0;
-    while (i < a.size() && j < b.size()) {
-        if (a[i].isDigit() && b[j].isDigit()) {
-            qsizetype ie = i, je = j;
-            while (ie < a.size() && a[ie].isDigit())
-                ++ie;
-            while (je < b.size() && b[je].isDigit())
-                ++je;
-            QStringView na = a.sliced(i, ie - i), nb = b.sliced(j, je - j);
-            while (na.size() > 1 && na.front() == u'0')
-                na = na.sliced(1);
-            while (nb.size() > 1 && nb.front() == u'0')
-                nb = nb.sliced(1);
-            if (na.size() != nb.size())
-                return na.size() < nb.size() ? -1 : 1;
-            if (const int c = na.compare(nb))
-                return c;
-            i = ie;
-            j = je;
-            continue;
-        }
-        const QChar ca = a[i].toCaseFolded(), cb = b[j].toCaseFolded();
-        if (ca != cb)
-            return ca < cb ? -1 : 1;
-        ++i;
-        ++j;
-    }
-    if (i < a.size() || j < b.size())
-        return i < a.size() ? 1 : -1;
-    return a.compare(b);
-}
-} // namespace
-
 FileProxy::FileProxy(QFileSystemModel *fs, QObject *parent) : QSortFilterProxyModel(parent), m_fs(fs)
 {
     m_collator.setNumericMode(true);
@@ -125,7 +87,7 @@ bool FileProxy::lessThan(const QModelIndex &l, const QModelIndex &r) const
         break;
     }
     if (c == 0)
-        c = m_collator.locale().language() == QLocale::C ? naturalCompare(m_fs->fileName(l), m_fs->fileName(r))
+        c = m_collator.locale().language() == QLocale::C ? util::naturalCompare(m_fs->fileName(l), m_fs->fileName(r))
                                                          : m_collator.compare(m_fs->fileName(l), m_fs->fileName(r));
     return c < 0;
 }

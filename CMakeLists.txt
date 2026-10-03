@@ -18,6 +18,8 @@ qt_add_library(gifiles_core STATIC
     src/MainWindow.h src/MainWindow.cpp
     src/BrowserTab.h src/BrowserTab.cpp
     src/FileProxy.h src/FileProxy.cpp
+    src/FolderIndex.h src/FolderIndex.cpp
+    src/FolderTree.h src/FolderTree.cpp
     src/ItemDelegate.h src/ItemDelegate.cpp
     src/FileOps.h src/FileOps.cpp
     src/Thumbnails.h src/Thumbnails.cpp

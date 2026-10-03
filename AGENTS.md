@@ -175,6 +175,12 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   Linux converts office files to PDF with LibreOffice (`convertWithOffice`, cache, own profile). Offscreen
   there is none. Qt's `grab()` can't see the native view: `GIFILES_SNAPSHOT_QUICKLOOK=<file>` (with
   `GIFILES_SNAPSHOT`) saves `quick-look.png` through `screencapture`.
+- **Folder tree** (\`, `FolderTree`): the index is built off the GUI thread and cached
+  (`CacheLocation/folder-tree-<hash of the options>.bin`); it is in memory only while a panel is open (+2 min).
+  Only `main.cpp` calls `prefetch()`, so tests never scan the drive (they set `folder_tree.roots`). Network, FUSE
+  and virtual mounts are never crossed unless listed as a root (one NFS mount took 5 minutes). On macOS without
+  Full Disk Access, Desktop/Documents/Downloads and other apps' containers are scanned only after the browser opened
+  them (`noteVisit`), so a background scan never makes macOS ask.
 - **Archives:** opening a .zip/.tar.* etc. expands it next to the archive inside Gifiles
   (`Job::Extract`, undo trashes the result) unless the user set "항상 이 앱으로 열기" for it.
 - **Quick Look size:** text, PDF and other content get a base size (900×680) times
@@ -247,6 +253,7 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
 | `src/SystemPreview*` | the OS's own preview of office documents & co. (macOS Quick Look, Windows preview handlers) |
 | `src/TerminalWidget`, `src/Pty*` | libvterm terminal, pty (forkpty / ConPTY), list integration, queued commands |
 | `src/Sidebar`, `src/PathBar` | favorites & volumes, breadcrumb / go-to-folder |
+| `src/FolderIndex`, `src/FolderTree` | the NCD-style folder tree (\`): index of every folder (scan, search, cache file), background scans, the panel over the file views |
 | `src/Settings` | preferences in config.toml (schema, load/watch/save, check) and the settings window (⌘,: 일반/보기/모양 및 색상/미리보기/터미널/선택 항목 메뉴/단축키) |
 | `src/Shortcuts` | built-in keys of the menu actions, the user's keys, rebinding |
 | `src/Toml` | the small TOML subset config.toml uses |

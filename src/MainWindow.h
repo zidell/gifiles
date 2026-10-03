@@ -26,6 +26,7 @@ class PathBar;
 class PreviewWidget;
 class QuickLookWindow;
 class Sidebar;
+class FolderTreePanel;
 class TerminalWidget;
 
 class MainWindow : public QMainWindow {
@@ -88,6 +89,8 @@ private:
     bool resolveConflicts(const QStringList &sources, const QString &destDir, QHash<QString, Conflict> *out);
 
     void toggleQuickLook();
+    void toggleFolderTree(); // ` : the NCD-style tree of every folder
+    void placeFolderTree();
     // keepHeight: unfolding by dragging the edge, the panel keeps the dragged height.
     void setTerminalVisible(bool visible, bool keepHeight = false);
     QString debugState() const; // one line for the debug log: folder, view, selection, focus
@@ -168,4 +171,6 @@ private:
     QAction *m_fontBiggerAct, *m_fontSmallerAct, *m_fontResetAct;
     QAction *m_focusSidebarAct, *m_focusFilesAct, *m_focusTerminalAct;
     QList<QAction *> m_goPlaces;
+    QAction *m_folderTreeAct = nullptr;
+    FolderTreePanel *m_folderTree = nullptr;
 };

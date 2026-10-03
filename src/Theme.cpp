@@ -209,6 +209,18 @@ QColumnView#files QListView::item { border: none; border-radius: 7px; padding: 0
 QColumnView#files QListView::item:hover { background: {hover}; }
 QColumnView#files QListView::item:selected:active { background: {selection}; color: {selText}; }
 QColumnView#files QListView::item:selected:!active { background: {selInactive}; color: {text}; }
+/* folder tree (`), over the file views */
+QFrame#folderTreePanel { background: {bg}; }
+QLineEdit#folderTreeQuery { padding: 5px 8px; }
+QTreeView#folderTree { background: {bg}; border: none; show-decoration-selected: 1; }
+QTreeView#folderTree::item { border: none; padding: 1px 4px; }
+QTreeView#folderTree::item:hover { background: {hover}; }
+QTreeView#folderTree::item:selected, QTreeView#folderTree::branch:selected { background: {selection}; color: {selText}; }
+QTreeView#folderTree::branch { background: transparent; border: none; image: none; }
+QTreeView#folderTree::branch:has-children:closed { image: url({branchClosed}); }
+QTreeView#folderTree::branch:has-children:open { image: url({branchOpen}); }
+QTreeView#folderTree::branch:has-children:closed:selected { image: url({branchClosedSel}); }
+QTreeView#folderTree::branch:has-children:open:selected { image: url({branchOpenSel}); }
 QHeaderView { background: {bg}; border: none; }
 QHeaderView::section { background: {bg}; color: {secondary}; border: none; border-bottom: 1px solid {separator}; padding: 6px 10px; font-weight: 500; }
 QHeaderView::section:hover { color: {text}; }

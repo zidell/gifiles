@@ -5,6 +5,7 @@
 #include "Permissions.h"
 #include "Preview.h"
 #include "Settings.h"
+#include "FolderTree.h"
 #include "Updater.h"
 #include "Sidebar.h"
 #include "Theme.h"
@@ -196,6 +197,7 @@ int main(int argc, char *argv[])
 #ifdef GIFILES_UPDATES
     Updater::allowUpdates();
 #endif
+    FolderTree::instance()->prefetch(); // keeps the folder tree's cache fresh (tests never scan the drive)
     // A downloaded update goes in once the app has quit (Updater::apply starts the helper).
     QObject::connect(&app, &QCoreApplication::aboutToQuit, [] { Updater::instance()->apply(false); });
     Updater::instance();

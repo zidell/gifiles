@@ -7,6 +7,7 @@
 #include "BrowserTab.h"
 #include "MainWindow.h"
 #include "FileProxy.h"
+#include "FolderTree.h"
 #include "ItemDelegate.h"
 #include "OpenWith.h"
 #include "PathBar.h"
@@ -3513,6 +3514,82 @@ private slots:
         QTRY_VERIFY(!dlg);
         QVERIFY(OpenWith::hasRememberedApp(p("doc.qqq")));
 #endif
+    }
+
+    // ` opens the NCD-style folder tree over the file views: typing jumps to the best match,
+    // Tab / ⇧Tab to the next ones, arrows walk the tree, Return goes there; Esc or ` closes.
+    void folderTreeJumpsToTypedFolder()
+    {
+        for (const char *d : {"tree/one/target", "tree/two/target2", "tree/two/other"})
+            QVERIFY(QDir().mkpath(p(QString::fromUtf8(d))));
+        Settings::instance()->setValue(Settings::FolderTreeRoots, QStringList{p(QStringLiteral("tree"))});
+        tab()->navigate(p(QStringLiteral("tree/two")));
+        QTRY_COMPARE(tab()->path(), p(QStringLiteral("tree/two")));
+        tab()->focusView();
+        auto norm = [](const QString &path) { return QDir::cleanPath(QDir::fromNativeSeparators(path)); };
+
+        QTest::keyClick(focus(), '`');
+        auto *panel = m_win->findChild<FolderTreePanel *>();
+        QVERIFY(panel);
+        QTRY_VERIFY(panel->isVisible());
+        QCOMPARE(QApplication::focusWidget(), panel->queryEdit());
+        // Over the file views, not the sidebar.
+        QVERIFY(panel->geometry().contains(QRect(tab()->mapTo(m_win, QPoint()), tab()->size())));
+        if (auto *sidebar = m_win->findChild<Sidebar *>(); sidebar && sidebar->isVisible())
+            QVERIFY(!panel->geometry().intersects(QRect(sidebar->mapTo(m_win, QPoint()), sidebar->size())));
+        QTRY_VERIFY(FolderTree::instance()->index() && !FolderTree::instance()->isScanning());
+        QTRY_COMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/two")))); // opens where the browser is
+        shot("folder-tree", panel);
+
+        QTest::keyClicks(panel->queryEdit(), QStringLiteral("target"));
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one/target")))); // the exact name first
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Tab);
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/two/target2"))));
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Backtab, Qt::ShiftModifier);
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one/target"))));
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Up); // the arrows walk the tree
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one"))));
+        QCOMPARE(QApplication::focusWidget(), panel->queryEdit());
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Return);
+        QVERIFY(!panel->isVisible());
+        QTRY_COMPARE(norm(tab()->path()), norm(p(QStringLiteral("tree/one"))));
+        QTRY_VERIFY(tab()->isAncestorOf(QApplication::focusWidget()));
+
+        // Esc closes and stays; so does ` (also typed as ₩ by the Korean input source).
+        QTest::keyClick(focus(), '`');
+        QTRY_VERIFY(panel->isVisible());
+        QTRY_COMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one"))));
+        QTest::keyClicks(panel->queryEdit(), QStringLiteral("other"));
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/two/other"))));
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Escape);
+        QVERIFY(!panel->isVisible());
+        QCOMPARE(norm(tab()->path()), norm(p(QStringLiteral("tree/one"))));
+        QTest::keyClick(focus(), '`');
+        QTRY_VERIFY(panel->isVisible());
+        QVERIFY(panel->queryEdit()->text().isEmpty());
+        QTest::keyClick(panel->queryEdit(), '`');
+        QVERIFY(!panel->isVisible());
+        QTest::keyClick(focus(), '`');
+        QTRY_VERIFY(panel->isVisible());
+        panel->queryEdit()->insert(QString(QChar(0x20A9))); // what an input method commits
+        QVERIFY(!panel->isVisible());
+        QVERIFY(!panel->queryEdit()->text().contains(QChar(0x20A9)));
+
+        // A folder made in the app shows up the next time.
+        QTRY_VERIFY(tab()->isAncestorOf(QApplication::focusWidget()));
+        QVERIFY(QDir().mkpath(p(QStringLiteral("tree/one/fresh"))));
+        FolderTree::instance()->markStale();
+        QTest::keyClick(focus(), '`');
+        QTRY_VERIFY(panel->isVisible());
+        QTRY_VERIFY(!FolderTree::instance()->isScanning());
+        QTest::keyClicks(panel->queryEdit(), QStringLiteral("fresh"));
+        QTRY_COMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one/fresh"))));
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Escape);
+
+        Settings::instance()->remove(Settings::FolderTreeRoots);
+        tab()->navigate(m_tmp.path());
+        QTRY_COMPARE(tab()->path(), m_tmp.path());
+        QDir(p(QStringLiteral("tree"))).removeRecursively();
     }
 
     void tabsAndWindows()

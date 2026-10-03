@@ -622,6 +622,10 @@ Windows: Gifiles.exe 旁边，Linux AppImage: --appimage-extract 后的 squashfs
         <translation>边栏</translation>
     </message>
     <message>
+        <source>폴더 트리 (` 키)</source>
+        <translation>文件夹树(` 键)</translation>
+    </message>
+    <message>
         <source>목록의 컨텍스트 메뉴 &quot;선택한 항목들로…&quot;</source>
         <translation>列表的上下文菜单 &quot;用所选项目…&quot;</translation>
     </message>
@@ -790,6 +794,28 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
     <message>
         <source>이 줄이 없으면 기본 목록(홈, 데스크탑, 문서, 다운로드 등)을 씁니다.</source>
         <translation>没有这一行时使用默认列表（主目录、桌面、文稿、下载等）。</translation>
+    </message>
+    <message>
+        <source>폴더 트리(파일 목록에서 ` 키)에 보일 폴더들. []이면 드라이브 전체 (macOS·Linux는 &quot;/&quot;, Windows는 모든 고정 드라이브).
+네트워크·FUSE 드라이브는 여기에 직접 적었을 때만 들어갑니다.</source>
+        <translation>文件夹树(在文件列表中按 ` 键)中显示的文件夹。[] 表示整个磁盘 (macOS 和 Linux 为 &quot;/&quot;,Windows 为所有固定磁盘)。
+网络和 FUSE 磁盘只有直接写在这里时才会包含。</translation>
+    </message>
+    <message>
+        <source>목록은 백그라운드에서 만들어 캐시에 두고, 오래됐거나 앱에서 폴더를 바꾸면 다시 읽습니다.</source>
+        <translation>列表在后台生成并缓存;过旧或在应用中更改了文件夹时会重新读取。</translation>
+    </message>
+    <message>
+        <source>폴더 트리에서 뺄 폴더 (그 안의 모든 폴더도). 이름만 적으면 어디에 있든 그 이름의 폴더를 빼고 (&quot;node_modules&quot;),
+/ 나 ~ 나 드라이브 문자로 시작하면 그 경로 하나만 뺍니다 (&quot;~/Library&quot;). * 와 ? 를 쓸 수 있습니다 (&quot;*.tmp&quot;).</source>
+        <translation>从文件夹树中排除的文件夹 (连同其中的所有文件夹)。只写名称则排除任何位置的同名文件夹 (&quot;node_modules&quot;),
+以 /、~ 或盘符开头则只排除该路径 (&quot;~/Library&quot;)。可以使用 * 和 ? (&quot;*.tmp&quot;)。</translation>
+    </message>
+    <message>
+        <source>주석 처리돼 있으면 앱의 기본 목록을 씁니다. macOS에서는 .app 같은 패키지 안은 늘 빠지고, 전체 디스크 접근 권한이 없으면
+데스크탑·문서·다운로드는 앱에서 한 번 열어 본 뒤부터 들어갑니다 (macOS가 권한을 묻지 않도록).</source>
+        <translation>被注释掉时使用应用的默认列表。在 macOS 上,.app 等软件包的内部始终排除;没有完全磁盘访问权限时,
+桌面、文稿和下载要在应用中打开过一次之后才会包含 (以免 macOS 请求权限)。</translation>
     </message>
     <message>
         <source>Set-Location -LiteralPath {dir}; $d = &apos;새 폴더&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;새 폴더 $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</source>
@@ -1570,6 +1596,10 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>前往文件夹…</translation>
     </message>
     <message>
+        <source>폴더 트리</source>
+        <translation>文件夹树</translation>
+    </message>
+    <message>
         <source>최소화</source>
         <translation>最小化</translation>
     </message>
@@ -1640,6 +1670,26 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
     <message>
         <source>경로 입력 취소</source>
         <translation>取消路径输入</translation>
+    </message>
+    <message>
+        <source>폴더 트리에서 이동</source>
+        <translation>前往树中的文件夹</translation>
+    </message>
+    <message>
+        <source>폴더 트리 조작</source>
+        <translation>文件夹树按键</translation>
+    </message>
+    <message>
+        <source>폴더 트리 닫기</source>
+        <translation>关闭文件夹树</translation>
+    </message>
+    <message>
+        <source>폴더 트리 다음 일치</source>
+        <translation>文件夹树中的下一个匹配</translation>
+    </message>
+    <message>
+        <source>폴더 트리 이전 일치</source>
+        <translation>文件夹树中的上一个匹配</translation>
     </message>
     <message>
         <source>퀵 뷰어 닫기</source>
@@ -2080,6 +2130,30 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
     <message>
         <source>업데이트 정보를 읽을 수 없습니다.</source>
         <translation>无法读取更新信息。</translation>
+    </message>
+    <message>
+        <source>폴더 이름을 치면 바로 찾아갑니다 · Tab 다음 · Enter 이동 · Esc 닫기</source>
+        <translation>输入文件夹名称即可跳转 · Tab 下一个 · Enter 前往 · Esc 关闭</translation>
+    </message>
+    <message>
+        <source>폴더 목록을 만드는 중… %1개</source>
+        <translation>正在生成文件夹列表… %1 个</translation>
+    </message>
+    <message>
+        <source>폴더 목록이 없습니다</source>
+        <translation>没有文件夹列表</translation>
+    </message>
+    <message>
+        <source>일치하는 폴더 없음</source>
+        <translation>没有匹配的文件夹</translation>
+    </message>
+    <message>
+        <source>폴더 %1개</source>
+        <translation>%1 个文件夹</translation>
+    </message>
+    <message>
+        <source>새로 읽는 중</source>
+        <translation>正在刷新</translation>
     </message>
 </context>
 </TS>

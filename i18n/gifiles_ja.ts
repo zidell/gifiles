@@ -622,6 +622,10 @@ Windows: Gifiles.exe の隣、Linux AppImage: --appimage-extract 後の squashfs
         <translation>サイドバー</translation>
     </message>
     <message>
+        <source>폴더 트리 (` 키)</source>
+        <translation>フォルダツリー(` キー)</translation>
+    </message>
+    <message>
         <source>목록의 컨텍스트 메뉴 &quot;선택한 항목들로…&quot;</source>
         <translation>リストのコンテキストメニュー &quot;選択した項目で…&quot;</translation>
     </message>
@@ -790,6 +794,28 @@ command 内のプレースホルダは実行時に置き換えられます (各�
     <message>
         <source>이 줄이 없으면 기본 목록(홈, 데스크탑, 문서, 다운로드 등)을 씁니다.</source>
         <translation>この行がない場合はデフォルトのリスト(ホーム、デスクトップ、書類、ダウンロードなど)を使います。</translation>
+    </message>
+    <message>
+        <source>폴더 트리(파일 목록에서 ` 키)에 보일 폴더들. []이면 드라이브 전체 (macOS·Linux는 &quot;/&quot;, Windows는 모든 고정 드라이브).
+네트워크·FUSE 드라이브는 여기에 직접 적었을 때만 들어갑니다.</source>
+        <translation>フォルダツリー(ファイル一覧で ` キー)に表示するフォルダ。[] ならドライブ全体 (macOS・Linux は &quot;/&quot;、Windows はすべての固定ドライブ)。
+ネットワーク・FUSE ドライブはここに直接書いたときだけ含まれます。</translation>
+    </message>
+    <message>
+        <source>목록은 백그라운드에서 만들어 캐시에 두고, 오래됐거나 앱에서 폴더를 바꾸면 다시 읽습니다.</source>
+        <translation>一覧はバックグラウンドで作ってキャッシュし、古くなったときやアプリでフォルダを変えたときに読み直します。</translation>
+    </message>
+    <message>
+        <source>폴더 트리에서 뺄 폴더 (그 안의 모든 폴더도). 이름만 적으면 어디에 있든 그 이름의 폴더를 빼고 (&quot;node_modules&quot;),
+/ 나 ~ 나 드라이브 문자로 시작하면 그 경로 하나만 뺍니다 (&quot;~/Library&quot;). * 와 ? 를 쓸 수 있습니다 (&quot;*.tmp&quot;).</source>
+        <translation>フォルダツリーから除くフォルダ (その中のフォルダもすべて)。名前だけ書くとどこにあってもその名前のフォルダを除き (&quot;node_modules&quot;)、
+/ や ~ やドライブ文字で始まるとそのパスだけを除きます (&quot;~/Library&quot;)。* と ? が使えます (&quot;*.tmp&quot;)。</translation>
+    </message>
+    <message>
+        <source>주석 처리돼 있으면 앱의 기본 목록을 씁니다. macOS에서는 .app 같은 패키지 안은 늘 빠지고, 전체 디스크 접근 권한이 없으면
+데스크탑·문서·다운로드는 앱에서 한 번 열어 본 뒤부터 들어갑니다 (macOS가 권한을 묻지 않도록).</source>
+        <translation>コメントアウトされているとアプリの既定の一覧を使います。macOS では .app などのパッケージの中は常に除かれ、フルディスクアクセスがないと
+デスクトップ・書類・ダウンロードはアプリで一度開いてから含まれます (macOS が許可を求めないように)。</translation>
     </message>
     <message>
         <source>Set-Location -LiteralPath {dir}; $d = &apos;새 폴더&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;새 폴더 $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</source>
@@ -1570,6 +1596,10 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>フォルダへ移動…</translation>
     </message>
     <message>
+        <source>폴더 트리</source>
+        <translation>フォルダツリー</translation>
+    </message>
+    <message>
         <source>최소화</source>
         <translation>しまう</translation>
     </message>
@@ -1640,6 +1670,26 @@ command 内のプレースホルダは実行時に置き換えられます (各�
     <message>
         <source>경로 입력 취소</source>
         <translation>パス入力をキャンセル</translation>
+    </message>
+    <message>
+        <source>폴더 트리에서 이동</source>
+        <translation>ツリーのフォルダへ移動</translation>
+    </message>
+    <message>
+        <source>폴더 트리 조작</source>
+        <translation>フォルダツリーのキー</translation>
+    </message>
+    <message>
+        <source>폴더 트리 닫기</source>
+        <translation>フォルダツリーを閉じる</translation>
+    </message>
+    <message>
+        <source>폴더 트리 다음 일치</source>
+        <translation>フォルダツリーの次の一致</translation>
+    </message>
+    <message>
+        <source>폴더 트리 이전 일치</source>
+        <translation>フォルダツリーの前の一致</translation>
     </message>
     <message>
         <source>퀵 뷰어 닫기</source>
@@ -2080,6 +2130,30 @@ command 内のプレースホルダは実行時に置き換えられます (各�
     <message>
         <source>업데이트 정보를 읽을 수 없습니다.</source>
         <translation>アップデート情報を読めません。</translation>
+    </message>
+    <message>
+        <source>폴더 이름을 치면 바로 찾아갑니다 · Tab 다음 · Enter 이동 · Esc 닫기</source>
+        <translation>フォルダ名を入力するとすぐ移動 · Tab 次へ · Enter 移動 · Esc 閉じる</translation>
+    </message>
+    <message>
+        <source>폴더 목록을 만드는 중… %1개</source>
+        <translation>フォルダ一覧を作成中… %1 個</translation>
+    </message>
+    <message>
+        <source>폴더 목록이 없습니다</source>
+        <translation>フォルダ一覧がありません</translation>
+    </message>
+    <message>
+        <source>일치하는 폴더 없음</source>
+        <translation>一致するフォルダなし</translation>
+    </message>
+    <message>
+        <source>폴더 %1개</source>
+        <translation>%1 個のフォルダ</translation>
+    </message>
+    <message>
+        <source>새로 읽는 중</source>
+        <translation>読み直し中</translation>
     </message>
 </context>
 </TS>

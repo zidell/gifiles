@@ -7,6 +7,8 @@
 // the user's own config.toml is never read or written.
 
 #include "FileProxy.h"
+#include "FolderIndex.h"
+#include "FolderTree.h"
 #include "Settings.h"
 #include "Shortcuts.h"
 #include "TerminalWidget.h"
@@ -16,6 +18,7 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileSystemModel>
 #include <QKeySequence>
@@ -1745,6 +1748,131 @@ private slots:
         // A folder is not a readable file.
         r = runApp({QStringLiteral("--check-config"), dir}, dir);
         QCOMPARE(r.code, 1);
+    }
+
+    // The folder tree's index (`): what a scan lists, leaves out and how it sorts.
+    void folderIndexScan()
+    {
+        const QString root = QDir::fromNativeSeparators(scratch(QStringLiteral("folder-index")));
+        for (const char *d : {"proj/b10", "proj/b2", "proj/node_modules/pkg", "proj/.git/objects", "skip/inside",
+                              "keep/Tool.app/Contents", "keep/notes.tmp", "keep/deep/er/est"})
+            QVERIFY(QDir().mkpath(root + QLatin1Char('/') + QString::fromUtf8(d)));
+        QVERIFY(writeText(root + QStringLiteral("/proj/file.txt"), QStringLiteral("not a folder")));
+#ifndef Q_OS_WIN
+        QVERIFY(QFile::link(root + QStringLiteral("/proj"), root + QStringLiteral("/keep/link"))); // not followed
+#endif
+        FolderIndex::Options o;
+        o.roots = {root + QLatin1Char('/')};
+        o.exclude = {QStringLiteral("node_modules"), QStringLiteral(".GIT"), QStringLiteral("~nothing"),
+                     root + QStringLiteral("/skip"), QStringLiteral("*.tmp")};
+        o.skipPackages = true;
+        std::atomic<int> progress = 0;
+        const FolderIndex idx = FolderIndex::scan(o, &progress);
+        QCOMPARE(idx.rootCount(), 1);
+        QCOMPARE(idx.name(0), root); // the trailing slash dropped
+        QStringList all;
+        for (int n = 1; n < idx.size(); ++n)
+            all << idx.path(n).mid(root.size() + 1);
+        // Breadth first, each folder's children together in natural order (b2 before b10).
+        QCOMPARE(all, (QStringList{QStringLiteral("keep"), QStringLiteral("proj"), QStringLiteral("keep/deep"),
+                                   QStringLiteral("proj/b2"), QStringLiteral("proj/b10"), QStringLiteral("keep/deep/er"),
+                                   QStringLiteral("keep/deep/er/est")}));
+        QCOMPARE(progress.load(), idx.size());
+        QCOMPARE(idx.depth(idx.find(root + QStringLiteral("/keep/deep/er"))), 3);
+        QCOMPARE(idx.childCount(0), 2);
+        QCOMPARE(idx.find(root + QStringLiteral("/proj/b10/")), idx.find(root + QStringLiteral("/proj/b10")));
+        QVERIFY(idx.find(root + QStringLiteral("/proj/b10")) > 0);
+        QCOMPARE(idx.find(root + QStringLiteral("/skip")), -1);
+        QCOMPARE(idx.findNearest(root + QStringLiteral("/proj/b10/gone/away")), idx.find(root + QStringLiteral("/proj/b10")));
+        QCOMPARE(idx.findNearest(QStringLiteral("/elsewhere")), -1);
+        QCOMPARE(idx.parent(idx.find(root + QStringLiteral("/proj/b2"))), idx.find(root + QStringLiteral("/proj")));
+
+        // Cancelled: nothing.
+        const std::atomic<bool> cancel = true;
+        QCOMPARE(FolderIndex::scan(o, nullptr, &cancel).size(), 0);
+    }
+
+    void folderIndexMatch()
+    {
+        const QString root = QDir::fromNativeSeparators(scratch(QStringLiteral("folder-match")));
+        const QString hangul = QStringLiteral("한글폴더").normalized(QString::NormalizationForm_D); // as macOS names it
+        for (const QString &d : {QStringLiteral("Sites/gifiles/src"), QStringLiteral("Sites/big gift"), QStringLiteral("Sites/legif"),
+                                 QStringLiteral("gif-tools"), QStringLiteral("work/gif"), QStringLiteral("work/zz/GIF"),
+                                 QStringLiteral("docs/") + hangul})
+            QVERIFY(QDir().mkpath(root + QLatin1Char('/') + d));
+        FolderIndex::Options o;
+        o.roots = {root};
+        const FolderIndex idx = FolderIndex::scan(o);
+        auto paths = [&](const FolderIndex::Matches &m) {
+            QStringList out;
+            for (int n : m.best)
+                out << idx.path(n).mid(root.size() + 1);
+            return out;
+        };
+        // Exact name, then name prefix, word start, anywhere; shallower first among equals.
+        QCOMPARE(paths(idx.match(QStringLiteral("gif"))),
+                 (QStringList{QStringLiteral("work/gif"), QStringLiteral("work/zz/GIF"), QStringLiteral("gif-tools"),
+                              QStringLiteral("Sites/gifiles"), QStringLiteral("Sites/big gift"), QStringLiteral("Sites/legif")}));
+        QCOMPARE(idx.match(QStringLiteral("gif")).total, 6);
+        // Visits move a folder up among the same kind of match.
+        QHash<int, int> boost;
+        boost.insert(idx.find(root + QStringLiteral("/work/zz/GIF")), 3);
+        QCOMPARE(paths(idx.match(QStringLiteral("GIF"), boost)).first(), QStringLiteral("work/zz/GIF"));
+        // An earlier part must be in an ancestor.
+        QCOMPARE(paths(idx.match(QStringLiteral("si/gif"))),
+                 (QStringList{QStringLiteral("Sites/gifiles"), QStringLiteral("Sites/big gift"), QStringLiteral("Sites/legif")}));
+        QCOMPARE(paths(idx.match(QStringLiteral("work/zz/gif"))), QStringList{QStringLiteral("work/zz/GIF")});
+        QCOMPARE(paths(idx.match(QStringLiteral("zz/work/gif"))), QStringList());
+        QCOMPARE(paths(idx.match(QStringLiteral("gifiles/src"))), QStringList{QStringLiteral("Sites/gifiles/src")});
+        // Decomposed Hangul matches what is typed (composed).
+        QCOMPARE(paths(idx.match(QStringLiteral("한글"))).value(0).normalized(QString::NormalizationForm_C),
+                 QStringLiteral("docs/한글폴더"));
+        QCOMPARE(idx.match(QStringLiteral("  ")).total, 0);
+        QCOMPARE(int(idx.match(QStringLiteral("gif"), {}, 2).best.size()), 2);
+        QCOMPARE(idx.match(QStringLiteral("gif"), {}, 2).total, 6);
+
+        // The cache file: back as it was; another key, a damaged or missing file is refused.
+        const QString file = m_root.filePath(QStringLiteral("folder-match.bin"));
+        QVERIFY(idx.save(file, QStringLiteral("key"), 1234));
+        FolderIndex back;
+        qint64 at = 0;
+        QVERIFY(FolderIndex::load(file, QStringLiteral("key"), back, &at));
+        QCOMPARE(at, 1234);
+        QCOMPARE(back.size(), idx.size());
+        QCOMPARE(back.path(back.size() - 1), idx.path(idx.size() - 1));
+        QCOMPARE(paths(back.match(QStringLiteral("gif"))), paths(idx.match(QStringLiteral("gif"))));
+        QVERIFY(!FolderIndex::load(file, QStringLiteral("other key"), back));
+        QFile f(file);
+        QVERIFY(f.open(QIODevice::ReadWrite));
+        f.resize(f.size() - 7);
+        f.close();
+        QVERIFY(!FolderIndex::load(file, QStringLiteral("key"), back));
+        QVERIFY(!FolderIndex::load(file + QStringLiteral(".missing"), QStringLiteral("key"), back));
+        QCOMPARE(back.size(), idx.size()); // untouched by the failed loads
+    }
+
+    // How long the real drive takes (GIFILES_BENCH_FOLDER_TREE=1): scan, cache, load, a search.
+    void folderIndexBenchmark()
+    {
+        if (qEnvironmentVariableIsEmpty("GIFILES_BENCH_FOLDER_TREE"))
+            QSKIP("set GIFILES_BENCH_FOLDER_TREE=1 to scan the whole drive");
+        FolderIndex::Options o = FolderTree::options();
+        QElapsedTimer t;
+        t.start();
+        const FolderIndex idx = FolderIndex::scan(o);
+        const qint64 scanMs = t.restart();
+        const QString file = m_root.filePath(QStringLiteral("bench.bin"));
+        QVERIFY(idx.save(file, o.key(), 0));
+        const qint64 saveMs = t.restart();
+        FolderIndex back;
+        QVERIFY(FolderIndex::load(file, o.key(), back));
+        const qint64 loadMs = t.restart();
+        int total = 0;
+        for (const char *q : {"a", "gif", "src", "si/gif", "한"})
+            total += idx.match(QString::fromUtf8(q)).total;
+        const qint64 matchMs = t.elapsed();
+        qInfo().noquote() << QStringLiteral("folders %1, scan %2 ms, save %3 ms (%4 KB), load %5 ms, 5 searches %6 ms (%7 hits)")
+                                 .arg(idx.size()).arg(scanMs).arg(saveMs).arg(QFileInfo(file).size() / 1024).arg(loadMs).arg(matchMs).arg(total);
     }
 };
 

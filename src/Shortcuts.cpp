@@ -109,6 +109,7 @@ const QList<Shortcuts::Entry> &Shortcuts::entries()
         if (mac)
             l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "응용 프로그램")), go, L{"Ctrl+Shift+A"});
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "폴더로 이동…")), go, L{"Ctrl+Shift+G"})
+          << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "폴더 트리")), go, L{"`"}, QStringLiteral("files"))
           << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "최소화")), win, L{"Ctrl+M"})
           << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "다음 탭 보기")), win, mac ? L{"Meta+Tab", "Ctrl+}"} : L{"Ctrl+Tab", "Ctrl+}"})
           << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "이전 탭 보기")), win, mac ? L{"Meta+Shift+Tab", "Ctrl+{"} : L{"Ctrl+Shift+Tab", "Ctrl+{"})
@@ -123,6 +124,10 @@ const QList<Shortcuts::Entry> &Shortcuts::entries()
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "검색 취소")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "검색 조작")), L{"Esc"}, QStringLiteral("search"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "경로 입력 확인")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "경로 입력 조작")), L{"Return"}, QStringLiteral("path"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "경로 입력 취소")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "경로 입력 조작")), L{"Esc"}, QStringLiteral("path"));
+        l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "폴더 트리에서 이동")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "폴더 트리 조작")), L{"Return"}, QStringLiteral("folder_tree"));
+        l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "폴더 트리 닫기")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "폴더 트리 조작")), L{"Esc", "`"}, QStringLiteral("folder_tree"));
+        l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "폴더 트리 다음 일치")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "폴더 트리 조작")), L{"Tab"}, QStringLiteral("folder_tree"));
+        l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "폴더 트리 이전 일치")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "폴더 트리 조작")), L{"Shift+Tab"}, QStringLiteral("folder_tree"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 닫기")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 조작")), L{"Space", "Esc", "Ctrl+W"}, QStringLiteral("preview"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 확대")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 조작")), L{"+", "=", "Ctrl++", "Ctrl+="}, QStringLiteral("preview"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 축소")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 조작")), L{"-", "Ctrl+-"}, QStringLiteral("preview"));

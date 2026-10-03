@@ -153,6 +153,40 @@ bool isInside(const QString &child, const QString &parent)
     return c.startsWith(p.endsWith(QLatin1Char('/')) ? p : p + QLatin1Char('/'));
 }
 
+int naturalCompare(QStringView a, QStringView b)
+{
+    qsizetype i = 0, j = 0;
+    while (i < a.size() && j < b.size()) {
+        if (a[i].isDigit() && b[j].isDigit()) {
+            qsizetype ie = i, je = j;
+            while (ie < a.size() && a[ie].isDigit())
+                ++ie;
+            while (je < b.size() && b[je].isDigit())
+                ++je;
+            QStringView na = a.sliced(i, ie - i), nb = b.sliced(j, je - j);
+            while (na.size() > 1 && na.front() == u'0')
+                na = na.sliced(1);
+            while (nb.size() > 1 && nb.front() == u'0')
+                nb = nb.sliced(1);
+            if (na.size() != nb.size())
+                return na.size() < nb.size() ? -1 : 1;
+            if (const int c = na.compare(nb))
+                return c;
+            i = ie;
+            j = je;
+            continue;
+        }
+        const QChar ca = a[i].toCaseFolded(), cb = b[j].toCaseFolded();
+        if (ca != cb)
+            return ca < cb ? -1 : 1;
+        ++i;
+        ++j;
+    }
+    if (i < a.size() || j < b.size())
+        return i < a.size() ? 1 : -1;
+    return a.compare(b);
+}
+
 bool isPackage(const QFileInfo &fi)
 {
 #ifdef Q_OS_MACOS

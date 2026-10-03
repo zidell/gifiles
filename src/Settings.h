@@ -60,6 +60,10 @@ public:
     static constexpr const char *FileColors = "file_colors/groups";
     static constexpr const char *FileColorSelection = "file_colors/selection"; // bool: selection in the item's color
     static constexpr const char *FolderColor = "file_colors/folder"; // "#RRGGBB", dark mode as above; "" = text color
+    // The folder tree (`): folders to list ([] = the whole drive: "/", every fixed drive on Windows)
+    // and what to leave out (folder names with wildcards, or absolute paths).
+    static constexpr const char *FolderTreeRoots = "folder_tree/roots";
+    static constexpr const char *FolderTreeExclude = "folder_tree/exclude";
     // "open_with/<extension>": app remembered by "항상 이 앱으로 열기"; "shortcuts/<menu title>": keys.
 
     // A "선택한 항목들로…" command by its id ("ai": the toolbar's AI button).

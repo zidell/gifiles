@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "FolderTree.h"
 #include "App.h"
 #include "PathBar.h"
 #include "Preview.h"
@@ -479,6 +480,7 @@ void MainWindow::createActions()
     m_forward = act(QStringLiteral("앞으로"), [this] { tab()->goForward(); });
     m_up = act(QStringLiteral("상위 폴더"), [this] { tab()->goUp(); });
     m_gotoAct = act(QStringLiteral("폴더로 이동…"), [this] { m_pathBar->startEditing(); });
+    m_folderTreeAct = act(QStringLiteral("폴더 트리"), &MainWindow::toggleFolderTree);
 
     auto place = [this](const QString &name, QStandardPaths::StandardLocation loc) {
         const QString p = QStandardPaths::writableLocation(loc);
@@ -547,6 +549,7 @@ void MainWindow::createMenus()
     go->addActions(m_goPlaces);
     go->addSeparator();
     go->addAction(m_gotoAct);
+    go->addAction(m_folderTreeAct);
 
     QMenu *win = menuBar()->addMenu(Gifiles::tr("윈도우"));
     win->addAction(act(QStringLiteral("최소화"), [this] { showMinimized(); }));
@@ -723,8 +726,30 @@ void MainWindow::updateToolbarInset()
 #endif
 }
 
+void MainWindow::toggleFolderTree()
+{
+    if (m_folderTree && m_folderTree->isVisible())
+        return m_folderTree->dismiss();
+    if (!m_folderTree) {
+        m_folderTree = new FolderTreePanel(this);
+        m_tabs->installEventFilter(this); // it follows the file views' size
+        connect(m_folderTree, &FolderTreePanel::dismissed, this, [this] { tab()->focusView(); });
+        connect(m_folderTree, &FolderTreePanel::chosen, this, [this](const QString &path) { go(path); });
+    }
+    placeFolderTree();
+    m_folderTree->open(tab()->path());
+}
+
+void MainWindow::placeFolderTree()
+{
+    // Over the file views (tabs included), not the sidebar or the terminal.
+    m_folderTree->setGeometry(QRect(m_tabs->mapTo(this, QPoint(0, 0)), m_tabs->size()));
+}
+
 bool MainWindow::eventFilter(QObject *obj, QEvent *ev)
 {
+    if (obj == m_tabs && m_folderTree && m_folderTree->isVisible() && (ev->type() == QEvent::Resize || ev->type() == QEvent::Move))
+        placeFolderTree();
     if (obj == m_sidebar && ev->type() == QEvent::ShortcutOverride) {
         auto *ke = static_cast<QKeyEvent *>(ev);
         for (const QString &id : {QStringLiteral("사이드바로 이동"), QStringLiteral("파일뷰로 이동"), QStringLiteral("터미널로 이동")})
@@ -833,11 +858,12 @@ BrowserTab *MainWindow::addTab(const QString &path, bool activate, bool atEnd)
 
 void MainWindow::connectTab(BrowserTab *t)
 {
-    for (QAction *a : {m_renameAct, m_quickLookAct, m_openAct})
+    for (QAction *a : {m_renameAct, m_quickLookAct, m_openAct, m_folderTreeAct})
         t->addAction(a);
     auto current = [this, t] { return t == tab(); };
     connect(t, &BrowserTab::pathChanged, this, [this, t, current] {
         Log::write("navigate", QStringLiteral("%1 (%2)").arg(t->path(), current() ? QStringLiteral("current tab") : QStringLiteral("other tab")));
+        FolderTree::instance()->noteVisit(t->path());
         updateTabTitle(t);
         if (current()) {
             updateNav();

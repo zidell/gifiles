@@ -32,6 +32,10 @@ bool isInside(const QString &child, const QString &parent);
 bool exists(const QString &path); // does not follow symlinks
 // Directories that should open with the system instead of being browsed (macOS bundles).
 bool isPackage(const QFileInfo &fi);
+// Natural order by hand (FileProxy in the C/POSIX locale, where QCollator ignores numeric mode, e.g.
+// Linux sessions with LANG=C.UTF-8; the folder tree): digit runs compare by value, the rest
+// case-insensitively.
+int naturalCompare(QStringView a, QStringView b);
 bool isHexColor(const QString &s);                // "#RRGGBB"
 QStringList extensionList(const QString &text);    // "ZIP, .7z tar" -> {"zip", "7z", "tar"}
 QString validateName(const QString &name); // empty if OK, otherwise an error message

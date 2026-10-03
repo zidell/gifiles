@@ -594,3 +594,33 @@ shortcuts in `../README.md`. Dates are 2026.
 - Windows' `reloadKeepsPreviousValueOnError` failed once in CI (stripes still on after an external
   edit) and passed on rerun: the reload-timing area the previous commit added retries for.
 
+
+## Folder tree, NCD style (2026-10-03)
+
+- The user asked for Norton's NCD back: every folder of the drive in a tree, typing jumps, arrows
+  walk the tree. Their two worries were whether today's much bigger folder trees index fast enough.
+  Measured on the developer's Mac before building (`find`, warm cache): `~/Sites` 58 627 folders in
+  0.9 s, 16 426 in 0.27 s without `node_modules`/`.git`/`build*`; local disks altogether ~340 000
+  folders in ~7 s. The first whole-drive try took 331 s: a fuse-t NFS mount under `~/mnt` alone
+  (93 000 folders over the network). So network/FUSE/virtual mounts are never crossed
+  (`FolderIndex::foreignMounts`, by file system type), and the noise is left out by default:
+  package contents (.app 57 000 and .framework 102 000 folders on that Mac), CoreSimulator (183 000),
+  `~/Library` (hidden by Finder too), `node_modules`, `.git`.
+- The user chose: whole drive by default, ` opens (₩ on the Korean input source), Esc or ` closes.
+- Result with the defaults (Debug build, the developer's Mac, `GIFILES_BENCH_FOLDER_TREE=1
+  gifiles_unit_core folderIndexBenchmark`): 115 619 folders, scan 9.5 s, cache file 5 MB written in
+  2 ms, loaded in 2 ms, five searches 31 ms. Memory ~30 bytes a folder (two UTF-8 name arenas +
+  24-byte nodes), held only while a panel is open and two minutes after.
+- Freshness without watching the disk: a background scan 20 s after start and then hourly when the
+  cache is over 6 h old (`prefetch`, only from `main.cpp`); opening the panel shows the cache at once
+  and rescans behind it when it is over 30 min old, after any file operation in the app
+  (`App::undoChanged`), or when the folder it opens on changed after the scan (its mtime).
+- Ranking: exact name > name prefix > word start > anywhere, then folders the browser visited more
+  (`folderTree/visits` in QSettings, top 1000), then shallower. "a/b" wants an ancestor containing
+  "a". Hangul: names and queries are NFC + case-folded, and the query includes the input method's
+  preedit, so matching follows each jamo.
+- macOS privacy: a background `opendir` of Desktop/Documents/Downloads (or other apps' containers)
+  would pop a permission prompt out of nowhere. Without Full Disk Access they are left out until the
+  browser has opened them once (`folderTree/granted`).
+- Not tried by hand yet: the panel in the user's live app with the whole drive, Windows (fixed
+  drives via `GetDriveTypeW`, junctions skipped) and Linux.

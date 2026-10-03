@@ -1,4 +1,5 @@
 #include "Settings.h"
+#include "FolderTree.h"
 #include "App.h"
 #include "Log.h"
 #include "Shortcuts.h"
@@ -77,6 +78,7 @@ const QList<Table> &tables()
         {QStringLiteral("preview"), Gifiles::tr("미리보기 패널과 퀵 뷰어(Space)")},
         {QStringLiteral("terminal"), Gifiles::tr("아래쪽 터미널")},
         {QStringLiteral("sidebar"), Gifiles::tr("사이드바")},
+        {QStringLiteral("folder_tree"), Gifiles::tr("폴더 트리 (` 키)")},
         {QStringLiteral("selection_menu"), Gifiles::tr("목록의 컨텍스트 메뉴 \"선택한 항목들로…\"")},
     };
     return t;
@@ -196,6 +198,16 @@ const QList<Item> &items()
         {Settings::Favorites, Type::StringList, QVariant(),
          Gifiles::tr("사이드바 '즐겨찾기'에 보일 폴더 경로들 (순서대로)."),
          Gifiles::tr("이 줄이 없으면 기본 목록(홈, 데스크탑, 문서, 다운로드 등)을 씁니다.")},
+
+        {Settings::FolderTreeRoots, Type::StringList, QVariant(),
+         Gifiles::tr("폴더 트리(파일 목록에서 ` 키)에 보일 폴더들. []이면 드라이브 전체 (macOS·Linux는 \"/\", Windows는 모든 고정 드라이브).\n"
+                     "네트워크·FUSE 드라이브는 여기에 직접 적었을 때만 들어갑니다."),
+         Gifiles::tr("목록은 백그라운드에서 만들어 캐시에 두고, 오래됐거나 앱에서 폴더를 바꾸면 다시 읽습니다.")},
+        {Settings::FolderTreeExclude, Type::StringList, QVariant(),
+         Gifiles::tr("폴더 트리에서 뺄 폴더 (그 안의 모든 폴더도). 이름만 적으면 어디에 있든 그 이름의 폴더를 빼고 (\"node_modules\"),\n"
+                     "/ 나 ~ 나 드라이브 문자로 시작하면 그 경로 하나만 뺍니다 (\"~/Library\"). * 와 ? 를 쓸 수 있습니다 (\"*.tmp\")."),
+         Gifiles::tr("주석 처리돼 있으면 앱의 기본 목록을 씁니다. macOS에서는 .app 같은 패키지 안은 늘 빠지고, 전체 디스크 접근 권한이 없으면\n"
+                     "데스크탑·문서·다운로드는 앱에서 한 번 열어 본 뒤부터 들어갑니다 (macOS가 권한을 묻지 않도록).")},
     };
     return list;
 }
@@ -277,6 +289,8 @@ QVariant defaultOf(const Item &i)
         return Settings::defaultFileColors();
     if (i.key == QLatin1String(Settings::Favorites))
         return Sidebar::defaultFavorites();
+    if (i.key == QLatin1String(Settings::FolderTreeExclude))
+        return FolderTree::defaultExclude();
     if (i.key == QLatin1String(Settings::SelectionCommands))
         return defaultSelectionCommands();
     return i.def;
