@@ -635,7 +635,7 @@ private slots:
             QDir(p("parity")).removeRecursively();
         });
         Settings::instance()->setValue(Settings::ThemeMode, QStringLiteral("dark"));
-        Settings::instance()->setValue(Settings::FileColorSelection, false); // the accent pill (item colors: namesBoldAndUppercaseOptions)
+        Settings::instance()->setValue(Settings::FileColorSelection, false); // the shared bar (item colors: namesBoldAndUppercaseOptions)
         auto *tree = qobject_cast<QTreeView *>(tab()->view());
         QVERIFY(tree);
         // Not a QTemporaryDir in the system temp folder: a late listing of that busy folder could drop
@@ -666,7 +666,7 @@ private slots:
                 const QRect cell = tree->visualRect(QModelIndex(idx).siblingAtColumn(column));
                 const QPoint sample(cell.center().x(), cell.bottom() - 2);
                 const QColor actual = image.pixelColor(qRound(sample.x() * dpr), qRound(sample.y() * dpr));
-                QCOMPARE(actual.rgba(), Theme::colors().selection.rgba());
+                QCOMPARE(actual.rgba(), Theme::colors().nameSelection.rgba());
             }
         }
         tree->selectionModel()->select(first, QItemSelectionModel::Select | QItemSelectionModel::Rows);
@@ -1486,8 +1486,10 @@ private slots:
         QCOMPARE(peek.text(idx), QStringLiteral("README.TXT"));
         QCOMPARE(idx.data().toString(), QStringLiteral("readme.txt")); // the name itself is untouched
         QVERIFY(editorBold()); // the editor matches the bold row, so nothing moves when renaming starts
-        // A selected item's background is its own color (as given, either theme), dimmed to 80% of
-        // its lightness; off → the accent.
+        // By default selected names keep their colors on one accent bar; with file_colors.selection the
+        // bar is the item's own color (as given, either theme) dimmed to 80% of its lightness.
+        QCOMPARE(peek.selectionColor(idx), Theme::colors().nameSelection);
+        st->setValue(Settings::FileColorSelection, true);
         QCOMPARE(peek.selectionColor(idx), Theme::selectionFill(Theme::fileBaseColor(QStringLiteral("readme.txt"))));
         QVERIFY(peek.selectionColor(idx).isValid());
         QFile plain(dir.filePath(QStringLiteral("Makefile")));
@@ -1496,7 +1498,7 @@ private slots:
         QTRY_VERIFY(proxy->indexForPath(plain.fileName()).isValid());
         QCOMPARE(peek.selectionColor(proxy->indexForPath(plain.fileName())), Theme::selectionFill(Theme::plainSelectionColor())); // no color: gray
         st->setValue(Settings::FileColorSelection, false);
-        QVERIFY(!peek.selectionColor(idx).isValid());
+        QCOMPARE(peek.selectionColor(idx), Theme::colors().nameSelection);
         st->remove(Settings::FileColorSelection);
     }
 

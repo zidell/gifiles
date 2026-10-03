@@ -126,8 +126,8 @@ const QList<Item> &items()
          Gifiles::tr("목록·갤러리·컬럼 보기에서 이름을 항상 대문자로 보여 줍니다. 보이는 모양만 바뀌고 실제 이름은 그대로입니다 (이름 변경 칸에는 실제 이름)."),
          {}},
 
-        {Settings::FileColorSelection, Type::Bool, true,
-         Gifiles::tr("선택한 항목의 배경을 그 항목의 색으로 칠합니다 (Mdir의 선택 막대처럼, 글자는 검게). 색이 없는 항목은 밝은 회색. false면 강조색.")},
+        {Settings::FileColorSelection, Type::Bool, false,
+         Gifiles::tr("선택한 항목의 배경을 그 항목의 색으로 칠합니다 (Mdir의 선택 막대처럼, 글자는 검게). 색이 없는 항목은 회색. false면 강조색 막대 위에 이름 색을 그대로 둡니다.")},
         {Settings::FolderColor, Type::Color, QString(),
          Gifiles::tr("폴더 이름 색 (굵게). \"#RRGGBB\", 다크 모드 기준이고 라이트 모드에서는 더 어둡고 진하게 씁니다.\n"
                         "빈 문자열이면 기본 글자색. Mdir의 폴더 색은 \"#CD6A51\" 입니다.")},
@@ -1035,7 +1035,10 @@ QWidget *shortcutsPage()
     l->setSpacing(10);
     auto *t = new QLabel(Gifiles::tr("단축키"), w);
     t->setObjectName(QStringLiteral("title"));
-    l->addWidget(t);
+    auto *head = new QHBoxLayout; // the title, and the small buttons for all shortcuts at its right
+    head->addWidget(t);
+    head->addStretch();
+    l->addLayout(head);
     l->addWidget(hint(Gifiles::tr("재지정을 누르고 새 키를 누른 뒤 확인하면 적용됩니다. "
                                      "다른 기능이 쓰던 키면 그 기능에서는 빠집니다. 굵게 표시된 키는 기본값에서 바꾼 것입니다.")));
     auto *tree = new QTreeWidget(w);
@@ -1100,19 +1103,18 @@ QWidget *shortcutsPage()
     QObject::connect(sc, &Shortcuts::changed, tree, refresh);
     l->addWidget(tree, 1);
     l->addWidget(status);
-    // For every shortcut at once, each asked once more.
-    auto *bottom = new QHBoxLayout;
+    // For every shortcut at once, each asked once more. Small and top right: at the bottom center
+    // they were taken for the window's OK button.
     auto *resetAll = new QPushButton(Gifiles::tr("초기화"), w);
     resetAll->setObjectName(QStringLiteral("shortcutsReset"));
+    resetAll->setProperty("small", true);
     resetAll->setToolTip(Gifiles::tr("모든 단축키를 기본값으로"));
     auto *clearAll = new QPushButton(Gifiles::tr("전부 제거"), w);
     clearAll->setObjectName(QStringLiteral("shortcutsClear"));
+    clearAll->setProperty("small", true);
     clearAll->setToolTip(Gifiles::tr("모든 메뉴 항목의 단축키를 지움"));
-    bottom->addStretch();
-    bottom->addWidget(resetAll);
-    bottom->addWidget(clearAll);
-    bottom->addStretch();
-    l->addLayout(bottom);
+    head->addWidget(resetAll);
+    head->addWidget(clearAll);
     auto ask = [w](const QString &q) {
         return QMessageBox::question(w->window(), Gifiles::tr("단축키"), q, QMessageBox::Yes | QMessageBox::Cancel,
                                      QMessageBox::Cancel) == QMessageBox::Yes;
@@ -1373,7 +1375,17 @@ QWidget *appearancePage(const std::function<QWidget *(QWidget *page)> &look)
     QFont sf = section->font();
     sf.setBold(true);
     section->setFont(sf);
-    l->addWidget(section);
+    // 초기화 sits small at the section's right (it resets the colors only, not the switches above);
+    // at the bottom center it was taken for the window's OK button.
+    auto *reset = new QPushButton(Gifiles::tr("초기화"), w);
+    reset->setObjectName(QStringLiteral("colorsReset"));
+    reset->setProperty("small", true);
+    reset->setToolTip(Gifiles::tr("폴더와 모든 확장자 색을 기본값으로"));
+    auto *sectionRow = new QHBoxLayout;
+    sectionRow->addWidget(section);
+    sectionRow->addStretch();
+    sectionRow->addWidget(reset);
+    l->addLayout(sectionRow);
     QLabel *about = hint(Gifiles::tr("목록·갤러리·컬럼에서 파일 이름을 확장자별로 칠할 색입니다. 왼쪽에 확장자를 쉼표로 이어 적고 "
                                      "오른쪽에 색을 고릅니다. 색은 다크 모드 기준이고, 라이트 모드에서는 더 어둡고 진하게 바뀝니다. "
                                      "한 확장자가 여러 줄에 있으면 위의 줄이 이깁니다."));
@@ -1565,14 +1577,6 @@ QWidget *appearancePage(const std::function<QWidget *(QWidget *page)> &look)
     buttons->addStretch();
     l->addLayout(buttons);
     // 초기화: back to the built-in colors, the folder's too, asked once more.
-    auto *bottom = new QHBoxLayout;
-    auto *reset = new QPushButton(Gifiles::tr("초기화"), w);
-    reset->setObjectName(QStringLiteral("colorsReset"));
-    reset->setToolTip(Gifiles::tr("폴더와 모든 확장자 색을 기본값으로"));
-    bottom->addStretch();
-    bottom->addWidget(reset);
-    bottom->addStretch();
-    l->addLayout(bottom);
     QObject::connect(reset, &QPushButton::clicked, w, [w] {
         if (QMessageBox::question(w->window(), Gifiles::tr("색상"),
                                   Gifiles::tr("폴더와 확장자 색을 모두 기본값으로 되돌릴까요? 직접 바꾼 색은 사라집니다."),

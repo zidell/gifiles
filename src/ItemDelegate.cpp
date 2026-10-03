@@ -129,8 +129,9 @@ QColor ItemDelegate::nameStyle(const QModelIndex &index, const QColor &plain, QF
 
 QColor ItemDelegate::selectionColor(const QModelIndex &index) const
 {
+    // Names keep their colors on one accent bar; or (file_colors.selection) the bar takes each item's color.
     if (!Settings::instance()->flag(Settings::FileColorSelection))
-        return {};
+        return Theme::colors().nameSelection;
     const QModelIndex name = index.siblingAtColumn(ColName);
     const QColor c = isFolder(name) ? Theme::folderBaseColor() : Theme::fileBaseColor(name.data().toString());
     return Theme::selectionFill(c.isValid() ? c : Theme::plainSelectionColor());
@@ -152,16 +153,19 @@ void ItemDelegate::paintItem(QPainter *p, const QStyleOptionViewItem &option, co
         text = nameStyle(index, text, &opt.font);
     else
         text.setAlphaF(0.5);
-    // Selected in an active view, in the item's own color: drawn as unselected text on that color
-    // (the list's pill is drawRow's; the column view's is painted here).
+    // Selected in an active view: drawn as unselected text on the selection bar (the list's pill is
+    // drawRow's; the column view's is painted here). Names keep their colors unless the bar is the
+    // item's own color, where the text is black.
     const bool sel = option.state & QStyle::State_Selected;
     const bool active = option.state & QStyle::State_Active;
     const QColor own = sel && active ? selectionColor(index) : QColor();
     if (own.isValid()) {
         opt.state &= ~(QStyle::State_Selected | QStyle::State_MouseOver);
-        text = Theme::selectionTextColor();
-        if (index.column() != ColName)
-            text.setAlphaF(0.65);
+        if (Settings::instance()->flag(Settings::FileColorSelection)) {
+            text = Theme::selectionTextColor();
+            if (index.column() != ColName)
+                text.setAlphaF(0.65);
+        }
         if (m_kind == Column) {
             QPainterPath pill;
             pill.addRoundedRect(QRectF(option.rect), 7, 7);
@@ -175,7 +179,9 @@ void ItemDelegate::paintItem(QPainter *p, const QStyleOptionViewItem &option, co
     QStyledItemDelegate::paint(p, opt, index);
     if (m_kind == Column && index.column() == ColName && m_proxy->isDir(index) &&
         !util::isPackage(QFileInfo(m_proxy->filePath(index)))) {
-        const QColor col = own.isValid() ? Theme::selectionTextColor() : sel && active ? Theme::colors().selText : Theme::colors().secondary;
+        const QColor col = !own.isValid() ? Theme::colors().secondary
+                           : Settings::instance()->flag(Settings::FileColorSelection) ? Theme::selectionTextColor()
+                                                                                       : Theme::colors().text;
         const QRect r(option.rect.right() - 20, option.rect.center().y() - 7, 14, 14);
         Theme::icon(QStringLiteral("chevron-right-small"), col, 14).paint(p, r);
     }
@@ -233,7 +239,7 @@ void ItemDelegate::paintTile(QPainter *p, const QStyleOptionViewItem &opt, const
             pill.addRoundedRect(QRectF(lr), 4, 4);
             p->fillPath(pill, !active ? c.selInactive : own.isValid() ? own : c.selection);
         }
-        p->setPen(selected && active ? (own.isValid() ? Theme::selectionTextColor() : c.selText) : nameColor);
+        p->setPen(own.isValid() && Settings::instance()->flag(Settings::FileColorSelection) ? Theme::selectionTextColor() : nameColor);
         p->drawText(lr, Qt::AlignCenter, line);
         y += fm.height() + 2;
     }

@@ -1103,8 +1103,8 @@ Inside a string write &quot; as \&quot; and \ as \\.</translation>
         <translation>OK</translation>
     </message>
     <message>
-        <source>선택한 항목의 배경을 그 항목의 색으로 칠합니다 (Mdir의 선택 막대처럼, 글자는 검게). 색이 없는 항목은 밝은 회색. false면 강조색.</source>
-        <translation>Paints a selected item&apos;s background in that item&apos;s color (like Mdir&apos;s selection bar, with black text). Items without a color get light gray. false: the accent color.</translation>
+        <source>선택한 항목의 배경을 그 항목의 색으로 칠합니다 (Mdir의 선택 막대처럼, 글자는 검게). 색이 없는 항목은 회색. false면 강조색 막대 위에 이름 색을 그대로 둡니다.</source>
+        <translation>Paints a selected item&apos;s background in that item&apos;s color (like Mdir&apos;s selection bar, with black text). Items without a color get gray. false: an accent bar, with names keeping their colors.</translation>
     </message>
     <message>
         <source>폴더 이름 색 (굵게). &quot;#RRGGBB&quot;, 다크 모드 기준이고 라이트 모드에서는 더 어둡고 진하게 씁니다.

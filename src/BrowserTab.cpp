@@ -98,8 +98,8 @@ protected:
         QTreeView::drawRow(p, opt, index);
     }
 
-    // A folder row selected in its own (light) color: the style's white "selected" chevron would vanish
-    // on it, so the chevron is drawn here in the selection's black.
+    // A selected folder row: the style's white "selected" chevron would vanish on a light bar, so the
+    // chevron is drawn here, black on the item's own color or in the text color on the shared bar.
     void drawBranches(QPainter *p, const QRect &rect, const QModelIndex &index) const override
     {
         const auto *d = qobject_cast<ItemDelegate *>(itemDelegate());
@@ -112,7 +112,7 @@ protected:
             return;
         const QRect r(rect.right() - indentation() + 1, rect.top(), indentation(), rect.height());
         Theme::icon(isExpanded(index) ? QStringLiteral("chevron-down-small") : QStringLiteral("chevron-right-small"),
-                    Theme::selectionTextColor(), 16)
+                    Settings::instance()->flag(Settings::FileColorSelection) ? Theme::selectionTextColor() : Theme::colors().text, 16)
             .paint(p, r);
     }
 

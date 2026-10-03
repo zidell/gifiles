@@ -579,3 +579,18 @@ shortcuts in `../README.md`. Dates are 2026.
 - Landing page: features reordered (Finder, terminal, colors, Quick Look, AI, your menu) with the
   user's own wording, and every screenshot re-shot with the darker bar.
 
+## One accent bar, names keep their colors (2026-10-03)
+
+- Right after the 20% darker item-color bar, the user found the colored bars messy and asked for one
+  bar color with the names keeping their extension colors. Picked from three previews: the strong
+  accent. Dark-mode names are light, so the bar is the accent's hue deep (OKLab L 0.42); light-mode
+  names are dark (L 0.52), so it is the same hue pale (L 0.88, chroma ×0.35): `Theme::nameSelectionColor`,
+  `Colors::nameSelection`. `ItemDelegate::selectionColor` returns it unless `file_colors.selection`
+  is on, which now defaults to false (the item-color bar with black text stays as that option).
+  Text on the shared bar is the name's own color in list, column and gallery; the list's folder
+  chevron is drawn in the text color. Checked on real rendering in dark and light.
+- The user's own config.toml had `selection = true` written by an earlier save; it was commented out
+  so the new default applies.
+- Windows' `reloadKeepsPreviousValueOnError` failed once in CI (stripes still on after an external
+  edit) and passed on rerun: the reload-timing area the previous commit added retries for.
+

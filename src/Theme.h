@@ -19,7 +19,7 @@ public:
 
     struct Colors {
         bool dark;
-        QColor bg, sidebarBg, text, secondary, tertiary, separator, accent, selection, selText, selInactive,
+        QColor bg, sidebarBg, text, secondary, tertiary, separator, accent, selection, nameSelection, selText, selInactive,
             hover, inputBg, segmentChecked, menuBg, scroll, scrollHover, tile, altRow, danger;
     };
 
@@ -47,6 +47,9 @@ public:
     // The selection bar's fill for an item color: the same hue at 80% of its perceived lightness,
     // so the bar doesn't glare and the black text on it reads well.
     static QColor selectionFill(const QColor &color);
+    // The one selection bar under names that keep their own colors: the accent's hue, deep in dark
+    // mode (names are light there) and pale in light mode (names are dark there).
+    static QColor nameSelectionColor(const QColor &accent, bool dark);
     static QColor selectionTextColor();
     // The color picker's live preview: these extensions (or folders) show `darkModeColor` until it's
     // called with an invalid color; repaints the file views.

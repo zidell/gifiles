@@ -1102,8 +1102,8 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>确定</translation>
     </message>
     <message>
-        <source>선택한 항목의 배경을 그 항목의 색으로 칠합니다 (Mdir의 선택 막대처럼, 글자는 검게). 색이 없는 항목은 밝은 회색. false면 강조색.</source>
-        <translation>用该项目的颜色绘制所选项目的背景 (类似 Mdir 的选择条,文字为黑色)。没有颜色的项目为浅灰色。false 时使用强调色。</translation>
+        <source>선택한 항목의 배경을 그 항목의 색으로 칠합니다 (Mdir의 선택 막대처럼, 글자는 검게). 색이 없는 항목은 회색. false면 강조색 막대 위에 이름 색을 그대로 둡니다.</source>
+        <translation>用所选项目自身的颜色绘制其背景（像 Mdir 的选择条一样，文字为黑色）。没有颜色的项目为灰色。false 时使用强调色选择条，名称保留各自的颜色。</translation>
     </message>
     <message>
         <source>폴더 이름 색 (굵게). &quot;#RRGGBB&quot;, 다크 모드 기준이고 라이트 모드에서는 더 어둡고 진하게 씁니다.

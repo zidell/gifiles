@@ -259,6 +259,7 @@ QPushButton { background: {inputBg}; border: none; border-radius: 7px; padding: 
 QPushButton:hover { background: {selInactive}; }
 QPushButton:default, QPushButton#primary { background: {accent}; color: {selText}; }
 QPushButton#primary:hover { background: {accent}; }
+QPushButton[small="true"] { padding: 2px 10px; min-width: 0; border-radius: 5px; font-size: 11px; }
 QLineEdit { background: {inputBg}; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; selection-background-color: {accent}; }
 QLineEdit:focus { border: 1px solid {accent}; }
 QLineEdit#renameEdit { padding: 0; border-radius: 4px; }
@@ -381,6 +382,7 @@ void Theme::apply()
 #endif
 #endif
     c.selText = QColor(Qt::white);
+    c.nameSelection = nameSelectionColor(c.accent, dark);
     if (dark) {
         c.bg = QColor(0x1E, 0x1E, 0x20);
         c.sidebarBg = QColor(0x26, 0x26, 0x29);
@@ -617,6 +619,22 @@ QColor Theme::selectionFill(const QColor &color)
     bool fits = false;
     auto rgb = fromOkLch(o, &fits);
     for (int i = 0; i < 24 && !fits; ++i) { // darker can leave the gamut for vivid hues: ease chroma
+        o.c *= 0.95;
+        rgb = fromOkLch(o, &fits);
+    }
+    return QColor::fromRgbF(float(fromLinear(qBound(0.0, rgb[0], 1.0))), float(fromLinear(qBound(0.0, rgb[1], 1.0))),
+                            float(fromLinear(qBound(0.0, rgb[2], 1.0))));
+}
+
+QColor Theme::nameSelectionColor(const QColor &accent, bool dark)
+{
+    OkLch o = toOkLch(accent);
+    o.l = dark ? 0.42 : 0.88;
+    if (!dark)
+        o.c *= 0.35;
+    bool fits = false;
+    auto rgb = fromOkLch(o, &fits);
+    for (int i = 0; i < 40 && !fits; ++i) {
         o.c *= 0.95;
         rgb = fromOkLch(o, &fits);
     }
