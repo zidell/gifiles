@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gifiles — 크로스 플랫폼 파일 관리 도구</title>
+  <title>크로스 플랫폼 파일관리 GiFiles</title>
   <meta name="description" content="macOS 파인더의 사용감을 다른 플랫폼에서도 쓰고 싶어 만든 파일 관리 유틸리티. 자주 쓰는 기능 위주에 MDIR 감성을 더하고, 터미널과 통합했습니다.">
   <link rel="canonical" href="https://files.gitools.net/">
   <link rel="icon" href="logo.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://files.gitools.net/">
   <meta property="og:site_name" content="Gifiles">
-  <meta property="og:title" content="Gifiles — 크로스 플랫폼 파일 관리 도구">
+  <meta property="og:title" content="크로스 플랫폼 파일관리 GiFiles">
   <meta property="og:description" content="macOS 파인더의 사용감을 다른 플랫폼에서도 쓰고 싶어 만든 파일 관리 유틸리티. 자주 쓰는 기능 위주에 MDIR 감성을 더하고, 터미널과 통합했습니다.">
   <meta property="og:image" content="https://files.gitools.net/screenshots/list.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -67,7 +67,7 @@
       <nav class="languages" aria-label="Language"><a href="?lang=ko" data-language="ko">한국어</a><a href="?lang=en" data-language="en">English</a><a href="?lang=ja" data-language="ja">日本語</a><a href="?lang=zh" data-language="zh">中文</a></nav>
     </div>
 
-    <h1 data-t="title">크로스 플랫폼<br>파일 관리 도구</h1>
+    <h1 data-t="title">크로스 플랫폼 파일관리<br>GiFiles</h1>
     <p class="intro" data-t="intro">macOS 파인더의 사용감을 다른 플랫폼에서도 쓰고 싶어 만든 유틸리티입니다. 자주 쓰는 기능 위주로 정리했고, 예전 MDIR 감성을 조금 끼얹었습니다. 터미널과 통합해 파일을 관리할 수 있습니다.</p>
     <a class="cta" href="#download" data-t="ctaDownload">다운로드</a>
 
@@ -140,7 +140,7 @@
   <script>
     const copy = {
       en: {
-        title: 'A cross-platform<br>file manager',
+        title: 'Cross-platform file management<br>GiFiles',
         intro: 'A utility made to have the feel of the macOS Finder on other platforms too. It focuses on the features you use most, adds a dash of the old MDIR spirit, and lets you manage files together with the terminal.',
         ctaDownload: 'Download', listAlt: 'Gifiles list view',
         f1t: 'Built on the Mac Finder\'s usability', f1d: 'List, gallery and column views, ⌘1 · ⌘2 · ⌘3, Space to preview, Return to rename, ⌘↓ to open: all as in the Finder. Windows and Linux use the same keys, with Ctrl in place of ⌘.',
@@ -162,7 +162,7 @@
         primaryMac: 'Download for macOS', primaryWindows: 'Download for Windows', primaryLinux: 'Download for Linux'
       },
       ja: {
-        title: 'クロスプラットフォームの<br>ファイル管理ツール',
+        title: 'クロスプラットフォームのファイル管理<br>GiFiles',
         intro: 'macOS の Finder の使い心地をほかのプラットフォームでも使いたくて作ったユーティリティです。よく使う機能を中心にまとめ、昔の MDIR の雰囲気を少し加えました。ターミナルと統合してファイルを管理できます。',
         ctaDownload: 'ダウンロード', listAlt: 'Gifiles のリスト表示',
         f1t: 'Mac Finder の使い勝手が基準', f1d: 'リスト・ギャラリー・カラムの 3 つの表示と ⌘1 · ⌘2 · ⌘3、Space でプレビュー、Return で名前変更、⌘↓ で開くまで Finder そのままです。Windows と Linux でも同じキーを使い、⌘ の代わりに Ctrl を押します。',
@@ -184,7 +184,7 @@
         primaryMac: 'macOS 版をダウンロード', primaryWindows: 'Windows 版をダウンロード', primaryLinux: 'Linux 版をダウンロード'
       },
       zh: {
-        title: '跨平台<br>文件管理工具',
+        title: '跨平台文件管理<br>GiFiles',
         intro: '为了在其他平台上也能用上 macOS 访达的手感而做的工具。以常用功能为主，加了一点当年 MDIR 的味道，还能与终端整合来管理文件。',
         ctaDownload: '下载', listAlt: 'Gifiles 列表视图',
         f1t: '以 Mac 访达的易用性为准', f1d: '列表、图库、分栏三种视图，⌘1 · ⌘2 · ⌘3，Space 预览，Return 重命名，⌘↓ 打开，都与访达一致。Windows 和 Linux 使用同样的按键，用 Ctrl 代替 ⌘。',
@@ -220,7 +220,7 @@
     if (lang !== 'ko') {
       document.querySelectorAll('[data-t]').forEach((el) => { const v = copy[lang][el.dataset.t]; if (v) el.innerHTML = v; });
       document.querySelectorAll('[data-t-alt]').forEach((el) => { const v = copy[lang][el.dataset.tAlt]; if (v) el.alt = v; });
-      document.title = 'Gifiles — ' + copy[lang].title.replace('<br>', ' ');
+      document.title = copy[lang].title.replace('<br>', ' ');
     }
 
     const ua = navigator.userAgent;
