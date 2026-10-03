@@ -652,3 +652,24 @@ shortcuts in `../README.md`. Dates are 2026.
   every search 1–2 ms including one-letter queries matching 113 000 folders (the Debug build is
   ~10× slower: 15–26 ms). Everything is linear, so 10× the folders means ~80 s of background scan,
   ~20 ms a keystroke and ~45 MB while the panel is open — no freeze.
+- The keys inside the panel left the shortcut registry at the user's request (they didn't want them
+  in Settings → 단축키): Tab / ⇧Tab, Enter / ⌘↓, ← →, ⌥C, ⌘R, Esc / ` are fixed in
+  `FolderTreePanel::eventFilter` and listed at the panel's bottom. The ` that opens it stays a menu action.
+- ⌘D (user's pick) opens a drive list, modal inside the panel (the user rejected stepping through
+  the roots in place): the mounted drives (`util::isUserVolume`, the sidebar's rule) plus "설정한 폴더" /
+  "모든 드라이브" for `folder_tree.roots` unless that is a single drive (then that drive's row stands for it).
+  The pick (`FolderTree::setDrive`) makes the tree that drive alone until the app quits; its index has its own
+  cache file (caches of other settings/drives are now kept 30 days instead of deleted) and isn't refreshed by
+  `prefetch`. A network drive picked there is scanned (a root is always crossed) — the user asked for it.
+  The panel accepts ShortcutOverride for its modifier keys (⌘D, ⌘R, ⌘↓, ⌥C; every key while the list is up)
+  so the menu's 복제 / 열기 don't fire while it is open. ⌘R is labelled 인덱싱, and any scan shows
+  "인덱싱 중… N개" in the middle of the tree (`m_busy`) instead of a note in the status.
+- Automatic indexing on macOS (the user: "인덱싱을 매번 시키는 건 불편, ⌘R은 만에 하나"): FSEvents, measured on the
+  developer's Mac — events are per folder, with the paths as the user sees them (`/Users/...`, firmlinks resolved;
+  symlinked roots come as their real path, `/var` → `/private/var`, mapped back in `FolderEvents`); replaying the
+  journal took 0.25 s for 100 000 event ids, 2.6 s for 1 M (~2.5 days there, from two readings), 14 s for 5 M, 52 s
+  for 20 M, so past `kMaxReplay` (3 M) a full scan (8.3–8.9 s) is quicker. `FolderIndex::update` re-reads only the
+  reported folders and copies the rest: 189 ms for 17 folders of 115 611 (Release). The cache format is 2 (event id +
+  the volumes' FSEvents UUIDs, `/System/Volumes/Data` with `/`); a different UUID = journal reset → scan. Hourly
+  `prefetch` catches up through the journal instead of rescanning. Windows/Linux keep the timed rescans (USN needs
+  admin, inotify has watch limits and no history).

@@ -1676,34 +1676,6 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>取消路径输入</translation>
     </message>
     <message>
-        <source>폴더 트리에서 이동</source>
-        <translation>前往树中的文件夹</translation>
-    </message>
-    <message>
-        <source>폴더 트리 조작</source>
-        <translation>文件夹树按键</translation>
-    </message>
-    <message>
-        <source>폴더 트리 닫기</source>
-        <translation>关闭文件夹树</translation>
-    </message>
-    <message>
-        <source>폴더 트리 다음 일치</source>
-        <translation>文件夹树中的下一个匹配</translation>
-    </message>
-    <message>
-        <source>폴더 트리 이전 일치</source>
-        <translation>文件夹树中的上一个匹配</translation>
-    </message>
-    <message>
-        <source>폴더 트리 대소문자 구분</source>
-        <translation>文件夹树区分大小写</translation>
-    </message>
-    <message>
-        <source>폴더 트리 새로 읽기</source>
-        <translation>刷新文件夹树</translation>
-    </message>
-    <message>
         <source>퀵 뷰어 닫기</source>
         <translation>关闭快速查看</translation>
     </message>
@@ -2144,6 +2116,18 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>无法读取更新信息。</translation>
     </message>
     <message>
+        <source>설정한 폴더</source>
+        <translation>设置的文件夹</translation>
+    </message>
+    <message>
+        <source>모든 드라이브</source>
+        <translation>所有驱动器</translation>
+    </message>
+    <message>
+        <source>드라이브</source>
+        <translation>驱动器</translation>
+    </message>
+    <message>
         <source>폴더 경로의 글자를 차례로 치면 바로 찾아갑니다 (예: sigif → Sites/gifiles)</source>
         <translation>按顺序输入文件夹路径中的字母即可跳转 (例: sigif → Sites/gifiles)</translation>
     </message>
@@ -2172,16 +2156,20 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>区分大小写</translation>
     </message>
     <message>
-        <source>새로 읽기</source>
-        <translation>刷新</translation>
+        <source>인덱싱</source>
+        <translation>建立索引</translation>
+    </message>
+    <message>
+        <source>인덱싱 중… %1개</source>
+        <translation>正在建立索引… %1 个</translation>
+    </message>
+    <message>
+        <source>인덱싱 중…</source>
+        <translation>正在建立索引…</translation>
     </message>
     <message>
         <source>닫기</source>
         <translation>关闭</translation>
-    </message>
-    <message>
-        <source>폴더 목록을 만드는 중… %1개</source>
-        <translation>正在生成文件夹列表… %1 个</translation>
     </message>
     <message>
         <source>폴더 목록이 없습니다</source>
@@ -2194,10 +2182,6 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
     <message>
         <source>폴더 %1개</source>
         <translation>%1 个文件夹</translation>
-    </message>
-    <message>
-        <source>새로 읽는 중</source>
-        <translation>正在刷新</translation>
     </message>
 </context>
 </TS>

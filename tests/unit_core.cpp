@@ -1792,6 +1792,54 @@ private slots:
         QCOMPARE(FolderIndex::scan(o, nullptr, &cancel).size(), 0);
     }
 
+    // FSEvents' changed folders brought into an index: only those are read again, the rest copied.
+    void folderIndexUpdate()
+    {
+        const QString root = QDir::fromNativeSeparators(scratch(QStringLiteral("folder-update")));
+        for (const char *d : {"a/x", "a/y/inside", "b/z", "c"})
+            QVERIFY(QDir().mkpath(root + QLatin1Char('/') + QString::fromUtf8(d)));
+        FolderIndex::Options o;
+        o.roots = {root};
+        auto all = [&](const FolderIndex &idx) {
+            QStringList out;
+            for (int n = idx.rootCount(); n < idx.size(); ++n)
+                out << idx.path(n).mid(root.size() + 1);
+            out.sort();
+            return out;
+        };
+        const FolderIndex old = FolderIndex::scan(o);
+        QVERIFY(QDir().mkpath(root + QStringLiteral("/a/new/deep/er"))); // a new folder comes with all inside
+        QVERIFY(QDir(root + QStringLiteral("/a/y")).removeRecursively());
+        QVERIFY(QDir().rename(root + QStringLiteral("/b/z"), root + QStringLiteral("/b/w")));
+        QVERIFY(QDir().mkpath(root + QStringLiteral("/c/q"))); // c isn't reported: stays as it was
+        bool differs = false;
+        const FolderIndex next = FolderIndex::update(old, o, {root + QStringLiteral("/a"), root + QStringLiteral("/b/"),
+                                                              root + QStringLiteral("/not/there")}, {}, nullptr, nullptr, &differs);
+        QVERIFY(differs);
+        QCOMPARE(all(next), (QStringList{QStringLiteral("a"), QStringLiteral("a/new"), QStringLiteral("a/new/deep"),
+                                         QStringLiteral("a/new/deep/er"), QStringLiteral("a/x"), QStringLiteral("b"),
+                                         QStringLiteral("b/w"), QStringLiteral("c")}));
+        QCOMPARE(next.parent(next.find(root + QStringLiteral("/a/new/deep"))), next.find(root + QStringLiteral("/a/new")));
+        // Nothing changed in the folders reported: the same index.
+        FolderIndex::update(next, o, {root + QStringLiteral("/a")}, {}, nullptr, nullptr, &differs);
+        QVERIFY(!differs);
+        // `deep`: everything inside read again, like a scan.
+        QCOMPARE(all(FolderIndex::update(next, o, {}, {root}, nullptr, nullptr, &differs)), all(FolderIndex::scan(o)));
+        QVERIFY(differs);
+        // Other roots: a full scan.
+        FolderIndex::Options other = o;
+        other.roots = {root + QStringLiteral("/a")};
+        QCOMPARE(FolderIndex::update(old, other, {}, {}).size(), FolderIndex::scan(other).size());
+        // The journal point is kept with the cache.
+        const QString file = m_root.filePath(QStringLiteral("folder-update.bin"));
+        QVERIFY(next.save(file, QStringLiteral("key"), 1, {42, QStringLiteral("uuid")}));
+        FolderIndex back;
+        FolderIndex::Journal journal;
+        QVERIFY(FolderIndex::load(file, QStringLiteral("key"), back, nullptr, &journal));
+        QCOMPARE(journal.eventId, quint64(42));
+        QCOMPARE(journal.id, QStringLiteral("uuid"));
+    }
+
     void folderIndexMatch()
     {
         const QString root = QDir::fromNativeSeparators(scratch(QStringLiteral("folder-match")));
@@ -1891,9 +1939,17 @@ private slots:
         FolderTreeModel model;
         model.setIndex(std::make_shared<FolderIndex>(back));
         const qint64 modelMs = t.elapsed();
-        qInfo().noquote() << QStringLiteral("folders %1, scan %2 ms, save %3 ms (%4 KB), load %5 ms, tree rows %6 ms; searches %7")
+        // An FSEvents update: the home folder and its direct subfolders read again, the rest copied.
+        QStringList changed = {QDir::homePath()};
+        for (const QString &d : QDir::home().entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+            changed << QDir::home().filePath(d);
+        t.restart();
+        const FolderIndex updated = FolderIndex::update(idx, o, changed, {});
+        const qint64 updateMs = t.elapsed();
+        qInfo().noquote() << QStringLiteral("folders %1, scan %2 ms, save %3 ms (%4 KB), load %5 ms, tree rows %6 ms, update of %7 folders %8 ms; searches %9")
                                  .arg(idx.size()).arg(scanMs).arg(saveMs).arg(QFileInfo(file).size() / 1024).arg(loadMs).arg(modelMs)
-                                 .arg(each.join(QStringLiteral(", ")));
+                                 .arg(changed.size()).arg(updateMs).arg(each.join(QStringLiteral(", ")));
+        QCOMPARE(updated.size(), FolderIndex::scan(o).size());
     }
 };
 

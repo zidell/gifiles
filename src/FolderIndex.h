@@ -13,6 +13,14 @@
 // (natural order). Names are kept twice in UTF-8 arenas: as they are and folded (NFC, case-folded)
 // for matching. About 30 bytes a folder; 340 000 folders scan in ~7 s on a Mac SSD, network and
 // FUSE mounts excluded (one NFS mount alone took 5 minutes) — see docs/history.md.
+// Where the file system's change journal (macOS FSEvents) stood when an index was last brought up
+// to date: changes after `eventId` are replayed onto it. `id` names the journal (the volumes'
+// FSEvents UUIDs); another id means the journal was reset and the index must be scanned again.
+struct FolderJournal {
+    quint64 eventId = 0;
+    QString id;
+};
+
 class FolderIndex {
 public:
     struct Options {
@@ -27,6 +35,13 @@ public:
     // Lists the folders; `progress` counts them as they come, `cancel` stops early (empty result).
     static FolderIndex scan(const Options &options, std::atomic<int> *progress = nullptr,
                             const std::atomic<bool> *cancel = nullptr);
+    // `old` with the folders in `changed` listed again (their subfolders added or removed; a new
+    // one is read with everything inside it) and those in `deep` read again entirely; the rest is
+    // copied. Paths outside `old` are ignored (a new folder comes with its parent's change); other
+    // roots than `old`'s make it a full scan. `differs`: whether any folder came or went.
+    static FolderIndex update(const FolderIndex &old, const Options &options, const QStringList &changed,
+                              const QStringList &deep, std::atomic<int> *progress = nullptr,
+                              const std::atomic<bool> *cancel = nullptr, bool *differs = nullptr);
     // Mount points under the roots that are network, FUSE or virtual file systems (left out).
     static QStringList foreignMounts();
 
@@ -55,9 +70,11 @@ public:
     Matches match(const QString &query, const QHash<int, int> &boost = {}, int limit = 2000,
                   bool caseSensitive = false, int near = -1) const;
 
-    bool save(const QString &file, const QString &key, qint64 scannedAt) const;
+    using Journal = FolderJournal;
+    bool save(const QString &file, const QString &key, qint64 scannedAt, const Journal &journal = {}) const;
     // False if the file is missing, damaged or was made for other options.
-    static bool load(const QString &file, const QString &key, FolderIndex &out, qint64 *scannedAt = nullptr);
+    static bool load(const QString &file, const QString &key, FolderIndex &out, qint64 *scannedAt = nullptr,
+                     Journal *journal = nullptr);
 
 private:
     struct Node {
@@ -73,6 +90,8 @@ private:
     QByteArrayView folded(int n) const { return QByteArrayView(m_folded.constData() + m_nodes[n].foldOff, m_nodes[n].foldLen); }
     QByteArrayView raw(int n) const { return QByteArrayView(m_names.constData() + m_nodes[n].nameOff, m_nodes[n].nameLen); }
     int childNamed(int parent, const QByteArray &foldedName) const;
+    void append(int parent, const QString &name, int depth);
+    void appendRaw(int parent, QByteArrayView name, QByteArrayView folded, int depth);
 
     std::vector<Node> m_nodes;
     QByteArray m_names, m_folded;

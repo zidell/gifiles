@@ -3565,14 +3565,13 @@ private slots:
         QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/two/target2"))));
         QTest::keyClick(panel->queryEdit(), Qt::Key_Backtab, Qt::ShiftModifier);
         QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one/target"))));
-        // The keys at the bottom follow Settings → 단축키.
+        // The panel's keys are listed at the bottom (fixed, not in Settings → 단축키).
         auto *keys = panel->findChild<QLabel *>(QStringLiteral("folderTreeKeys"));
         QVERIFY(keys && keys->isVisible());
         QVERIFY(keys->text().contains(QStringLiteral("<b>Tab</b>")));
         QVERIFY(keys->text().contains(QStringLiteral("Enter")));
-        Shortcuts::instance()->assign(QStringLiteral("폴더 트리 대소문자 구분"), QKeySequence(QStringLiteral("Alt+I")));
-        QTRY_VERIFY(keys->text().contains(QKeySequence(QStringLiteral("Alt+I")).toString(QKeySequence::NativeText)));
-        Shortcuts::instance()->reset(QStringLiteral("폴더 트리 대소문자 구분"));
+        for (const Shortcuts::Entry &e : Shortcuts::entries())
+            QVERIFY2(!e.id.startsWith(QStringLiteral("폴더 트리 ")), qPrintable(e.id));
         QTest::keyClick(panel->queryEdit(), Qt::Key_Up); // the arrows walk the tree
         QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one"))));
         QCOMPARE(QApplication::focusWidget(), panel->queryEdit());
@@ -3627,10 +3626,30 @@ private slots:
         QTRY_VERIFY(!FolderTree::instance()->isScanning());
         QTest::keyClick(panel->queryEdit(), Qt::Key_R, Qt::ControlModifier);
         QVERIFY(FolderTree::instance()->isScanning());
+        QVERIFY(panel->busyLabel()->isVisible()); // "인덱싱 중…" in the middle
+        if (const QString out = qEnvironmentVariable("OUT"); !out.isEmpty()) // now: the scan is short
+            panel->grab().save(QDir(out).filePath(QStringLiteral("folder-tree-indexing.png")));
         QTRY_VERIFY(!FolderTree::instance()->isScanning());
         QTest::keyClicks(panel->queryEdit(), QStringLiteral("later"));
         QTRY_COMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/two/later"))));
         QTest::keyClick(panel->queryEdit(), Qt::Key_Escape);
+
+#ifdef Q_OS_MACOS
+        // FSEvents keeps the tree up to date while it is open: a folder made outside the app shows up
+        // without ⌘R, and no full scan runs for it.
+        QTRY_VERIFY(tab()->isAncestorOf(QApplication::focusWidget()));
+        QTest::keyClick(focus(), '`');
+        QTRY_VERIFY(panel->isVisible());
+        QTRY_VERIFY(FolderTree::instance()->isWatching());
+        QVERIFY(QDir().mkpath(p(QStringLiteral("tree/two/live/inside"))));
+        QTRY_VERIFY_WITH_TIMEOUT(FolderTree::instance()->index()->find(p(QStringLiteral("tree/two/live/inside"))) >= 0, 10000);
+        QVERIFY(!FolderTree::instance()->isScanning());
+        QTest::keyClicks(panel->queryEdit(), QStringLiteral("inside"));
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/two/live/inside"))));
+        QVERIFY(QDir(p(QStringLiteral("tree/two/live"))).removeRecursively());
+        QTRY_VERIFY_WITH_TIMEOUT(FolderTree::instance()->index()->find(p(QStringLiteral("tree/two/live"))) < 0, 10000);
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Escape);
+#endif
 
         // A folder made in the app shows up the next time.
         QTRY_VERIFY(tab()->isAncestorOf(QApplication::focusWidget()));
@@ -3642,6 +3661,45 @@ private slots:
         QTest::keyClicks(panel->queryEdit(), QStringLiteral("fresh"));
         QTRY_COMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one/fresh"))));
         QTest::keyClick(panel->queryEdit(), Qt::Key_Escape);
+
+        // ⌘D: the drive list, modal inside the panel; a drive chosen there is the tree until the app quits.
+        QVERIFY(QDir().mkpath(p(QStringLiteral("tree2/far/target"))));
+        QTRY_VERIFY(tab()->isAncestorOf(QApplication::focusWidget()));
+        QTest::keyClick(focus(), '`');
+        QTRY_VERIFY(panel->isVisible());
+        QTRY_VERIFY(!FolderTree::instance()->isScanning());
+        QVERIFY(!panel->busyLabel()->isVisible());
+        QVERIFY(keys->text().contains(QKeySequence(QStringLiteral("Ctrl+D")).toString(QKeySequence::NativeText)));
+        QKeyEvent over(QEvent::ShortcutOverride, Qt::Key_D, Qt::ControlModifier);
+        QApplication::sendEvent(panel->queryEdit(), &over);
+        QVERIFY(over.isAccepted()); // not the menu's 복제
+        QTest::keyClick(panel->queryEdit(), Qt::Key_D, Qt::ControlModifier);
+        QVERIFY(panel->drivesBox()->isVisible());
+        QVERIFY(panel->driveList()->count() >= 2); // the set folders, then the drives
+        shot("folder-tree-drives", panel);
+        QCOMPARE(panel->driveList()->item(0)->data(Qt::UserRole).toString(), QString());
+        QCOMPARE(panel->driveList()->currentRow(), 0); // the tree shown now
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Down);
+        QCOMPARE(panel->driveList()->currentRow(), 1);
+        QTest::keyClicks(panel->queryEdit(), QStringLiteral("x")); // typing goes to the list, not the query
+        QVERIFY(panel->queryEdit()->text().isEmpty());
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Escape); // closes the list only
+        QVERIFY(!panel->drivesBox()->isVisible());
+        QVERIFY(panel->isVisible());
+        QTest::keyClick(panel->queryEdit(), Qt::Key_D, Qt::ControlModifier);
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Return); // the set folders again: nothing changes
+        QVERIFY(!panel->drivesBox()->isVisible());
+        QCOMPARE(FolderTree::instance()->drive(), QString());
+        // Another drive (a folder here, so the test never scans a real disk): scanned, then its tree.
+        FolderTree::instance()->setDrive(p(QStringLiteral("tree2")));
+        QTRY_VERIFY(FolderTree::instance()->index() && !FolderTree::instance()->isScanning());
+        QTRY_COMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree2"))));
+        QCOMPARE(panel->view()->model()->rowCount(), 3);
+        QTest::keyClicks(panel->queryEdit(), QStringLiteral("target"));
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree2/far/target"))));
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Escape);
+        FolderTree::instance()->setDrive(QString());
+        QDir(p(QStringLiteral("tree2"))).removeRecursively();
 
         Settings::instance()->remove(Settings::FolderTreeRoots);
         tab()->navigate(m_tmp.path());

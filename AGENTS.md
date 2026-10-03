@@ -180,7 +180,14 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   Only `main.cpp` calls `prefetch()`, so tests never scan the drive (they set `folder_tree.roots`). Network, FUSE
   and virtual mounts are never crossed unless listed as a root (one NFS mount took 5 minutes). On macOS without
   Full Disk Access, Desktop/Documents/Downloads and other apps' containers are scanned only after the browser opened
-  them (`noteVisit`), so a background scan never makes macOS ask.
+  them (`noteVisit`), so a background scan never makes macOS ask. The keys inside the panel are fixed
+  (`FolderTreePanel::eventFilter`, listed at its bottom) and not in the shortcut registry, at the user's request;
+  only the ` that opens it is a menu action. **Indexing is automatic; ⌘R is only the fallback** (the user's
+  rule): on macOS the cache stores the FSEvents journal point (`FolderIndex::Journal`) and `FolderTree::watch`
+  replays the changes since then (also those made while the app was off) and follows them live, re-reading only the
+  folders reported (`FolderIndex::update`); a full scan only without a cache, after a journal reset, more than
+  `kMaxReplay` events behind, or on ⌘R (`reindex`). Elsewhere the timed rescans stay. ⌘D picks the drive
+  (`FolderTree::setDrive`, until the app quits).
 - **Archives:** opening a .zip/.tar.* etc. expands it next to the archive inside Gifiles
   (`Job::Extract`, undo trashes the result) unless the user set "항상 이 앱으로 열기" for it.
 - **Quick Look size:** text, PDF and other content get a base size (900×680) times

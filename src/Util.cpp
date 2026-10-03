@@ -145,6 +145,21 @@ QString uniquePlainName(const QString &dir, const QString &name)
     }
 }
 
+bool isUserVolume(const QStorageInfo &si)
+{
+    if (!si.isValid() || !si.isReady())
+        return false;
+    const QString root = si.rootPath();
+#if defined(Q_OS_MACOS)
+    return root == QLatin1String("/") || root.startsWith(QLatin1String("/Volumes/"));
+#elif defined(Q_OS_WIN)
+    return true;
+#else
+    return root == QLatin1String("/") || root.startsWith(QLatin1String("/media/")) ||
+           root.startsWith(QLatin1String("/run/media/")) || root.startsWith(QLatin1String("/mnt/"));
+#endif
+}
+
 bool isInside(const QString &child, const QString &parent)
 {
     const QString c = QDir::cleanPath(child), p = QDir::cleanPath(parent);

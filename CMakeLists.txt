@@ -18,7 +18,7 @@ qt_add_library(gifiles_core STATIC
     src/MainWindow.h src/MainWindow.cpp
     src/BrowserTab.h src/BrowserTab.cpp
     src/FileProxy.h src/FileProxy.cpp
-    src/FolderIndex.h src/FolderIndex.cpp
+    src/FolderIndex.h src/FolderIndex.cpp src/FolderEvents.h src/FolderEvents.cpp
     src/FolderTree.h src/FolderTree.cpp
     src/ItemDelegate.h src/ItemDelegate.cpp
     src/FileOps.h src/FileOps.cpp
@@ -80,7 +80,7 @@ endif()
 if(APPLE)
     enable_language(OBJCXX)
     target_sources(gifiles_core PRIVATE src/MacWindow.h src/MacWindow.mm src/OpenWithMac.mm src/SystemPreviewMac.mm)
-    target_link_libraries(gifiles_core PUBLIC "-framework AppKit" "-framework Quartz")
+    target_link_libraries(gifiles_core PUBLIC "-framework AppKit" "-framework Quartz" "-framework CoreServices")
 endif()
 # INTERFACE only: on case-insensitive macOS a "-I src" would make <util.h> (forkpty) resolve to src/Util.h.
 target_include_directories(gifiles_core INTERFACE src)

@@ -1,8 +1,8 @@
 #include "FolderTree.h"
 #include "App.h"
+#include "FolderEvents.h"
 #include "Permissions.h"
 #include "Settings.h"
-#include "Shortcuts.h"
 #include "Theme.h"
 #include "Util.h"
 
@@ -17,7 +17,10 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLocale>
+#include <QListWidget>
+#include <QResizeEvent>
 #include <QSettings>
+#include <QStorageInfo>
 #include <QSignalBlocker>
 #include <QStandardPaths>
 #include <QThread>
@@ -44,6 +47,10 @@ constexpr qint64 kMaxAgeOpen = 30 * 60 * 1000;          // a panel opening resca
 constexpr qint64 kMaxAgeIdle = 6 * 60 * 60 * 1000;      // the background keeps it at most this old
 constexpr int kReleaseAfter = 2 * 60 * 1000;            // memory freed after the panel closed
 constexpr int kMaxVisits = 1000;
+// FSEvents: replaying the journal takes ~2.6 s per million events on the developer's Mac (about 2.5
+// days of use there); beyond this many a full scan (8.3 s) is quicker.
+constexpr quint64 kMaxReplay = 3'000'000;
+constexpr int kMaxPending = 50'000; // folders changed at once: scan instead
 const QString kVisitsKey = QStringLiteral("folderTree/visits");
 const QString kGrantedKey = QStringLiteral("folderTree/granted");
 
@@ -92,7 +99,8 @@ FolderTree::FolderTree()
     m_release.setSingleShot(true);
     m_release.setInterval(kReleaseAfter);
     connect(&m_release, &QTimer::timeout, this, [this] {
-        if (m_users == 0 && !m_scanning) {
+        if (m_users == 0 && !m_scanning && !m_updating) {
+            unwatch();
             m_index.reset();
             m_indexKey.clear();
         }
@@ -105,10 +113,17 @@ FolderTree::FolderTree()
     const QVariantMap stored = QSettings().value(kVisitsKey).toMap();
     for (auto it = stored.cbegin(); it != stored.cend(); ++it)
         m_visits.insert(it.key(), it.value().toInt());
-    // A folder made, renamed, moved or trashed in the app: the next panel rescans.
-    connect(App::instance(), &App::undoChanged, this, &FolderTree::markStale);
+    // A folder made, renamed, moved or trashed in the app: the next panel rescans (FSEvents brings it anyway).
+    connect(App::instance(), &App::undoChanged, this, [this] {
+        if (!m_stream)
+            markStale();
+    });
+    m_applyTimer.setSingleShot(true);
+    m_applyTimer.setInterval(300);
+    connect(&m_applyTimer, &QTimer::timeout, this, &FolderTree::applyEvents);
     connect(qApp, &QCoreApplication::aboutToQuit, this, [this] {
         m_cancel->store(true);
+        unwatch();
         if (m_saveVisits.isActive())
             saveVisits();
     });
@@ -145,7 +160,8 @@ QStringList FolderTree::defaultExclude()
 FolderIndex::Options FolderTree::options()
 {
     FolderIndex::Options o;
-    o.roots = Settings::instance()->value(Settings::FolderTreeRoots).toStringList();
+    const QString drive = instance()->m_drive;
+    o.roots = drive.isEmpty() ? Settings::instance()->value(Settings::FolderTreeRoots).toStringList() : QStringList{drive};
     o.roots.removeAll(QString());
     if (o.roots.isEmpty())
         o.roots = wholeDrive();
@@ -176,12 +192,18 @@ void FolderTree::startScan(bool lowPriority)
     m_scanning = true;
     m_staleDuringScan = false;
     m_progress->store(0);
+    unwatch(); // the scan replaces what it would have brought; changes during the scan replay after it
     const FolderIndex::Options opts = options();
     const QString key = opts.key(), file = cacheFile(key);
+    FolderIndex::Journal journal;
+    if (FolderEvents::available()) {
+        journal.id = FolderEvents::journalId(opts.roots);
+        journal.eventId = journal.id.isEmpty() ? 0 : FolderEvents::currentId();
+    }
     auto counter = m_progress;
     auto cancel = m_cancel;
     auto *watcher = new QFutureWatcher<std::shared_ptr<FolderIndex>>(this);
-    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, key] {
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, key, journal] {
         const std::shared_ptr<FolderIndex> result = watcher->result();
         watcher->deleteLater();
         m_scanning = false;
@@ -191,6 +213,8 @@ void FolderTree::startScan(bool lowPriority)
             m_index = result;
             m_indexKey = key;
             m_scannedAt = now();
+            m_journal = journal;
+            m_savedEventId = journal.eventId;
             m_stale = m_staleDuringScan;
             emit indexChanged();
         }
@@ -200,10 +224,11 @@ void FolderTree::startScan(bool lowPriority)
         } else if (m_stale || !current) {
             startScan(false);
         } else {
-            emit progress(m_progress->load()); // "새로 읽는 중" ends
+            watch();
+            emit progress(m_progress->load()); // the "인덱싱 중…" note goes away
         }
     });
-    watcher->setFuture(QtConcurrent::run([opts, key, file, counter, cancel, lowPriority]() -> std::shared_ptr<FolderIndex> {
+    watcher->setFuture(QtConcurrent::run([opts, key, file, counter, cancel, lowPriority, journal]() -> std::shared_ptr<FolderIndex> {
         if (lowPriority)
             QThread::currentThread()->setPriority(QThread::LowestPriority);
         auto idx = std::make_shared<FolderIndex>(FolderIndex::scan(opts, counter.get(), cancel.get()));
@@ -211,11 +236,14 @@ void FolderTree::startScan(bool lowPriority)
             QThread::currentThread()->setPriority(QThread::NormalPriority);
         if (cancel->load() || idx->rootCount() == 0)
             return {};
-        idx->save(file, key, now());
-        const QDir dir = QFileInfo(file).absoluteDir(); // caches made for other settings
-        for (const QString &old : dir.entryList({QStringLiteral("folder-tree-*.bin")}, QDir::Files))
-            if (dir.filePath(old) != file)
-                QFile::remove(dir.filePath(old));
+        idx->save(file, key, now(), journal);
+        // Caches made for other settings or drives (⌘D): the 8 newest stay, for a month.
+        const QDir dir = QFileInfo(file).absoluteDir();
+        int kept = 0;
+        for (const QFileInfo &old : dir.entryInfoList({QStringLiteral("folder-tree-*.bin")}, QDir::Files, QDir::Time))
+            if (old.absoluteFilePath() != QFileInfo(file).absoluteFilePath()
+                && (++kept > 8 || old.lastModified().daysTo(QDateTime::currentDateTime()) > 30))
+                QFile::remove(old.absoluteFilePath());
         return idx;
     }));
     m_progressTimer.start();
@@ -226,26 +254,178 @@ void FolderTree::acquire(const QString &folder)
 {
     ++m_users;
     m_release.stop();
+    load(folder);
+}
+
+void FolderTree::setDrive(const QString &root)
+{
+    if (root == m_drive)
+        return;
+    m_drive = root;
+    load(QString());
+    emit indexChanged();
+}
+
+QList<FolderTree::Drive> FolderTree::drives()
+{
+    QStringList defaults = Settings::instance()->value(Settings::FolderTreeRoots).toStringList();
+    defaults.removeAll(QString());
+    const bool configured = !defaults.isEmpty();
+    if (!configured)
+        defaults = wholeDrive();
+    auto same = [](const QString &a, const QString &b) { return QDir::cleanPath(a).compare(QDir::cleanPath(b), Qt::CaseInsensitive) == 0; };
+    QList<Drive> out;
+    bool merged = false;
+    for (const QStorageInfo &si : QStorageInfo::mountedVolumes()) {
+        if (!util::isUserVolume(si))
+            continue;
+        Drive d;
+        d.root = si.rootPath();
+        d.path = QDir::toNativeSeparators(d.root);
+        d.label = si.displayName();
+        if (d.label.isEmpty() || d.label == d.root)
+            d.label = d.root == QLatin1String("/") ? Gifiles::tr("컴퓨터") : util::displayName(d.root);
+        if (defaults.size() == 1 && same(defaults.first(), d.root)) {
+            d.root.clear(); // the default tree is this drive
+            merged = true;
+        }
+        out << d;
+    }
+    if (!merged) {
+        QStringList shown;
+        for (const QString &r : defaults)
+            shown << QDir::toNativeSeparators(r);
+        out.prepend({QString(), configured ? Gifiles::tr("설정한 폴더") : Gifiles::tr("모든 드라이브"), shown.join(QStringLiteral(", "))});
+    }
+    return out;
+}
+
+void FolderTree::load(const QString &folder)
+{
     const QString key = options().key();
     if (!m_index || m_indexKey != key) {
+        unwatch();
         FolderIndex idx;
         qint64 at = 0;
-        if (FolderIndex::load(cacheFile(key), key, idx, &at)) {
+        FolderIndex::Journal journal;
+        if (FolderIndex::load(cacheFile(key), key, idx, &at, &journal)) {
             m_index = std::make_shared<FolderIndex>(std::move(idx));
             m_indexKey = key;
             m_scannedAt = at;
+            m_journal = journal;
         } else {
             m_index.reset();
             m_indexKey.clear();
             m_scannedAt = 0;
+            m_journal = {};
         }
+        m_savedEventId = m_journal.eventId;
     }
+    if (m_index && !m_stale && watch())
+        return; // FSEvents keeps it up to date, also for the time the app wasn't running
     // A folder's time changes when something inside it is added, renamed or removed.
     const QFileInfo fi(folder);
     if (m_index && fi.exists() && fi.lastModified().toMSecsSinceEpoch() > m_scannedAt)
         m_stale = true;
     if (!m_index || m_stale || now() - m_scannedAt > kMaxAgeOpen)
         startScan(false);
+}
+
+bool FolderTree::watch()
+{
+    if (m_stream)
+        return true;
+    if (!FolderEvents::available() || !m_index || m_journal.eventId == 0 || m_scanning)
+        return false;
+    const FolderIndex::Options opts = options();
+    // Another journal (the volume's was reset) or too long ago to replay: scan.
+    if (m_journal.id != FolderEvents::journalId(opts.roots) || FolderEvents::currentId() - m_journal.eventId > kMaxReplay)
+        return false;
+    m_replayed = false;
+    m_pendingId = m_journal.eventId;
+    m_stream = std::make_unique<FolderEvents::Stream>(opts.roots, m_journal.eventId, [this](const FolderEvents::Batch &b) {
+        if (b.reset || m_pendingChanged.size() + m_pendingDeep.size() > kMaxPending) {
+            unwatch();
+            m_journal = {};
+            if (m_users > 0)
+                startScan(false);
+            return;
+        }
+        for (const QString &p : b.changed)
+            m_pendingChanged.insert(p);
+        for (const QString &p : b.deep)
+            m_pendingDeep.insert(p);
+        m_pendingId = qMax(m_pendingId, b.lastId);
+        m_replayed = m_replayed || b.historyDone;
+        if (m_replayed)
+            m_applyTimer.start();
+    });
+    return true;
+}
+
+void FolderTree::unwatch()
+{
+    if (!m_stream)
+        return;
+    m_stream.reset();
+    m_applyTimer.stop();
+    m_pendingChanged.clear();
+    m_pendingDeep.clear();
+    // Where the journal was replayed to, so the next start replays only what came after.
+    if (m_index && m_journal.eventId > m_savedEventId) {
+        m_savedEventId = m_journal.eventId;
+        m_index->save(cacheFile(m_indexKey), m_indexKey, m_scannedAt, m_journal);
+    }
+}
+
+void FolderTree::applyEvents()
+{
+    if (!m_stream || !m_index || m_scanning)
+        return;
+    if (m_updating)
+        return m_applyTimer.start(); // after the update under way
+    QStringList changed = m_pendingChanged.values(), deep = m_pendingDeep.values();
+    const quint64 id = m_pendingId;
+    m_pendingChanged.clear();
+    m_pendingDeep.clear();
+    // Only folders of the tree matter (most events are inside left-out folders such as ~/Library).
+    const std::shared_ptr<const FolderIndex> old = m_index;
+    changed.erase(std::remove_if(changed.begin(), changed.end(), [&](const QString &p) { return old->find(p) < 0; }), changed.end());
+    deep.erase(std::remove_if(deep.begin(), deep.end(), [&](const QString &p) { return old->findNearest(p) < 0; }), deep.end());
+    if (changed.isEmpty() && deep.isEmpty()) {
+        m_journal.eventId = qMax(m_journal.eventId, id);
+        return;
+    }
+    m_updating = true;
+    const FolderIndex::Options opts = options();
+    const QString key = m_indexKey, file = cacheFile(key);
+    const qint64 scannedAt = m_scannedAt;
+    const FolderIndex::Journal journal{id, m_journal.id};
+    auto cancel = m_cancel;
+    auto *watcher = new QFutureWatcher<std::shared_ptr<FolderIndex>>(this);
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, old, key, id] {
+        const std::shared_ptr<FolderIndex> result = watcher->result();
+        watcher->deleteLater();
+        m_updating = false;
+        if (m_index != old || m_indexKey != key) // scanned or switched meanwhile
+            return;
+        m_journal.eventId = qMax(m_journal.eventId, id);
+        if (result) {
+            m_index = result;
+            m_savedEventId = m_journal.eventId;
+            emit indexChanged();
+        }
+        if (!m_pendingChanged.isEmpty() || !m_pendingDeep.isEmpty())
+            m_applyTimer.start();
+    });
+    watcher->setFuture(QtConcurrent::run([old, opts, changed, deep, key, file, scannedAt, journal, cancel]() -> std::shared_ptr<FolderIndex> {
+        bool differs = false;
+        auto idx = std::make_shared<FolderIndex>(FolderIndex::update(*old, opts, changed, deep, nullptr, cancel.get(), &differs));
+        if (cancel->load() || !differs)
+            return {};
+        idx->save(file, key, scannedAt, journal);
+        return idx;
+    }));
 }
 
 void FolderTree::release()
@@ -258,9 +438,16 @@ void FolderTree::release()
 void FolderTree::prefetch()
 {
     auto check = [this] {
-        if (m_scanning)
+        if (m_scanning || !m_drive.isEmpty()) // a drive chosen with ⌘D isn't kept fresh in the background
             return;
         const QFileInfo cache(cacheFile(options().key()));
+        if (FolderEvents::available() && cache.exists() && !m_stale) {
+            // Catch up with the journal now and then, so opening the panel has little to replay;
+            // load() scans instead when the cache can't follow the journal.
+            acquire(QString());
+            release();
+            return;
+        }
         if (m_stale || !cache.exists() || cache.lastModified().msecsTo(QDateTime::currentDateTime()) > kMaxAgeIdle)
             startScan(true);
     };
@@ -268,6 +455,15 @@ void FolderTree::prefetch()
     m_prefetch.setInterval(60 * 60 * 1000);
     connect(&m_prefetch, &QTimer::timeout, this, check);
     m_prefetch.start();
+}
+
+void FolderTree::reindex()
+{
+    m_stale = true;
+    if (m_scanning)
+        m_staleDuringScan = true;
+    else
+        startScan(false);
 }
 
 void FolderTree::markStale()
@@ -442,6 +638,43 @@ private:
     FolderTreeModel *m_model;
 };
 
+// A drive: its glyph and name, the path dimmed on the right.
+class DriveDelegate : public QStyledItemDelegate {
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &) const override
+    {
+        return QSize(200, qMax(28, option.fontMetrics.height() + 10));
+    }
+
+    void paint(QPainter *p, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        const Theme::Colors &c = Theme::colors();
+        const QRect r = option.rect;
+        const bool selected = option.state & QStyle::State_Selected;
+        p->save();
+        p->setRenderHint(QPainter::Antialiasing);
+        if (selected || (option.state & QStyle::State_MouseOver)) {
+            p->setPen(Qt::NoPen);
+            p->setBrush(selected ? c.selection : c.hover);
+            p->drawRoundedRect(r.adjusted(0, 1, 0, -1), 6, 6);
+        }
+        const QColor fg = selected ? c.selText : c.text;
+        Theme::icon(QStringLiteral("drive"), selected ? c.selText : c.secondary, 16).paint(p, QRect(r.left() + 10, r.center().y() - 8, 16, 16));
+        const QRect text = r.adjusted(34, 0, -10, 0);
+        const QString path = index.data(Qt::UserRole + 1).toString();
+        const int pathW = qMin(option.fontMetrics.horizontalAdvance(path), text.width() / 2);
+        p->setFont(option.font);
+        p->setPen(fg);
+        p->drawText(text.adjusted(0, 0, -pathW - 12, 0), Qt::AlignVCenter | Qt::AlignLeft,
+                    option.fontMetrics.elidedText(index.data().toString(), Qt::ElideMiddle, text.width() - pathW - 12));
+        p->setOpacity(0.5);
+        p->drawText(text, Qt::AlignVCenter | Qt::AlignRight, option.fontMetrics.elidedText(path, Qt::ElideMiddle, pathW));
+        p->restore();
+    }
+};
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -507,25 +740,49 @@ FolderTreePanel::FolderTreePanel(QWidget *parent) : QFrame(parent)
     m_keys->setObjectName(QStringLiteral("folderTreeKeys"));
     m_keys->setWordWrap(true);
     l->addWidget(m_keys);
+    m_busy = new QLabel(this);
+    m_busy->setObjectName(QStringLiteral("folderTreeBusy"));
+    m_busy->hide();
+    m_drives = new QFrame(this);
+    m_drives->setObjectName(QStringLiteral("folderTreeDrives"));
+    m_drives->setAttribute(Qt::WA_StyledBackground);
+    auto *dl = new QVBoxLayout(m_drives);
+    dl->setContentsMargins(6, 8, 6, 6);
+    dl->setSpacing(4);
+    auto *title = new QLabel(Gifiles::tr("드라이브"), m_drives);
+    title->setObjectName(QStringLiteral("secondary"));
+    title->setContentsMargins(8, 0, 8, 0);
+    dl->addWidget(title);
+    m_driveList = new QListWidget(m_drives);
+    m_driveList->setObjectName(QStringLiteral("folderTreeDriveList"));
+    m_driveList->setFocusPolicy(Qt::NoFocus); // the keyboard stays in the query line (driveKey)
+    m_driveList->setFrameShape(QFrame::NoFrame);
+    m_driveList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_driveList->setMouseTracking(true);
+    m_driveList->setItemDelegate(new DriveDelegate(m_driveList));
+    dl->addWidget(m_driveList);
+    m_drives->hide();
+    connect(m_driveList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        m_driveList->setCurrentItem(item);
+        pickDrive();
+    });
+    connect(m_view, &QListView::pressed, this, [this] { hideDrives(); });
     m_edit->setPlaceholderText(Gifiles::tr("폴더 경로의 글자를 차례로 치면 바로 찾아갑니다 (예: sigif → Sites/gifiles)"));
-    connect(Shortcuts::instance(), &Shortcuts::changed, this, &FolderTreePanel::updateKeys);
+    updateKeys();
 
     connect(m_view, &QListView::doubleClicked, this, [this](const QModelIndex &i) {
         m_view->setCurrentIndex(i);
         choose();
     });
     connect(m_edit, &QLineEdit::textChanged, this, [this](const QString &text) {
-        // ` typed through an input method (₩ in Korean) arrives as text, not as a key.
+        // ` typed through an input method (₩ in Korean) arrives as text, not as a key: it closes.
         if (text.contains(QLatin1Char('`')) || text.contains(QChar(0x20A9))) {
-            const QStringList keys = Shortcuts::toStrings(Shortcuts::instance()->keys(QStringLiteral("폴더 트리 닫기")));
-            if (keys.contains(QStringLiteral("`"))) {
-                QString t = text;
-                t.remove(QLatin1Char('`')).remove(QChar(0x20A9));
-                QSignalBlocker block(m_edit);
-                m_edit->setText(t);
-                m_imeClosed.start();
-                return dismiss();
-            }
+            QString t = text;
+            t.remove(QLatin1Char('`')).remove(QChar(0x20A9));
+            QSignalBlocker block(m_edit);
+            m_edit->setText(t);
+            m_imeClosed.start();
+            return dismiss();
         }
         runQuery(true);
     });
@@ -555,6 +812,7 @@ void FolderTreePanel::open(const QString &current)
     }
     m_matches = {};
     m_matchPos = -1;
+    hideDrives();
     show();
     raise();
     m_edit->setFocus(Qt::ShortcutFocusReason);
@@ -567,6 +825,7 @@ void FolderTreePanel::dismiss()
     if (isHidden())
         return;
     hide();
+    hideDrives();
     m_matches = {};
     m_model->setIndex(nullptr);
     m_index.reset();
@@ -586,8 +845,13 @@ void FolderTreePanel::takeIndex()
     m_index = FolderTree::instance()->index();
     m_boost = FolderTree::instance()->boost();
     m_model->setIndex(m_index);
+    updateKeys();
     if (m_index) {
-        moveTo(m_index->findNearest(keep)); // the folder the browser shows, or its closest indexed parent
+        // The folder under the cursor or the browser's, or its closest indexed parent; another drive: its top.
+        int node = m_index->findNearest(keep);
+        if (node < 0)
+            node = m_index->findNearest(m_current);
+        moveTo(node < 0 && m_index->size() > 0 ? 0 : node);
         runQuery(false);
     }
     updateStatus();
@@ -642,32 +906,24 @@ void FolderTreePanel::choose()
 
 void FolderTreePanel::updateKeys()
 {
-    // Every key of each action as it is set now (Settings → 단축키 may have changed them).
-    auto keys = [](const char *id) {
-        QStringList out;
-        for (const QKeySequence &k : Shortcuts::instance()->keys(QString::fromUtf8(id))) {
-            // macOS writes Tab, Return and Esc as ⇥ ↩ ⎋, which few people read at a glance.
-            QString t = k.toString(QKeySequence::NativeText);
-            t.replace(QChar(0x21E5), QStringLiteral("Tab")).replace(QChar(0x21A9), QStringLiteral("Enter")).replace(QChar(0x21B5), QStringLiteral("Enter")).replace(QChar(0x238B), QStringLiteral("Esc"));
-            out << t;
-        }
-        return out.isEmpty() ? QStringLiteral("—") : out.join(QStringLiteral(" / "));
-    };
-    const QList<QPair<QString, QString>> items = {
-        {keys("폴더 트리 다음 일치"), Gifiles::tr("다음 일치")},
-        {keys("폴더 트리 이전 일치"), Gifiles::tr("이전 일치")},
-        {keys("폴더 트리에서 이동"), Gifiles::tr("들어가기")},
+    // The panel's own keys are fixed (not in Settings → 단축키): ⌘ is Ctrl on Windows/Linux.
+    auto native = [](const char *portable) { return QKeySequence(QString::fromLatin1(portable)).toString(QKeySequence::NativeText); };
+    QList<QPair<QString, QString>> items = {
+        {QStringLiteral("Tab"), Gifiles::tr("다음 일치")},
+        {QStringLiteral("⇧Tab"), Gifiles::tr("이전 일치")},
+        {QStringLiteral("Enter / ") + native("Ctrl+Down"), Gifiles::tr("들어가기")},
         {QStringLiteral("↑ ↓"), Gifiles::tr("한 줄씩")},
         {QStringLiteral("← →"), Gifiles::tr("상위·하위 폴더")},
-        {keys("폴더 트리 대소문자 구분"), Gifiles::tr("대소문자 구분")},
-        {keys("폴더 트리 새로 읽기"), Gifiles::tr("새로 읽기")},
-        {keys("폴더 트리 닫기"), Gifiles::tr("닫기")},
+        {native("Alt+C"), Gifiles::tr("대소문자 구분")},
+        {native("Ctrl+D"), Gifiles::tr("드라이브")},
+        {native("Ctrl+R"), Gifiles::tr("인덱싱")},
+        {QStringLiteral("Esc / `"), Gifiles::tr("닫기")},
     };
     QStringList parts;
     for (const auto &[key, what] : items)
         parts << QStringLiteral("<b>%1</b> %2").arg(key.toHtmlEscaped(), what.toHtmlEscaped());
     m_keys->setText(parts.join(QStringLiteral("&nbsp;&nbsp;·&nbsp;&nbsp;")));
-    m_case->setToolTip(Gifiles::tr("대소문자 구분") + QStringLiteral("  ") + keys("폴더 트리 대소문자 구분"));
+    m_case->setToolTip(Gifiles::tr("대소문자 구분") + QStringLiteral("  ") + native("Alt+C"));
 }
 
 void FolderTreePanel::updateStatus()
@@ -676,48 +932,152 @@ void FolderTreePanel::updateStatus()
     const bool scanning = FolderTree::instance()->isScanning();
     QString text;
     if (!m_index)
-        text = scanning ? Gifiles::tr("폴더 목록을 만드는 중… %1개").arg(loc.toString(FolderTree::instance()->scanned()))
-                        : Gifiles::tr("폴더 목록이 없습니다");
+        text = scanning ? QString() : Gifiles::tr("폴더 목록이 없습니다");
     else if (!m_edit->query().trimmed().isEmpty())
         text = m_matches.best.empty() ? Gifiles::tr("일치하는 폴더 없음")
                                       : QStringLiteral("%1 / %2").arg(m_matchPos < 0 ? QStringLiteral("–") : loc.toString(m_matchPos + 1),
                                                                       loc.toString(m_matches.total));
     else
         text = Gifiles::tr("폴더 %1개").arg(loc.toString(m_index->size() - m_index->rootCount()));
-    if (m_index && scanning)
-        text += QStringLiteral(" · ") + Gifiles::tr("새로 읽는 중");
     m_status->setText(text);
+    // Indexing (the first scan or ⌘R): a quiet note in the middle of the tree, with the count so far.
+    const int done = FolderTree::instance()->scanned();
+    m_busy->setText(done > 0 ? Gifiles::tr("인덱싱 중… %1개").arg(loc.toString(done)) : Gifiles::tr("인덱싱 중…"));
+    m_busy->setVisible(scanning);
+    placeOverlays();
+}
+
+void FolderTreePanel::resizeEvent(QResizeEvent *ev)
+{
+    QFrame::resizeEvent(ev);
+    placeOverlays();
+}
+
+void FolderTreePanel::placeOverlays()
+{
+    const QRect area = m_view->geometry();
+    if (m_busy->isVisible()) {
+        m_busy->adjustSize();
+        m_busy->move(area.center() - QPoint(m_busy->width() / 2, m_busy->height() / 2));
+        m_busy->raise();
+    }
+    if (m_drives->isVisible()) {
+        const int rows = qMin(m_driveList->count(), 10);
+        const int w = qMin(area.width() - 24, 420);
+        m_driveList->setFixedHeight(rows * m_driveList->sizeHintForRow(0) + 4);
+        m_drives->setFixedWidth(w);
+        m_drives->adjustSize();
+        m_drives->move(area.left() + (area.width() - w) / 2, area.top() + 24);
+        m_drives->raise();
+    }
+}
+
+void FolderTreePanel::showDrives()
+{
+    m_driveList->clear();
+    const QString current = FolderTree::instance()->drive();
+    for (const FolderTree::Drive &d : FolderTree::drives()) {
+        auto *item = new QListWidgetItem(d.label, m_driveList);
+        item->setData(Qt::UserRole, d.root);
+        item->setData(Qt::UserRole + 1, d.path);
+        if (d.root == current)
+            m_driveList->setCurrentItem(item);
+    }
+    if (!m_driveList->currentItem() && m_driveList->count() > 0)
+        m_driveList->setCurrentRow(0);
+    m_drives->show();
+    placeOverlays();
+}
+
+void FolderTreePanel::hideDrives()
+{
+    if (m_drives)
+        m_drives->hide();
+}
+
+void FolderTreePanel::pickDrive()
+{
+    QListWidgetItem *item = m_driveList->currentItem();
+    hideDrives();
+    if (item)
+        FolderTree::instance()->setDrive(item->data(Qt::UserRole).toString());
+}
+
+bool FolderTreePanel::driveKey(QKeyEvent *ke)
+{
+    const Qt::KeyboardModifiers mods = ke->modifiers() & ~Qt::KeypadModifier;
+    const int k = ke->key();
+    const int row = m_driveList->currentRow(), count = m_driveList->count();
+    if (k == Qt::Key_Escape || (k == Qt::Key_D && mods == Qt::ControlModifier)) {
+        hideDrives();
+    } else if (k == Qt::Key_Return || k == Qt::Key_Enter || (k == Qt::Key_Down && mods == Qt::ControlModifier)) {
+        pickDrive();
+    } else if ((k == Qt::Key_Down || k == Qt::Key_Tab) && count > 0) {
+        m_driveList->setCurrentRow((row + 1) % count);
+    } else if ((k == Qt::Key_Up || k == Qt::Key_Backtab) && count > 0) {
+        m_driveList->setCurrentRow((row - 1 + count) % count);
+    } else if (k == Qt::Key_Home && count > 0) {
+        m_driveList->setCurrentRow(0);
+    } else if (k == Qt::Key_End && count > 0) {
+        m_driveList->setCurrentRow(count - 1);
+    } else if (const QString t = ke->text().trimmed(); t.size() == 1 && t.at(0).isLetterOrNumber() && count > 0) {
+        // A letter: the next drive whose name or path starts with it (D → D:).
+        for (int i = 1; i <= count; ++i) {
+            QListWidgetItem *item = m_driveList->item((row + i) % count);
+            if (item->text().startsWith(t, Qt::CaseInsensitive) || item->data(Qt::UserRole + 1).toString().startsWith(t, Qt::CaseInsensitive)) {
+                m_driveList->setCurrentItem(item);
+                break;
+            }
+        }
+    }
+    return true; // modal: nothing else reaches the panel meanwhile
 }
 
 bool FolderTreePanel::eventFilter(QObject *obj, QEvent *ev)
 {
-    if (obj != m_edit || ev->type() != QEvent::KeyPress)
+    if (obj != m_edit)
+        return QFrame::eventFilter(obj, ev);
+    const bool drives = m_drives->isVisible();
+    if (drives && ev->type() == QEvent::InputMethod)
+        return true; // nothing is typed into the query while the drive list is up
+    if (ev->type() != QEvent::KeyPress && ev->type() != QEvent::ShortcutOverride)
         return QFrame::eventFilter(obj, ev);
     auto *ke = static_cast<QKeyEvent *>(ev);
-    // ⇧Tab arrives as Backtab; the keys are given as Shift+Tab.
-    const bool backtab = ke->key() == Qt::Key_Backtab;
-    const QKeyEvent key(ke->type(), backtab ? Qt::Key_Tab : ke->key(), ke->modifiers() | (backtab ? Qt::ShiftModifier : Qt::NoModifier),
-                        ke->text());
-    const auto matches = [&key](const char *id) { return Shortcuts::instance()->matches(QString::fromUtf8(id), &key); };
-    if (matches("폴더 트리 닫기")) {
-        dismiss();
+    const Qt::KeyboardModifiers mods = ke->modifiers() & ~Qt::KeypadModifier;
+    const int k = ke->key();
+    if (ev->type() == QEvent::ShortcutOverride) {
+        // The panel's keys win over the menu's while it is open (⌘D is 복제, ⌘↓ 열기); every key while the drive list is up.
+        const bool ours = drives || (k == Qt::Key_D && mods == Qt::ControlModifier) || (k == Qt::Key_R && mods == Qt::ControlModifier)
+                          || (k == Qt::Key_Down && mods == Qt::ControlModifier) || (k == Qt::Key_C && mods == Qt::AltModifier);
+        if (ours)
+            ke->accept();
+        return ours;
+    }
+    if (drives)
+        return driveKey(ke);
+    if (k == Qt::Key_D && mods == Qt::ControlModifier) {
+        showDrives();
         return true;
     }
-    if (matches("폴더 트리에서 이동")) {
-        choose();
+    if (k == Qt::Key_Escape || ((k == Qt::Key_QuoteLeft || k == 0x20A9) && !(mods & ~Qt::ShiftModifier))) {
+        dismiss(); // Esc, ` (₩ on the Korean input source)
         return true;
     }
-    if (matches("폴더 트리 새로 읽기")) {
-        FolderTree::instance()->markStale(); // scans now (the panel is open); the old list stays meanwhile
+    if (((k == Qt::Key_Return || k == Qt::Key_Enter) && mods == Qt::NoModifier) || (k == Qt::Key_Down && mods == Qt::ControlModifier)) {
+        choose(); // Enter, ⌘↓
+        return true;
+    }
+    if (k == Qt::Key_Tab || k == Qt::Key_Backtab) {
+        step(k == Qt::Key_Backtab || (mods & Qt::ShiftModifier) ? -1 : 1);
+        return true;
+    }
+    if (k == Qt::Key_R && mods == Qt::ControlModifier) {
+        FolderTree::instance()->reindex(); // scans now; the old list stays meanwhile
         updateStatus();
         return true;
     }
-    if (matches("폴더 트리 대소문자 구분")) {
+    if (k == Qt::Key_C && mods == Qt::AltModifier) {
         m_case->toggle();
-        return true;
-    }
-    if (matches("폴더 트리 다음 일치") || matches("폴더 트리 이전 일치")) {
-        step(matches("폴더 트리 다음 일치") ? 1 : -1);
         return true;
     }
     const int here = m_model->nodeOf(m_view->currentIndex());

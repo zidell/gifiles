@@ -12,6 +12,8 @@ struct Gifiles {
     Q_DECLARE_TR_FUNCTIONS(Gifiles)
 };
 
+class QStorageInfo;
+
 namespace util {
 
 // Finder-style decimal sizes: "12 KB", "1.2 MB".
@@ -29,6 +31,8 @@ QString uniqueCopyName(const QString &dir, const QString &name, bool forceCopy);
 QString uniquePlainName(const QString &dir, const QString &name);
 
 bool isInside(const QString &child, const QString &parent);
+// A drive the user would pick (the sidebar's 위치, the folder tree's drive list): no system mounts.
+bool isUserVolume(const QStorageInfo &si);
 bool exists(const QString &path); // does not follow symlinks
 // Directories that should open with the system instead of being browsed (macOS bundles).
 bool isPackage(const QFileInfo &fi);

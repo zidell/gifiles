@@ -1677,34 +1677,6 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>Cancel Path Entry</translation>
     </message>
     <message>
-        <source>폴더 트리에서 이동</source>
-        <translation>Go to Folder in Tree</translation>
-    </message>
-    <message>
-        <source>폴더 트리 조작</source>
-        <translation>Folder Tree Keys</translation>
-    </message>
-    <message>
-        <source>폴더 트리 닫기</source>
-        <translation>Close Folder Tree</translation>
-    </message>
-    <message>
-        <source>폴더 트리 다음 일치</source>
-        <translation>Next Match in Folder Tree</translation>
-    </message>
-    <message>
-        <source>폴더 트리 이전 일치</source>
-        <translation>Previous Match in Folder Tree</translation>
-    </message>
-    <message>
-        <source>폴더 트리 대소문자 구분</source>
-        <translation>Match Case in Folder Tree</translation>
-    </message>
-    <message>
-        <source>폴더 트리 새로 읽기</source>
-        <translation>Refresh Folder Tree</translation>
-    </message>
-    <message>
         <source>퀵 뷰어 닫기</source>
         <translation>Close Quick Look</translation>
     </message>
@@ -2145,6 +2117,18 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>Can&apos;t read the update information.</translation>
     </message>
     <message>
+        <source>설정한 폴더</source>
+        <translation>Configured folders</translation>
+    </message>
+    <message>
+        <source>모든 드라이브</source>
+        <translation>All drives</translation>
+    </message>
+    <message>
+        <source>드라이브</source>
+        <translation>Drives</translation>
+    </message>
+    <message>
         <source>폴더 경로의 글자를 차례로 치면 바로 찾아갑니다 (예: sigif → Sites/gifiles)</source>
         <translation>Type letters of a folder path in order to jump there (e.g. sigif → Sites/gifiles)</translation>
     </message>
@@ -2173,16 +2157,20 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>match case</translation>
     </message>
     <message>
-        <source>새로 읽기</source>
-        <translation>refresh</translation>
+        <source>인덱싱</source>
+        <translation>Index</translation>
+    </message>
+    <message>
+        <source>인덱싱 중… %1개</source>
+        <translation>Indexing… %1</translation>
+    </message>
+    <message>
+        <source>인덱싱 중…</source>
+        <translation>Indexing…</translation>
     </message>
     <message>
         <source>닫기</source>
         <translation>close</translation>
-    </message>
-    <message>
-        <source>폴더 목록을 만드는 중… %1개</source>
-        <translation>Listing folders… %1</translation>
     </message>
     <message>
         <source>폴더 목록이 없습니다</source>
@@ -2195,10 +2183,6 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
     <message>
         <source>폴더 %1개</source>
         <translation>%1 folders</translation>
-    </message>
-    <message>
-        <source>새로 읽는 중</source>
-        <translation>refreshing</translation>
     </message>
 </context>
 </TS>

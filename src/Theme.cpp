@@ -217,6 +217,9 @@ QLabel#folderTreeKeys { color: {secondary}; padding: 4px 4px 2px 4px; }
 QToolButton#folderTreeCase { border: none; border-radius: 6px; padding: 4px 7px; color: {secondary}; font-weight: 600; }
 QToolButton#folderTreeCase:hover { background: {hover}; }
 QToolButton#folderTreeCase:checked { background: {accent}; color: {selText}; }
+QLabel#folderTreeBusy { background: {sidebarBg}; color: {secondary}; border: 1px solid {separator}; border-radius: 8px; padding: 8px 16px; }
+QFrame#folderTreeDrives { background: {sidebarBg}; border: 1px solid {separator}; border-radius: 10px; }
+QListWidget#folderTreeDriveList { background: transparent; border: none; }
 QHeaderView { background: {bg}; border: none; }
 QHeaderView::section { background: {bg}; color: {secondary}; border: none; border-bottom: 1px solid {separator}; padding: 6px 10px; font-weight: 500; }
 QHeaderView::section:hover { color: {text}; }

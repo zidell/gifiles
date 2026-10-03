@@ -52,20 +52,6 @@ QStringList Sidebar::defaultFavorites()
 
 namespace {
 
-bool isUserVolume(const QStorageInfo &si)
-{
-    if (!si.isValid() || !si.isReady())
-        return false;
-    const QString root = si.rootPath();
-#if defined(Q_OS_MACOS)
-    return root == QLatin1String("/") || root.startsWith(QLatin1String("/Volumes/"));
-#elif defined(Q_OS_WIN)
-    return true;
-#else
-    return root == QLatin1String("/") || root.startsWith(QLatin1String("/media/")) ||
-           root.startsWith(QLatin1String("/run/media/")) || root.startsWith(QLatin1String("/mnt/"));
-#endif
-}
 // Line glyph and Korean label for well-known folders (Finder-style tinted sidebar symbols).
 QPair<QString, QString> placeLook(const QString &path)
 {
@@ -223,7 +209,7 @@ void Sidebar::rebuild()
     m_locations = section(Gifiles::tr("위치"));
     m_volumeRoots.clear();
     for (const QStorageInfo &si : QStorageInfo::mountedVolumes()) {
-        if (!isUserVolume(si))
+        if (!util::isUserVolume(si))
             continue;
         QString label = si.displayName();
         if (label.isEmpty() || label == si.rootPath())
@@ -243,7 +229,7 @@ void Sidebar::refreshVolumes()
 {
     QStringList roots;
     for (const QStorageInfo &si : QStorageInfo::mountedVolumes())
-        if (isUserVolume(si))
+        if (util::isUserVolume(si))
             roots << si.rootPath();
     if (roots != m_volumeRoots)
         rebuild();

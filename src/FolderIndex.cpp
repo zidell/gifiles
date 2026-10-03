@@ -22,7 +22,7 @@
 namespace {
 
 constexpr quint32 kMagic = 0x47465431; // "GFT1"
-constexpr quint32 kFormat = 1;
+constexpr quint32 kFormat = 2; // 2: + the file system's event id and journal (FSEvents)
 
 #if defined(Q_OS_MACOS) || defined(Q_OS_WIN)
 constexpr Qt::CaseSensitivity kPathCase = Qt::CaseInsensitive;
@@ -186,54 +186,131 @@ QStringList FolderIndex::foreignMounts()
     return out;
 }
 
-FolderIndex FolderIndex::scan(const Options &options, std::atomic<int> *progress, const std::atomic<bool> *cancel)
+namespace {
+
+QStringList cleanRoots(const FolderIndex::Options &options)
 {
-    FolderIndex idx;
     QStringList roots;
     for (const QString &r : options.roots)
         if (!r.trimmed().isEmpty())
             roots << cleanRoot(r.trimmed());
     roots.removeDuplicates();
+    return roots;
+}
+
+QStringList mountsToSkip(const QStringList &roots)
+{
     QStringList mounts;
-    for (const QString &m : foreignMounts()) // a root that is itself such a mount stays
+    for (const QString &m : FolderIndex::foreignMounts()) // a root that is itself such a mount stays
         if (!roots.contains(cleanRoot(m), kPathCase))
             mounts << m;
-    const Rules rules(options, mounts);
+    return mounts;
+}
 
-    auto add = [&idx](int parent, const QString &name, int depth) {
-        const QByteArray u = name.toUtf8(), f = fold(name).toUtf8();
-        idx.m_nodes.push_back(Node{parent, 0, 0, quint32(idx.m_names.size()), quint32(idx.m_folded.size()),
-                                   quint16(qMin<qsizetype>(u.size(), 0xFFFF)), quint16(qMin<qsizetype>(f.size(), 0xFFFF)),
-                                   quint16(qMin(depth, 0xFFFF))});
-        idx.m_names += u.left(0xFFFF);
-        idx.m_folded += f.left(0xFFFF);
-    };
-    for (const QString &r : roots)
-        add(-1, r, 0);
+// The subfolders of `dir` the index keeps, in natural order.
+void listKept(const QString &dir, const Rules &rules, QStringList &kids)
+{
+    kids.clear();
+    listFolders(dir, kids);
+    kids.erase(std::remove_if(kids.begin(), kids.end(), [&](const QString &k) { return rules.excluded(k, join(dir, k)); }), kids.end());
+    std::sort(kids.begin(), kids.end(), [](const QString &a, const QString &b) { return util::naturalCompare(a, b) < 0; });
+}
+
+} // namespace
+
+void FolderIndex::append(int parent, const QString &name, int depth)
+{
+    const QByteArray u = name.toUtf8().left(0xFFFF), f = fold(name).toUtf8().left(0xFFFF);
+    appendRaw(parent, u, f, depth);
+}
+
+void FolderIndex::appendRaw(int parent, QByteArrayView name, QByteArrayView folded, int depth)
+{
+    m_nodes.push_back(Node{parent, 0, 0, quint32(m_names.size()), quint32(m_folded.size()), quint16(name.size()),
+                           quint16(folded.size()), quint16(qMin(depth, 0xFFFF))});
+    m_names += name;
+    m_folded += folded;
+}
+
+FolderIndex FolderIndex::scan(const Options &options, std::atomic<int> *progress, const std::atomic<bool> *cancel)
+{
+    return update(FolderIndex(), options, {}, {}, progress, cancel);
+}
+
+FolderIndex FolderIndex::update(const FolderIndex &old, const Options &options, const QStringList &changed,
+                                const QStringList &deep, std::atomic<int> *progress, const std::atomic<bool> *cancel,
+                                bool *differs)
+{
+    FolderIndex idx;
+    const QStringList roots = cleanRoots(options);
+    const Rules rules(options, mountsToSkip(roots));
+    bool same = old.m_roots == int(roots.size());
+    for (int r = 0; same && r < old.m_roots; ++r)
+        same = foldPath(old.name(r)) == foldPath(roots[r]);
+    // What to read again: 1 = the folder's own list, 2 = everything inside it too. Without the old
+    // index (or with other roots) everything is read: a full scan.
+    std::vector<char> relist(same ? size_t(old.size()) : 0, 0);
+    for (const QString &p : changed)
+        if (const int n = old.find(p); same && n >= 0)
+            relist[size_t(n)] = qMax<char>(relist[size_t(n)], 1);
+    for (const QString &p : deep)
+        if (const int n = old.findNearest(p); same && n >= 0)
+            relist[size_t(n)] = 2;
+    std::vector<int> from; // new node -> the same folder in `old`, -1 for a new one
+    std::vector<char> deepHere;
+    for (const QString &r : roots) {
+        idx.append(-1, r, 0);
+        from.push_back(same ? int(from.size()) : -1);
+        deepHere.push_back(0);
+    }
     idx.m_roots = int(roots.size());
+    bool changedAny = !same;
 
     // Breadth first: each folder's children are appended together, so they stay consecutive.
     QStringList kids;
     for (size_t i = 0; i < idx.m_nodes.size(); ++i) {
         if (cancel && cancel->load(std::memory_order_relaxed))
             return {};
-        const QString dir = idx.path(int(i));
-        kids.clear();
-        listFolders(dir, kids);
-        kids.erase(std::remove_if(kids.begin(), kids.end(), [&](const QString &k) { return rules.excluded(k, join(dir, k)); }),
-                   kids.end());
-        std::sort(kids.begin(), kids.end(), [](const QString &a, const QString &b) { return util::naturalCompare(a, b) < 0; });
+        const int o = from[i];
+        const bool d = deepHere[i] || (o >= 0 && relist[size_t(o)] == 2);
         const int depth = idx.m_nodes[i].depth + 1;
         idx.m_nodes[i].first = qint32(idx.m_nodes.size());
-        idx.m_nodes[i].count = qint32(kids.size());
-        for (const QString &k : kids)
-            add(int(i), k, depth);
+        if (o >= 0 && !d && !relist[size_t(o)]) { // unchanged: the old list as it was
+            const Node &on = old.m_nodes[size_t(o)];
+            idx.m_nodes[i].count = on.count;
+            for (int c = on.first; c < on.first + on.count; ++c) {
+                idx.appendRaw(int(i), old.raw(c), old.folded(c), depth);
+                from.push_back(c);
+                deepHere.push_back(0);
+            }
+        } else {
+            const QString dir = idx.path(int(i));
+            listKept(dir, rules, kids);
+            idx.m_nodes[i].count = qint32(kids.size());
+            QHash<QByteArrayView, int> before; // the old subfolders by folded name
+            if (o >= 0) {
+                const Node &on = old.m_nodes[size_t(o)];
+                changedAny = changedAny || on.count != int(kids.size());
+                for (int c = on.first; c < on.first + on.count; ++c)
+                    before.insert(old.folded(c), c);
+            }
+            for (const QString &k : kids) {
+                idx.append(int(i), k, depth);
+                const int c = before.value(idx.folded(int(idx.m_nodes.size()) - 1), -1);
+                if (o >= 0 && c < 0)
+                    changedAny = true;
+                from.push_back(c);
+                deepHere.push_back(d);
+            }
+        }
         if (progress)
             progress->store(int(idx.m_nodes.size()), std::memory_order_relaxed);
     }
     idx.m_nodes.shrink_to_fit();
     idx.m_names.squeeze();
     idx.m_folded.squeeze();
+    if (differs)
+        *differs = changedAny;
     return idx;
 }
 
@@ -407,7 +484,7 @@ FolderIndex::Matches FolderIndex::match(const QString &query, const QHash<int, i
     return out;
 }
 
-bool FolderIndex::save(const QString &file, const QString &key, qint64 scannedAt) const
+bool FolderIndex::save(const QString &file, const QString &key, qint64 scannedAt, const Journal &journal) const
 {
     QDir().mkpath(QFileInfo(file).absolutePath());
     QSaveFile f(file);
@@ -415,12 +492,12 @@ bool FolderIndex::save(const QString &file, const QString &key, qint64 scannedAt
         return false;
     QDataStream s(&f);
     s.setVersion(QDataStream::Qt_6_5);
-    s << kMagic << kFormat << key << scannedAt << qint32(m_roots) << quint64(m_nodes.size()) << m_names << m_folded;
+    s << kMagic << kFormat << key << scannedAt << journal.eventId << journal.id << qint32(m_roots) << quint64(m_nodes.size()) << m_names << m_folded;
     s.writeRawData(reinterpret_cast<const char *>(m_nodes.data()), qsizetype(m_nodes.size() * sizeof(Node)));
     return s.status() == QDataStream::Ok && f.commit();
 }
 
-bool FolderIndex::load(const QString &file, const QString &key, FolderIndex &out, qint64 *scannedAt)
+bool FolderIndex::load(const QString &file, const QString &key, FolderIndex &out, qint64 *scannedAt, Journal *journal)
 {
     QFile f(file);
     if (!f.open(QIODevice::ReadOnly))
@@ -435,7 +512,8 @@ bool FolderIndex::load(const QString &file, const QString &key, FolderIndex &out
     s >> magic >> format;
     if (magic != kMagic || format != kFormat)
         return false;
-    s >> storedKey >> at >> roots >> count;
+    Journal j;
+    s >> storedKey >> at >> j.eventId >> j.id >> roots >> count;
     if (s.status() != QDataStream::Ok || storedKey != key || count > 50'000'000 || roots < 0 || quint64(roots) > count)
         return false;
     FolderIndex idx;
@@ -455,5 +533,7 @@ bool FolderIndex::load(const QString &file, const QString &key, FolderIndex &out
     out = std::move(idx);
     if (scannedAt)
         *scannedAt = at;
+    if (journal)
+        *journal = j;
     return true;
 }

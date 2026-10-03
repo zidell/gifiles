@@ -1676,34 +1676,6 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>パス入力をキャンセル</translation>
     </message>
     <message>
-        <source>폴더 트리에서 이동</source>
-        <translation>ツリーのフォルダへ移動</translation>
-    </message>
-    <message>
-        <source>폴더 트리 조작</source>
-        <translation>フォルダツリーのキー</translation>
-    </message>
-    <message>
-        <source>폴더 트리 닫기</source>
-        <translation>フォルダツリーを閉じる</translation>
-    </message>
-    <message>
-        <source>폴더 트리 다음 일치</source>
-        <translation>フォルダツリーの次の一致</translation>
-    </message>
-    <message>
-        <source>폴더 트리 이전 일치</source>
-        <translation>フォルダツリーの前の一致</translation>
-    </message>
-    <message>
-        <source>폴더 트리 대소문자 구분</source>
-        <translation>フォルダツリーで大文字と小文字を区別</translation>
-    </message>
-    <message>
-        <source>폴더 트리 새로 읽기</source>
-        <translation>フォルダツリーを読み直す</translation>
-    </message>
-    <message>
         <source>퀵 뷰어 닫기</source>
         <translation>クイックルックを閉じる</translation>
     </message>
@@ -2144,6 +2116,18 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>アップデート情報を読めません。</translation>
     </message>
     <message>
+        <source>설정한 폴더</source>
+        <translation>設定したフォルダ</translation>
+    </message>
+    <message>
+        <source>모든 드라이브</source>
+        <translation>すべてのドライブ</translation>
+    </message>
+    <message>
+        <source>드라이브</source>
+        <translation>ドライブ</translation>
+    </message>
+    <message>
         <source>폴더 경로의 글자를 차례로 치면 바로 찾아갑니다 (예: sigif → Sites/gifiles)</source>
         <translation>フォルダのパスの文字を順に入力するとすぐ移動します (例: sigif → Sites/gifiles)</translation>
     </message>
@@ -2172,16 +2156,20 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>大文字と小文字を区別</translation>
     </message>
     <message>
-        <source>새로 읽기</source>
-        <translation>読み直す</translation>
+        <source>인덱싱</source>
+        <translation>インデックス作成</translation>
+    </message>
+    <message>
+        <source>인덱싱 중… %1개</source>
+        <translation>インデックス作成中… %1 件</translation>
+    </message>
+    <message>
+        <source>인덱싱 중…</source>
+        <translation>インデックス作成中…</translation>
     </message>
     <message>
         <source>닫기</source>
         <translation>閉じる</translation>
-    </message>
-    <message>
-        <source>폴더 목록을 만드는 중… %1개</source>
-        <translation>フォルダ一覧を作成中… %1 個</translation>
     </message>
     <message>
         <source>폴더 목록이 없습니다</source>
@@ -2194,10 +2182,6 @@ command 内のプレースホルダは実行時に置き換えられます (各�
     <message>
         <source>폴더 %1개</source>
         <translation>%1 個のフォルダ</translation>
-    </message>
-    <message>
-        <source>새로 읽는 중</source>
-        <translation>読み直し中</translation>
     </message>
 </context>
 </TS>
