@@ -13,7 +13,6 @@
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QHBoxLayout>
-#include <QHeaderView>
 #include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QLabel>
@@ -22,7 +21,9 @@
 #include <QSignalBlocker>
 #include <QStandardPaths>
 #include <QThread>
-#include <QTreeView>
+#include <QListView>
+#include <QPainter>
+#include <QStyledItemDelegate>
 #include <QVBoxLayout>
 #include <QtConcurrent/QtConcurrentRun>
 
@@ -323,62 +324,115 @@ void FolderTreeModel::setIndex(std::shared_ptr<const FolderIndex> index)
 {
     beginResetModel();
     m_index = std::move(index);
+    m_order.clear();
+    m_rowOf.clear();
+    if (m_index) {
+        // Depth first: each folder followed by everything inside it.
+        m_order.reserve(size_t(m_index->size()));
+        m_rowOf.assign(size_t(m_index->size()), -1);
+        std::vector<int> stack;
+        for (int r = m_index->rootCount() - 1; r >= 0; --r)
+            stack.push_back(r);
+        while (!stack.empty()) {
+            const int n = stack.back();
+            stack.pop_back();
+            m_rowOf[size_t(n)] = int(m_order.size());
+            m_order.push_back(n);
+            for (int c = m_index->firstChild(n) + m_index->childCount(n) - 1; c >= m_index->firstChild(n); --c)
+                stack.push_back(c);
+        }
+    }
     endResetModel();
 }
 
 QModelIndex FolderTreeModel::indexOf(int node) const
 {
-    if (!m_index || node < 0 || node >= m_index->size())
-        return {};
-    const int p = m_index->parent(node);
-    return createIndex(node - (p < 0 ? 0 : m_index->firstChild(p)), 0, quintptr(node));
+    return node >= 0 && size_t(node) < m_rowOf.size() ? index(m_rowOf[size_t(node)]) : QModelIndex();
 }
 
-QModelIndex FolderTreeModel::index(int row, int column, const QModelIndex &parent) const
-{
-    if (!m_index || column != 0 || row < 0)
-        return {};
-    const int p = nodeOf(parent);
-    const int base = p < 0 ? 0 : m_index->firstChild(p), count = p < 0 ? m_index->rootCount() : m_index->childCount(p);
-    return row < count ? createIndex(row, 0, quintptr(base + row)) : QModelIndex();
-}
-
-QModelIndex FolderTreeModel::parent(const QModelIndex &child) const
-{
-    return m_index && child.isValid() ? indexOf(m_index->parent(nodeOf(child))) : QModelIndex();
-}
-
-int FolderTreeModel::rowCount(const QModelIndex &parent) const
-{
-    if (!m_index || parent.column() > 0)
-        return 0;
-    return parent.isValid() ? m_index->childCount(nodeOf(parent)) : m_index->rootCount();
-}
-
-bool FolderTreeModel::hasChildren(const QModelIndex &parent) const { return rowCount(parent) > 0; }
+int FolderTreeModel::rowCount(const QModelIndex &parent) const { return parent.isValid() ? 0 : int(m_order.size()); }
 
 QVariant FolderTreeModel::data(const QModelIndex &index, int role) const
 {
-    if (!m_index || !index.isValid())
-        return {};
     const int n = nodeOf(index);
-    switch (role) {
-    case Qt::DisplayRole:
-        return n < m_index->rootCount() ? QDir::toNativeSeparators(m_index->name(n)) : m_index->name(n);
-    case Qt::ToolTipRole:
-        return QDir::toNativeSeparators(m_index->path(n));
-    case Qt::DecorationRole: {
-        static QHash<QRgb, QIcon> icons; // per theme
-        const QColor c = Theme::colors().secondary;
-        auto it = icons.find(c.rgba());
-        if (it == icons.end())
-            it = icons.insert(c.rgba(), Theme::icon(QStringLiteral("folder"), c, 16));
-        return *it;
-    }
-    default:
+    if (n < 0)
         return {};
-    }
+    if (role == Qt::DisplayRole)
+        return n < m_index->rootCount() ? QDir::toNativeSeparators(m_index->name(n)) : m_index->name(n);
+    if (role == Qt::ToolTipRole)
+        return QDir::toNativeSeparators(m_index->path(n));
+    return {};
 }
+
+namespace {
+
+// Indentation, NCD-like tree lines, a folder glyph and the name.
+class FolderTreeDelegate : public QStyledItemDelegate {
+public:
+    FolderTreeDelegate(FolderTreeModel *model, QObject *parent) : QStyledItemDelegate(parent), m_model(model) {}
+
+    static constexpr int kIndent = 18, kRow = 22, kPad = 8;
+
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &) const override
+    {
+        return QSize(200, qMax(kRow, option.fontMetrics.height() + 6));
+    }
+
+    void paint(QPainter *p, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        const FolderIndex *f = m_model->folders();
+        const int n = m_model->nodeOf(index);
+        if (!f || n < 0)
+            return;
+        const Theme::Colors &c = Theme::colors();
+        const QRect r = option.rect;
+        const bool selected = option.state & QStyle::State_Selected;
+        p->save();
+        p->setRenderHint(QPainter::Antialiasing);
+        if (selected || (option.state & QStyle::State_MouseOver)) {
+            p->setPen(Qt::NoPen);
+            p->setBrush(selected ? c.selection : c.hover);
+            p->drawRoundedRect(r.adjusted(2, 0, -2, -1), 5, 5);
+        }
+        auto isLast = [f](int node) {
+            const int parent = f->parent(node);
+            return parent < 0 ? node == f->rootCount() - 1 : node == f->firstChild(parent) + f->childCount(parent) - 1;
+        };
+        // Lines: one per open ancestor level, then this folder's own branch.
+        const int depth = f->depth(n);
+        p->setRenderHint(QPainter::Antialiasing, false);
+        p->setPen(QPen(selected ? c.selText : c.tertiary, 1));
+        const int midY = r.center().y();
+        auto levelX = [&](int level) { return r.left() + kPad + level * kIndent + kIndent / 2; };
+        int a = n;
+        for (int level = depth - 1; level >= 0; --level) {
+            const int child = a; // the node at depth level + 1 on the way up
+            a = f->parent(a);
+            const int x = levelX(level);
+            if (level == depth - 1) {
+                p->drawLine(x, r.top(), x, isLast(child) ? midY : r.bottom());
+                p->drawLine(x, midY, x + kIndent / 2 + 1, midY);
+            } else if (!isLast(child)) {
+                p->drawLine(x, r.top(), x, r.bottom());
+            }
+        }
+        p->setRenderHint(QPainter::Antialiasing);
+        const int iconX = r.left() + kPad + depth * kIndent + 2;
+        const QColor iconColor = selected ? c.selText : c.secondary;
+        Theme::icon(QStringLiteral("folder"), iconColor, 16).paint(p, QRect(iconX, midY - 8, 16, 16));
+        const QRect textRect(iconX + 22, r.top(), r.right() - iconX - 26, r.height());
+        p->setPen(selected ? c.selText : c.text);
+        p->setFont(option.font);
+        p->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft,
+                    option.fontMetrics.elidedText(index.data().toString(), Qt::ElideMiddle, textRect.width()));
+        p->restore();
+    }
+
+private:
+    FolderTreeModel *m_model;
+};
+
+} // namespace
 
 // ---------------------------------------------------------------------------
 // FolderTreePanel
@@ -412,22 +466,21 @@ FolderTreePanel::FolderTreePanel(QWidget *parent) : QFrame(parent)
     row->addWidget(m_status);
     l->addLayout(row);
 
-    m_tree = new QTreeView(this);
-    m_tree->setObjectName(QStringLiteral("folderTree"));
-    m_tree->setHeaderHidden(true);
-    m_tree->setUniformRowHeights(true);
-    m_tree->setAnimated(false);
-    m_tree->setExpandsOnDoubleClick(false);
-    m_tree->setFocusPolicy(Qt::NoFocus); // the keyboard stays in the query line
-    m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_tree->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_tree->setFrameShape(QFrame::NoFrame);
+    m_view = new QListView(this);
+    m_view->setObjectName(QStringLiteral("folderTree"));
+    m_view->setUniformItemSizes(true); // 100 000+ rows: only the visible ones are measured
+    m_view->setFocusPolicy(Qt::NoFocus); // the keyboard stays in the query line
+    m_view->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_view->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_view->setFrameShape(QFrame::NoFrame);
+    m_view->setMouseTracking(true);
     m_model = new FolderTreeModel(this);
-    m_tree->setModel(m_model);
-    l->addWidget(m_tree, 1);
+    m_view->setModel(m_model);
+    m_view->setItemDelegate(new FolderTreeDelegate(m_model, m_view));
+    l->addWidget(m_view, 1);
 
-    connect(m_tree, &QTreeView::doubleClicked, this, [this](const QModelIndex &i) {
-        m_tree->setCurrentIndex(i);
+    connect(m_view, &QListView::doubleClicked, this, [this](const QModelIndex &i) {
+        m_view->setCurrentIndex(i);
         choose();
     });
     connect(m_edit, &QLineEdit::textChanged, this, [this](const QString &text) {
@@ -439,6 +492,7 @@ FolderTreePanel::FolderTreePanel(QWidget *parent) : QFrame(parent)
                 t.remove(QLatin1Char('`')).remove(QChar(0x20A9));
                 QSignalBlocker block(m_edit);
                 m_edit->setText(t);
+                m_imeClosed.start();
                 return dismiss();
             }
         }
@@ -481,7 +535,6 @@ void FolderTreePanel::dismiss()
     if (isHidden())
         return;
     hide();
-    m_autoExpanded.clear();
     m_matches = {};
     m_model->setIndex(nullptr);
     m_index.reset();
@@ -491,7 +544,7 @@ void FolderTreePanel::dismiss()
 
 QString FolderTreePanel::currentPath() const
 {
-    const int n = m_model->nodeOf(m_tree->currentIndex());
+    const int n = m_model->nodeOf(m_view->currentIndex());
     return m_index && n >= 0 ? m_index->path(n) : QString();
 }
 
@@ -500,17 +553,9 @@ void FolderTreePanel::takeIndex()
     const QString keep = currentPath().isEmpty() ? m_current : currentPath();
     m_index = FolderTree::instance()->index();
     m_boost = FolderTree::instance()->boost();
-    m_autoExpanded.clear();
     m_model->setIndex(m_index);
     if (m_index) {
-        // Open on the folder the browser shows (or its closest indexed parent), its parents unfolded.
-        const QModelIndex at = m_model->indexOf(m_index->findNearest(keep));
-        for (QModelIndex p = at.parent(); p.isValid(); p = p.parent())
-            m_tree->expand(p);
-        if (at.isValid()) {
-            m_tree->setCurrentIndex(at);
-            m_tree->scrollTo(at, QAbstractItemView::PositionAtCenter);
-        }
+        moveTo(m_index->findNearest(keep)); // the folder the browser shows, or its closest indexed parent
         runQuery(false);
     }
     updateStatus();
@@ -525,7 +570,7 @@ void FolderTreePanel::runQuery(bool jump)
         return updateStatus();
     }
     m_matches = m_index->match(q, m_boost);
-    const int here = m_model->nodeOf(m_tree->currentIndex());
+    const int here = m_model->nodeOf(m_view->currentIndex());
     const auto it = std::find(m_matches.best.begin(), m_matches.best.end(), here);
     m_matchPos = jump ? (m_matches.best.empty() ? -1 : 0) : (it == m_matches.best.end() ? -1 : int(it - m_matches.best.begin()));
     if (jump && m_matchPos == 0)
@@ -533,24 +578,16 @@ void FolderTreePanel::runQuery(bool jump)
     updateStatus();
 }
 
-void FolderTreePanel::jumpTo(int node)
+void FolderTreePanel::moveTo(int node)
 {
-    for (const QPersistentModelIndex &i : std::as_const(m_autoExpanded))
-        if (i.isValid())
-            m_tree->collapse(i);
-    m_autoExpanded.clear();
-    const QModelIndex target = m_model->indexOf(node);
-    QList<QModelIndex> chain;
-    for (QModelIndex p = target.parent(); p.isValid(); p = p.parent())
-        chain.prepend(p);
-    for (const QModelIndex &p : chain)
-        if (!m_tree->isExpanded(p)) {
-            m_tree->expand(p);
-            m_autoExpanded << p;
-        }
-    m_tree->setCurrentIndex(target);
-    m_tree->scrollTo(target, QAbstractItemView::PositionAtCenter);
+    const QModelIndex at = m_model->indexOf(node);
+    if (!at.isValid())
+        return;
+    m_view->setCurrentIndex(at);
+    m_view->scrollTo(at, QAbstractItemView::PositionAtCenter);
 }
+
+void FolderTreePanel::jumpTo(int node) { moveTo(node); }
 
 void FolderTreePanel::step(int delta)
 {
@@ -611,16 +648,23 @@ bool FolderTreePanel::eventFilter(QObject *obj, QEvent *ev)
         step(matches("폴더 트리 다음 일치") ? 1 : -1);
         return true;
     }
-    switch (ke->key()) { // the arrows walk the tree (← / → fold and unfold)
+    const int here = m_model->nodeOf(m_view->currentIndex());
+    switch (ke->key()) {
+    case Qt::Key_Left: // NCD: ← to the parent, → into the first subfolder
+        if (m_index && here >= 0 && m_index->parent(here) >= 0)
+            moveTo(m_index->parent(here));
+        return true;
+    case Qt::Key_Right:
+        if (m_index && here >= 0 && m_index->childCount(here) > 0)
+            moveTo(m_index->firstChild(here));
+        return true;
     case Qt::Key_Up:
     case Qt::Key_Down:
-    case Qt::Key_Left:
-    case Qt::Key_Right:
     case Qt::Key_PageUp:
     case Qt::Key_PageDown:
     case Qt::Key_Home:
     case Qt::Key_End:
-        QCoreApplication::sendEvent(m_tree, ke);
+        QCoreApplication::sendEvent(m_view, ke);
         return true;
     default:
         return false;

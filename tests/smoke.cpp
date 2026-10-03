@@ -3550,6 +3550,12 @@ private slots:
         QTest::keyClick(panel->queryEdit(), Qt::Key_Up); // the arrows walk the tree
         QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one"))));
         QCOMPARE(QApplication::focusWidget(), panel->queryEdit());
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Right); // NCD: → into the first subfolder, ← to the parent
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one/target"))));
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Left);
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one"))));
+        // Always fully unfolded: every folder is a row.
+        QCOMPARE(panel->view()->model()->rowCount(), 6);
         QTest::keyClick(panel->queryEdit(), Qt::Key_Return);
         QVERIFY(!panel->isVisible());
         QTRY_COMPARE(norm(tab()->path()), norm(p(QStringLiteral("tree/one"))));
@@ -3574,6 +3580,18 @@ private slots:
         panel->queryEdit()->insert(QString(QChar(0x20A9))); // what an input method commits
         QVERIFY(!panel->isVisible());
         QVERIFY(!panel->queryEdit()->text().contains(QChar(0x20A9)));
+        QTest::keyClick(focus(), '`'); // the same key then reaches the file view: stays closed
+        QVERIFY(!panel->isVisible());
+        QTest::qWait(350);
+
+        // From the sidebar too.
+        if (auto *sidebar = m_win->findChild<Sidebar *>(); sidebar && sidebar->isVisible()) {
+            sidebar->setFocus();
+            QTest::keyClick(sidebar, '`');
+            QTRY_VERIFY(panel->isVisible());
+            QTest::keyClick(panel->queryEdit(), Qt::Key_Escape);
+            QVERIFY(!panel->isVisible());
+        }
 
         // A folder made in the app shows up the next time.
         QTRY_VERIFY(tab()->isAncestorOf(QApplication::focusWidget()));

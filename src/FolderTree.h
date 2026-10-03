@@ -2,20 +2,21 @@
 
 #include "FolderIndex.h"
 
-#include <QAbstractItemModel>
+#include <QAbstractListModel>
+#include <QElapsedTimer>
 #include <QFrame>
 #include <QHash>
 #include <QLineEdit>
-#include <QPersistentModelIndex>
 #include <QTimer>
 
 #include <memory>
 
 class QLabel;
-class QTreeView;
+class QListView;
 
 // The NCD-style folder tree (` in the file views): every folder of the drive in a tree; typing
 // jumps to the best match, Tab / ⇧Tab to the next ones, arrows walk the tree, Return goes there.
+// The tree is always fully unfolded, like Norton's NCD.
 //
 // FolderTree keeps the index: loaded from the cache file while a panel is open (freed two minutes
 // after the last one closes), rescanned in the background when it is old, when a file operation
@@ -64,23 +65,24 @@ private:
     QHash<QString, int> m_visits;
 };
 
-// The tree over a FolderIndex: one column, created lazily by the view (only the visible rows).
-class FolderTreeModel : public QAbstractItemModel {
+// Every folder of a FolderIndex as one fully unfolded tree (NCD): a flat list in depth-first order,
+// so any match is one row away; FolderTreeDelegate draws the indentation and the tree lines.
+class FolderTreeModel : public QAbstractListModel {
 public:
-    using QAbstractItemModel::QAbstractItemModel;
+    using QAbstractListModel::QAbstractListModel;
     void setIndex(std::shared_ptr<const FolderIndex> index);
+    const FolderIndex *folders() const { return m_index.get(); }
     QModelIndex indexOf(int node) const;
-    int nodeOf(const QModelIndex &index) const { return index.isValid() ? int(index.internalId()) : -1; }
-
-    QModelIndex index(int row, int column, const QModelIndex &parent = {}) const override;
-    QModelIndex parent(const QModelIndex &child) const override;
+    int nodeOf(const QModelIndex &index) const
+    {
+        return index.isValid() && size_t(index.row()) < m_order.size() ? m_order[size_t(index.row())] : -1;
+    }
     int rowCount(const QModelIndex &parent = {}) const override;
-    int columnCount(const QModelIndex &) const override { return 1; }
-    bool hasChildren(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role) const override;
 
 private:
     std::shared_ptr<const FolderIndex> m_index;
+    std::vector<int> m_order, m_rowOf; // row -> node, node -> row
 };
 
 // The query line: its text plus what the input method is still composing (Korean), so a match
@@ -108,7 +110,10 @@ public:
     void open(const QString &current);
     void dismiss();
     QString currentPath() const; // the folder under the cursor
-    QTreeView *tree() const { return m_tree; }
+    QListView *view() const { return m_view; }
+    // Just closed by ` typed through an input method: the same key then reaches the file view,
+    // which must not open the panel again.
+    bool justDismissed() const { return m_imeClosed.isValid() && m_imeClosed.elapsed() < 300; }
     FolderTreeQuery *queryEdit() const { return m_edit; }
 
 signals:
@@ -122,12 +127,13 @@ private:
     void takeIndex();
     void runQuery(bool jump);
     void jumpTo(int node);
+    void moveTo(int node); // the cursor, without touching the matches
     void step(int delta);
     void choose();
     void updateStatus();
 
     FolderTreeQuery *m_edit;
-    QTreeView *m_tree;
+    QListView *m_view;
     FolderTreeModel *m_model;
     QLabel *m_status;
     std::shared_ptr<const FolderIndex> m_index;
@@ -135,5 +141,5 @@ private:
     FolderIndex::Matches m_matches;
     int m_matchPos = -1;
     QString m_current;
-    QList<QPersistentModelIndex> m_autoExpanded; // opened to show a match; closed again on the next
+    QElapsedTimer m_imeClosed;
 };

@@ -624,3 +624,12 @@ shortcuts in `../README.md`. Dates are 2026.
   browser has opened them once (`folderTree/granted`).
 - Not tried by hand yet: the panel in the user's live app with the whole drive, Windows (fixed
   drives via `GetDriveTypeW`, junctions skipped) and Linux.
+- First look by the user: they wanted NCD's tree as it was, always fully unfolded, a match anywhere
+  one jump away. The panel is now a flat list in depth-first order (`FolderTreeModel`, rows
+  computed once per index, ~1 MB for 115 000 folders) with the indentation and tree lines drawn by
+  a delegate; ← goes to the parent, → to the first subfolder.
+- ` with the Korean input source didn't work, found in the debug log: (1) it was pressed in the
+  sidebar, and the action was only on the file views — the sidebar has it now; (2) to close, the
+  input method commits ₩ into the query line, the panel closes, and the same key then reaches the
+  file view and opened it again in the same millisecond — a close by typed ` / ₩ now ignores a
+  reopen within 300 ms (`FolderTreePanel::justDismissed`).

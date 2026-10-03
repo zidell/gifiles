@@ -481,6 +481,7 @@ void MainWindow::createActions()
     m_up = act(QStringLiteral("상위 폴더"), [this] { tab()->goUp(); });
     m_gotoAct = act(QStringLiteral("폴더로 이동…"), [this] { m_pathBar->startEditing(); });
     m_folderTreeAct = act(QStringLiteral("폴더 트리"), &MainWindow::toggleFolderTree);
+    m_sidebar->addAction(m_folderTreeAct); // from the sidebar too (the file views get it in connectTab)
 
     auto place = [this](const QString &name, QStandardPaths::StandardLocation loc) {
         const QString p = QStandardPaths::writableLocation(loc);
@@ -730,6 +731,8 @@ void MainWindow::toggleFolderTree()
 {
     if (m_folderTree && m_folderTree->isVisible())
         return m_folderTree->dismiss();
+    if (m_folderTree && m_folderTree->justDismissed())
+        return;
     if (!m_folderTree) {
         m_folderTree = new FolderTreePanel(this);
         m_tabs->installEventFilter(this); // it follows the file views' size
