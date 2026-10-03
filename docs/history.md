@@ -556,6 +556,10 @@ shortcuts in `../README.md`. Dates are 2026.
   menu painted over it and "선택한 항목들로…" open. For the terminal shots the demo `.zshrc` lists the
   folder with `ls -lhgo` (no owner/group) and clears on `chpwd`, so the cd Gifiles types (with the
   scratch path) isn't left on screen; the demo root is named `Macintosh HD`.
+- Quick Look alone said nothing about what it is, so `GIFILES_SNAPSHOT_QUICKLOOK` also saves
+  `quick-look-window.png`: the browser window's grab with the Quick Look window (screencapture -l)
+  painted where it opened. Shot on the selected first photo with `preview.quick_look_scale = 25`
+  in the demo config so the panel stays small, as Space shows it in Finder.
 
 ## Windows uses the Mac keys too (2026-10-03)
 

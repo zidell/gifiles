@@ -357,6 +357,16 @@ int main(int argc, char *argv[])
                 QProcess::execute(QStringLiteral("/usr/sbin/screencapture"),
                                   {QStringLiteral("-x"), QStringLiteral("-o"), QStringLiteral("-l%1").arg(macWindowNumber(ql)),
                                    QDir(dir).filePath(QStringLiteral("quick-look.png"))});
+                // The same Quick Look over the browser window, where it opened (quick-look-window.png).
+                QPixmap shot = w->grab();
+                QPixmap panel(QDir(dir).filePath(QStringLiteral("quick-look.png")));
+                if (!panel.isNull()) {
+                    panel.setDevicePixelRatio(shot.devicePixelRatio());
+                    QPainter painter(&shot);
+                    painter.drawPixmap(w->mapFromGlobal(ql->frameGeometry().topLeft()), panel);
+                    painter.end();
+                    shot.save(QDir(dir).filePath(QStringLiteral("quick-look-window.png")));
+                }
                 ql->close();
             }
 #endif
