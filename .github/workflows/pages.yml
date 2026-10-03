@@ -1,0 +1,44 @@
+name: Deploy landing page
+
+# files.gitools.net: the static page in site/. It reads the newest release in the browser, so a
+# new release needs no redeploy; only changes to the page or the icon do.
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'packaging/icon/gifiles.svg', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble site
+        run: |
+          mkdir -p "$RUNNER_TEMP/site"
+          cp -R site/. "$RUNNER_TEMP/site/"
+          cp packaging/icon/gifiles.svg "$RUNNER_TEMP/site/logo.svg"
+          touch "$RUNNER_TEMP/site/.nojekyll"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

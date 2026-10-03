@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gifiles — 터미널과 맞물린 Finder 스타일 파일 관리자</title>
+  <meta name="description" content="macOS Finder의 사용감을 그대로 옮긴 macOS·Windows·Linux 파일 관리자. 목록과 맞물려 움직이는 터미널을 품고, 가볍고 키보드로 모든 걸 다룹니다.">
+  <link rel="canonical" href="https://files.gitools.net/">
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://files.gitools.net/">
+  <meta property="og:site_name" content="Gifiles">
+  <meta property="og:title" content="Gifiles — 터미널과 맞물린 Finder 스타일 파일 관리자">
+  <meta property="og:description" content="macOS Finder의 사용감을 그대로 옮긴 macOS·Windows·Linux 파일 관리자">
+  <meta property="og:image" content="https://files.gitools.net/screenshots/terminal.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://files.gitools.net/screenshots/terminal.png">
+  <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Gifiles","applicationCategory":"UtilitiesApplication","operatingSystem":"macOS, Windows, Linux","description":"A Finder-style cross-platform file manager with a terminal wired to the file list.","url":"https://files.gitools.net/","downloadUrl":"https://github.com/zidell/gifiles/releases/latest","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+  </script>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
+      --bg: #f6f7fb; --fg: #1d2030; --muted: #62697b; --line: #dfe3ed; --card: #ffffff; --accent: #2f7cf6; --accent-hover: #1f68dd; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #15171f; --fg: #eef0f7; --muted: #a6adbf; --line: #2e3342; --card: #1d202b; --accent: #4b8ff8; --accent-hover: #6aa3fa; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); }
+    main { width: min(820px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0 80px; }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 44px; font-size: 1.1rem; font-weight: 800; }
+    .brand img { width: 40px; height: 40px; }
+    .languages { margin-left: auto; display: flex; flex-wrap: wrap; gap: 10px; font-size: .8rem; font-weight: 500; }
+    .languages a { color: var(--muted); text-decoration: none; }
+    .languages a[aria-current="true"] { color: var(--fg); font-weight: 800; text-decoration: underline; }
+    h1 { font-size: clamp(2.1rem, 6vw, 3.4rem); line-height: 1.18; margin: 0 0 18px; letter-spacing: -.035em; }
+    h2 { font-size: 1.3rem; margin: 0 0 18px; }
+    p, li { line-height: 1.7; }
+    .intro { font-size: 1.12rem; max-width: 660px; color: var(--fg); }
+    section { margin-top: 56px; }
+    .hero { width: min(100vw - 32px, 1080px); margin: 40px 0 0 50%; transform: translateX(-50%); }
+    figure { margin: 0; }
+    figure img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); box-shadow: 0 18px 50px rgba(15, 20, 40, .18); }
+    figcaption { margin-top: 10px; color: var(--muted); font-size: .9rem; }
+    .shots { width: min(100vw - 32px, 1080px); margin-left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .features { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .feature { padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+    .feature h3 { margin: 0 0 6px; font-size: 1rem; }
+    .feature p { margin: 0; color: var(--muted); font-size: .95rem; line-height: 1.6; }
+    .downloads { display: grid; gap: 10px; }
+    .download { display: block; border-radius: 12px; padding: 16px 20px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; }
+    .download:hover { background: var(--accent-hover); }
+    .download small { display: block; font-weight: 400; margin-top: 4px; opacity: .88; }
+    .download.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+    .download.secondary:hover { background: var(--card); }
+    .download[hidden] { display: none; }
+    .note { font-size: .93rem; color: var(--muted); }
+    .note a, footer a { color: inherit; }
+    .notice { margin-top: 56px; padding: 14px 16px; border-left: 3px solid var(--accent); background: var(--card); border-radius: 4px; color: var(--muted); font-size: .93rem; }
+    footer { margin-top: 40px; color: var(--muted); font-size: .88rem; }
+    kbd { font-family: inherit; font-size: .85em; padding: 1px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); }
+    @media (max-width: 620px) { .shots, .features { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand"><img src="logo.svg" alt="">Gifiles
+      <nav class="languages" aria-label="Language"><a href="?lang=ko" data-language="ko">한국어</a><a href="?lang=en" data-language="en">English</a><a href="?lang=ja" data-language="ja">日本語</a><a href="?lang=zh" data-language="zh">中文</a></nav>
+    </div>
+
+    <h1 data-t="title">내 손에 맞는 Finder,<br>터미널과 함께.</h1>
+    <p class="intro" data-t="intro">Gifiles는 macOS Finder의 사용감을 그대로 옮긴 macOS·Windows·Linux 파일 관리자입니다. 목록 아래 터미널이 목록과 맞물려 움직이고, 모든 기능을 키보드로 다룰 수 있으며, 네이티브(Qt)로 만들어 가볍습니다.</p>
+
+    <figure class="hero">
+      <img src="screenshots/terminal.png" width="1600" height="976" alt="컬럼 보기와 아래 터미널 패널이 열린 Gifiles 창" data-t-alt="heroAlt">
+      <figcaption data-t="heroCaption">폴더를 옮기면 터미널이 따라 cd 하고, 터미널에서 cd 하면 목록이 따라갑니다.</figcaption>
+    </figure>
+
+    <section aria-labelledby="features-title">
+      <h2 id="features-title" data-t="featuresTitle">특징</h2>
+      <div class="features">
+        <div class="feature"><h3 data-t="f1t">목록과 맞물린 터미널</h3><p data-t="f1d">파일을 터미널로 끌어 놓으면 따옴표 친 경로가 입력되고, 입력 중인 명령은 절대 덮어쓰지 않습니다. 크롬처럼 터미널 탭도 씁니다.</p></div>
+        <div class="feature"><h3 data-t="f2t">Finder 그대로의 키보드</h3><p data-t="f2d">⌘1 갤러리 · ⌘2 목록 · ⌘3 컬럼, Space 미리보기, Return 이름 바꾸기. 모든 단축키는 설정에서 바꿀 수 있습니다.</p></div>
+        <div class="feature"><h3 data-t="f3t">빠른 미리보기</h3><p data-t="f3d">이미지·영상·음악·PDF·코드를 바로 보고, 오피스 문서는 운영체제의 미리보기를 그대로 씁니다.</p></div>
+        <div class="feature"><h3 data-t="f4t">선택한 항목으로 명령 · AI</h3><p data-t="f4d">고른 파일에 내 스크립트나 AI 요청(claude, codex 등)을 바로 실행합니다. 경로는 셸에 맞게 안전하게 감쌉니다.</p></div>
+        <div class="feature"><h3 data-t="f5t">모든 작업 되돌리기</h3><p data-t="f5d">복사·이동·이름 바꾸기·삭제를 ⌘Z로 되돌립니다. 지우는 건 언제나 휴지통으로 갑니다.</p></div>
+        <div class="feature"><h3 data-t="f6t">설정 파일 하나, 자동 업데이트</h3><p data-t="f6d">모든 설정은 설명이 달린 config.toml 하나에 있고, 새 버전은 서명을 확인한 뒤 알아서 받아 둡니다.</p></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="shots-title">
+      <h2 id="shots-title" data-t="shotsTitle">화면</h2>
+      <div class="shots">
+        <figure><img src="screenshots/list.png" width="1600" height="976" loading="lazy" alt="종류별로 이름에 색이 입혀진 Gifiles 목록 보기" data-t-alt="listAlt"><figcaption data-t="listCaption">목록 보기 · 종류별 이름 색</figcaption></figure>
+        <figure><img src="screenshots/gallery.png" width="1600" height="976" loading="lazy" alt="사진 썸네일이 보이는 Gifiles 갤러리 보기" data-t-alt="galleryAlt"><figcaption data-t="galleryCaption">갤러리 보기 · 썸네일</figcaption></figure>
+      </div>
+    </section>
+
+    <section aria-labelledby="download-title">
+      <h2 id="download-title" data-t="downloadTitle">다운로드</h2>
+      <div class="downloads">
+        <a class="download" id="dl-primary" href="https://github.com/zidell/gifiles/releases/latest"><span data-t="dlLatest">최신 버전 받기</span><small id="dl-primary-detail">GitHub Releases</small></a>
+        <a class="download secondary" data-platform="mac" hidden><span>macOS</span><small data-t="dlMac">Apple Silicon · Intel 공용 · 서명·공증된 앱 (zip)</small></a>
+        <a class="download secondary" data-platform="windows" hidden><span>Windows</span><small data-t="dlWindows">x64 · zip을 풀고 Gifiles.exe 실행</small></a>
+        <a class="download secondary" data-platform="linux" hidden><span>Linux</span><small data-t="dlLinux">x86_64 · AppImage (실행 권한을 주고 실행)</small></a>
+      </div>
+      <p class="note" id="dl-version"></p>
+      <p class="note" data-t="dlNote">한 번 설치하면 앱이 새 버전을 확인해 받아 두고, 종료할 때 설치합니다. Windows 앱은 서명되지 않아 처음 실행할 때 경고가 뜰 수 있습니다(추가 정보 → 실행).</p>
+    </section>
+
+    <p class="notice" data-t="notice">개인이 만들어 무료로 공개하는 앱입니다. 자유롭게 쓰셔도 되지만 기능 제안, 버그 신고, 사용 지원은 받지 않습니다. 원하는 기능이 있으면 MIT 라이선스에 따라 포크해서 고쳐 쓰세요.</p>
+
+    <footer><a href="https://github.com/zidell/gifiles">GitHub</a> · <a href="https://github.com/zidell/gifiles/blob/main/LICENSE">MIT License</a></footer>
+  </main>
+  <script>
+    const copy = {
+      en: {
+        title: 'A Finder that fits your hands,<br>with a terminal.',
+        intro: 'Gifiles brings the feel of the macOS Finder to macOS, Windows and Linux. A terminal under the list moves together with it, every feature is reachable from the keyboard, and it is light because it is native (Qt).',
+        heroAlt: 'Gifiles window in column view with the terminal panel open below',
+        heroCaption: 'Change folders and the terminal follows with cd; cd in the terminal and the list follows.',
+        featuresTitle: 'Highlights',
+        f1t: 'A terminal wired to the list', f1d: 'Drop files on the terminal to type their quoted paths; a half-typed command is never overwritten. Terminal tabs work like Chrome tabs.',
+        f2t: 'Finder keys', f2d: '⌘1 gallery · ⌘2 list · ⌘3 columns, Space to preview, Return to rename. Every shortcut can be changed in Settings.',
+        f3t: 'Quick preview', f3d: 'See images, video, music, PDFs and code at once; office documents use the operating system\'s own preview.',
+        f4t: 'Commands and AI on the selection', f4d: 'Run your scripts or an AI request (claude, codex, …) on the selected files. Paths are quoted safely for the shell.',
+        f5t: 'Undo everything', f5d: 'Copy, move, rename and delete all undo with ⌘Z. Deleting always goes to the trash.',
+        f6t: 'One settings file, automatic updates', f6d: 'Every setting lives in one commented config.toml, and new versions are fetched after their signature is checked.',
+        shotsTitle: 'Screens', listAlt: 'Gifiles list view with names colored by kind', listCaption: 'List view · names colored by kind',
+        galleryAlt: 'Gifiles gallery view with photo thumbnails', galleryCaption: 'Gallery view · thumbnails',
+        downloadTitle: 'Download', dlLatest: 'Get the latest version', dlMac: 'Apple Silicon and Intel · signed and notarized app (zip)',
+        dlWindows: 'x64 · unzip and run Gifiles.exe', dlLinux: 'x86_64 · AppImage (make it executable, then run)',
+        dlNote: 'Once installed, the app checks for new versions, downloads them and installs them when you quit. The Windows app is not signed, so Windows may warn the first time you run it (More info → Run anyway).',
+        notice: 'A personal app, shared for free. You\'re welcome to use it, but feature requests, bug reports and support requests aren\'t accepted. If you want a feature, fork it and change it under the MIT license.',
+        version: 'Latest version {v}', pending: 'The macOS package for this version is not published yet.',
+        primaryMac: 'Download for macOS', primaryWindows: 'Download for Windows', primaryLinux: 'Download for Linux'
+      },
+      ja: {
+        title: '手になじむ Finder を、<br>ターミナルと一緒に。',
+        intro: 'Gifiles は macOS Finder の使い心地をそのまま移した macOS・Windows・Linux 向けファイルマネージャーです。リストの下のターミナルがリストと連動し、すべての機能をキーボードで操作でき、ネイティブ（Qt）製なので軽快です。',
+        heroAlt: 'カラム表示で下にターミナルパネルを開いた Gifiles のウインドウ',
+        heroCaption: 'フォルダを移るとターミナルが cd し、ターミナルで cd するとリストが追いかけます。',
+        featuresTitle: '特長',
+        f1t: 'リストと連動するターミナル', f1d: 'ファイルをターミナルにドロップすると引用符付きのパスが入力され、入力途中のコマンドは決して上書きしません。Chrome のようなターミナルタブも使えます。',
+        f2t: 'Finder そのままのキー操作', f2d: '⌘1 ギャラリー · ⌘2 リスト · ⌘3 カラム、Space でプレビュー、Return で名前変更。ショートカットはすべて設定で変更できます。',
+        f3t: 'すばやいプレビュー', f3d: '画像・動画・音楽・PDF・コードをすぐに表示し、Office 文書は OS のプレビューをそのまま使います。',
+        f4t: '選択した項目にコマンド · AI', f4d: '選んだファイルに自分のスクリプトや AI への依頼（claude、codex など）をすぐ実行します。パスはシェルに合わせて安全に引用します。',
+        f5t: 'すべての操作を取り消し', f5d: 'コピー・移動・名前変更・削除を ⌘Z で取り消せます。削除は常にゴミ箱へ移します。',
+        f6t: '設定ファイルひとつ、自動アップデート', f6d: 'すべての設定は説明付きの config.toml ひとつにまとまり、新しいバージョンは署名を確認してから自動で取得します。',
+        shotsTitle: '画面', listAlt: '種類ごとに名前が色分けされた Gifiles のリスト表示', listCaption: 'リスト表示 · 種類ごとの名前の色',
+        galleryAlt: '写真のサムネイルが並ぶ Gifiles のギャラリー表示', galleryCaption: 'ギャラリー表示 · サムネイル',
+        downloadTitle: 'ダウンロード', dlLatest: '最新版を入手', dlMac: 'Apple Silicon・Intel 共通 · 署名・公証済みアプリ（zip）',
+        dlWindows: 'x64 · zip を展開して Gifiles.exe を実行', dlLinux: 'x86_64 · AppImage（実行権限を付けて実行）',
+        dlNote: '一度インストールすると、アプリが新しいバージョンを確認して取得し、終了時にインストールします。Windows 版は署名されていないため、初回起動時に警告が出ることがあります（詳細情報 → 実行）。',
+        notice: '個人が作って無料で公開しているアプリです。自由に使っていただいて構いませんが、機能の提案・バグ報告・使い方のサポートは受け付けていません。欲しい機能があれば、MIT ライセンスに従ってフォークして改造してください。',
+        version: '最新バージョン {v}', pending: 'このバージョンの macOS パッケージはまだ公開されていません。',
+        primaryMac: 'macOS 版をダウンロード', primaryWindows: 'Windows 版をダウンロード', primaryLinux: 'Linux 版をダウンロード'
+      },
+      zh: {
+        title: '顺手的 Finder，<br>再加上终端。',
+        intro: 'Gifiles 把 macOS Finder 的使用手感原样带到 macOS、Windows 和 Linux。列表下方的终端与列表联动，所有功能都能用键盘完成，原生（Qt）实现，轻快不臃肿。',
+        heroAlt: '分栏视图下方打开终端面板的 Gifiles 窗口',
+        heroCaption: '切换文件夹时终端会跟着 cd，在终端里 cd 时列表也会跟随。',
+        featuresTitle: '特点',
+        f1t: '与列表联动的终端', f1d: '把文件拖到终端即可输入带引号的路径，正在输入的命令绝不会被覆盖。终端也像 Chrome 一样支持标签页。',
+        f2t: 'Finder 原样的键盘操作', f2d: '⌘1 图库 · ⌘2 列表 · ⌘3 分栏，Space 预览，Return 重命名。所有快捷键都可在设置中修改。',
+        f3t: '快速预览', f3d: '图片、视频、音乐、PDF、代码即时查看，Office 文档直接使用操作系统自带的预览。',
+        f4t: '对所选项目执行命令 · AI', f4d: '对选中的文件直接运行你的脚本或 AI 请求（claude、codex 等）。路径会按 shell 规则安全加引号。',
+        f5t: '一切操作皆可撤销', f5d: '复制、移动、重命名、删除都能用 ⌘Z 撤销。删除总是移到废纸篓。',
+        f6t: '一个配置文件，自动更新', f6d: '所有设置都在一个带说明的 config.toml 中，新版本在校验签名后自动下载。',
+        shotsTitle: '界面', listAlt: '按类型给文件名着色的 Gifiles 列表视图', listCaption: '列表视图 · 按类型着色的文件名',
+        galleryAlt: '显示照片缩略图的 Gifiles 图库视图', galleryCaption: '图库视图 · 缩略图',
+        downloadTitle: '下载', dlLatest: '获取最新版本', dlMac: 'Apple Silicon 与 Intel 通用 · 已签名并公证的应用（zip）',
+        dlWindows: 'x64 · 解压后运行 Gifiles.exe', dlLinux: 'x86_64 · AppImage（添加执行权限后运行）',
+        dlNote: '安装后，应用会检查并下载新版本，在退出时完成安装。Windows 版未签名，首次运行时 Windows 可能会发出警告（更多信息 → 仍要运行）。',
+        notice: '这是个人制作并免费公开的应用。欢迎自由使用，但不接受功能建议、错误报告或使用支持。如需某项功能，请按照 MIT 许可证 fork 后自行修改。',
+        version: '最新版本 {v}', pending: '此版本的 macOS 安装包尚未发布。',
+        primaryMac: '下载 macOS 版', primaryWindows: '下载 Windows 版', primaryLinux: '下载 Linux 版'
+      },
+      ko: {
+        version: '최신 버전 {v}', pending: '이 버전의 macOS 패키지는 아직 올라오지 않았습니다.',
+        primaryMac: 'macOS 다운로드', primaryWindows: 'Windows 다운로드', primaryLinux: 'Linux 다운로드'
+      }
+    };
+    // Same rule as the app: Korean, Japanese and Chinese by the browser language, English otherwise.
+    const requested = new URLSearchParams(location.search).get('lang');
+    const pick = (tag) => { tag = (tag || '').toLowerCase(); return tag.startsWith('ko') ? 'ko' : tag.startsWith('ja') ? 'ja' : tag.startsWith('zh') ? 'zh' : 'en'; };
+    const lang = requested ? pick(requested) : pick((navigator.languages || [navigator.language])[0]);
+    const t = (key) => (copy[lang] && copy[lang][key]) || copy.ko[key];
+    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang;
+    document.querySelectorAll('.languages a').forEach((a) => a.setAttribute('aria-current', String(a.dataset.language === lang)));
+    if (lang !== 'ko') {
+      document.querySelectorAll('[data-t]').forEach((el) => { const v = copy[lang][el.dataset.t]; if (v) el.innerHTML = v; });
+      document.querySelectorAll('[data-t-alt]').forEach((el) => { const v = copy[lang][el.dataset.tAlt]; if (v) el.alt = v; });
+      document.title = 'Gifiles — ' + copy[lang].title.replace('<br>', ' ');
+    }
+
+    const ua = navigator.userAgent;
+    const platform = /Mac/i.test(navigator.platform || ua) ? 'mac' : /Win/i.test(navigator.platform || ua) ? 'windows' : /Linux/i.test(ua) && !/Android/i.test(ua) ? 'linux' : '';
+    const suffix = { mac: '-macos.zip', windows: '-windows-x64.zip', linux: '-linux-x86_64.AppImage' };
+    // Each push to main is a release; read the newest one so the links never go stale.
+    fetch('https://api.github.com/repos/zidell/gifiles/releases/latest')
+      .then((r) => r.ok ? r.json() : Promise.reject(r.status))
+      .then((release) => {
+        const version = release.tag_name.replace(/^v/, '');
+        document.getElementById('dl-version').textContent = t('version').replace('{v}', version);
+        const assets = Object.fromEntries(Object.entries(suffix).map(([p, s]) => [p, release.assets.find((a) => a.name.endsWith(s))]));
+        document.querySelectorAll('[data-platform]').forEach((link) => {
+          const asset = assets[link.dataset.platform];
+          if (!asset) return;
+          link.href = asset.browser_download_url;
+          link.querySelector('small').textContent += ' · ' + (asset.size / 1e6).toFixed(1) + ' MB';
+          link.hidden = false;
+        });
+        const primary = document.getElementById('dl-primary');
+        if (platform && assets[platform]) {
+          primary.href = assets[platform].browser_download_url;
+          primary.querySelector('span').textContent = t('primary' + platform[0].toUpperCase() + platform.slice(1));
+          document.getElementById('dl-primary-detail').textContent = assets[platform].name;
+          document.querySelector('[data-platform="' + platform + '"]').hidden = true;
+        } else if (platform === 'mac') {
+          document.getElementById('dl-version').textContent += ' · ' + t('pending');
+        }
+      })
+      .catch(() => {});
+  </script>
+</body>
+</html>

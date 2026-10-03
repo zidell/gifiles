@@ -535,3 +535,19 @@ shortcuts in `../README.md`. Dates are 2026.
 - macOS signing secrets use the same names as the user's other apps (Tauri's): `APPLE_CERTIFICATE`,
   `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD` (app-specific password), `APPLE_TEAM_ID`.
   An App Store Connect API key was set up first and dropped for this, to match them.
+
+## Landing page at files.gitools.net (2026-10-03)
+
+- `site/` is a static page (Korean source, English/Japanese/Chinese in its script, the app's
+  language rule) deployed by `.github/workflows/pages.yml` to GitHub Pages; Cloudflare DNS has
+  `files` as a DNS-only CNAME to `zidell.github.io`, like `keyscribe.gitools.net`. Pushes that touch
+  only `site/` don't build or release (`build.yml` paths-ignore).
+- Download buttons read `releases/latest` from the GitHub API in the browser and pick the asset by
+  suffix (`-macos.zip`, `-windows-x64.zip`, `-linux-x86_64.AppImage`), so a release needs no
+  redeploy and a platform shows up as soon as its asset exists.
+- Screenshots (`site/screenshots/`, also in the README) come from `GIFILES_SNAPSHOT` on a generated
+  demo folder, with `HOME`, `CFFIXED_USER_HOME` and `GIFILES_CONFIG_DIR` pointed at a scratch
+  `Users/demo` so the real session, folders.ini and machine name stay out of them (zsh `PROMPT` set
+  to the folder only). In the gallery shot the toolbar still highlights the list button: the snapshot
+  switches views without updating the view buttons.
+

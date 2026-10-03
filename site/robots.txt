@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://files.gitools.net/sitemap.xml

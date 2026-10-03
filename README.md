@@ -10,6 +10,14 @@ macOS Finder의 사용감을 그대로 옮긴 크로스 플랫폼(macOS·Windows
 >
 > 这是个人制作并免费公开的应用。欢迎自由使用，但不接受功能建议、错误报告或使用支持。如需某项功能，请按照 MIT 许可证 fork 后自行修改。
 
+**[다운로드 · 소개 페이지](https://files.gitools.net)** · [최신 릴리스](https://github.com/zidell/gifiles/releases/latest)
+
+![컬럼 보기와 아래 터미널 패널이 열린 Gifiles 창](site/screenshots/terminal.png)
+
+| 목록 보기 | 갤러리 보기 |
+| --- | --- |
+| ![종류별로 이름에 색이 입혀진 목록 보기](site/screenshots/list.png) | ![사진 썸네일이 보이는 갤러리 보기](site/screenshots/gallery.png) |
+
 ## 빌드·실행
 
 ```sh
