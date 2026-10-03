@@ -12,11 +12,13 @@ macOS Finder의 사용감을 그대로 옮긴 크로스 플랫폼(macOS·Windows
 
 **[다운로드 · 소개 페이지](https://files.gitools.net)** · [최신 릴리스](https://github.com/zidell/gifiles/releases/latest)
 
-![컬럼 보기와 아래 터미널 패널이 열린 Gifiles 창](site/screenshots/terminal.png)
+![종류별로 이름에 색이 입혀진 Gifiles 목록 보기](site/screenshots/list.png)
 
-| 목록 보기 | 갤러리 보기 |
+| 터미널 연동 | 선택한 항목들로… (사용자 메뉴) |
 | --- | --- |
-| ![종류별로 이름에 색이 입혀진 목록 보기](site/screenshots/list.png) | ![사진 썸네일이 보이는 갤러리 보기](site/screenshots/gallery.png) |
+| ![컬럼 보기와 아래 터미널 패널](site/screenshots/terminal.png) | ![우클릭 메뉴의 선택한 항목들로 하위 메뉴](site/screenshots/context-menu-window.png) |
+| **퀵 뷰어** | **확장자별 색상 설정** |
+| ![퀵 뷰어로 연 사진](site/screenshots/quick-look.png) | ![확장자별 색상 설정](site/screenshots/settings-colors.png) |
 
 ## 빌드·실행
 
@@ -47,7 +49,7 @@ Windows/Linux도 같은 CMake 명령에 각 환경의 Qt 경로(`CMAKE_PREFIX_PA
 
 ## 단축키
 
-기본 동작은 맥 기준이며 ⌘는 Windows·Linux에서 Ctrl에 대응한다. Windows만 열기 Enter, 이름 변경 F2가 기본이다.
+기본 동작은 맥 기준이며 ⌘는 Windows·Linux에서 Ctrl에 대응한다. Windows도 Finder와 같이 Enter는 이름 변경, ⌘↓(Ctrl+↓)는 열기다.
 메뉴뿐 아니라 파일뷰·퀵 뷰어·터미널·사이드바·검색·경로 입력·이름 편집·컨텍스트 메뉴의 앱 기능키도 설정 → 단축키에서 변경할 수 있다.
 같은 영역에서 겹치는 키만 다른 기능에서 빠지며, 서로 다른 영역은 같은 키를 사용할 수 있다.
 
@@ -71,8 +73,8 @@ Windows/Linux도 같은 CMake 명령에 각 환경의 Qt 경로(`CMAKE_PREFIX_PA
 | 보기: 갤러리 / 목록 / 컬럼 (Finder와 같은 순서) | ⌘1 / ⌘2 / ⌘3 |
 | 퀵 뷰어 (열린 채 ↑↓←→로 다음 항목, Enter 재생/일시정지, 소리·영상은 ←→ 5초 뒤로/앞으로, 진행 바 클릭 위치로 이동, 방금 재생하던 파일은 다시 열면 멈춘 곳부터 — 끝까지 봤거나 폴더를 옮기면 처음부터) | Space · ⌘Y |
 | 미리보기 패널 | ⇧⌘P |
-| 이름 변경 (확장자 앞까지 선택된 채 시작) | macOS·Linux: Enter / Windows: F2 |
-| 열기 / 새로운 탭에서 열기 (폴더만, 파일을 골랐으면 열기 키는 컨텍스트 메뉴를 띄운다: 첫 항목 열기에서 Return) | ⌘↓ (Windows: Enter도 가능) · 더블클릭 / ⌃⌘O · ⌘+더블클릭 |
+| 이름 변경 (확장자 앞까지 선택된 채 시작) | Enter |
+| 열기 / 새로운 탭에서 열기 (폴더만, 파일을 골랐으면 열기 키는 컨텍스트 메뉴를 띄운다: 첫 항목 열기에서 Return) | ⌘↓ · 더블클릭 / ⌃⌘O · ⌘+더블클릭 |
 | 뷰 이동 (접힌 영역은 펼침) | Alt+← 사이드바 · Alt+→/↑ 파일뷰 · Alt+↓ 터미널 |
 | 상위 폴더 / 뒤로 / 앞으로 | ⌘↑ / ⌘[ / ⌘] |
 | 범위 선택 / 토글 선택 / 전체 선택 | Shift+클릭·Shift+방향키 / ⌘+클릭 / ⌘A |

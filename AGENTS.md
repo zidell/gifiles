@@ -96,8 +96,8 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   a key another action holds is named in small red text but can still be assigned — it moves over,
   since a key on two actions works for neither; the page's 초기화 / 전부 제거 act on all shortcuts and confirm first). App-defined keys outside actions also live in the same registry with a UI context (files,
   preview, terminal, sidebar, search, path, rename, menu). Conflict detection respects those contexts.
-  Defaults follow macOS, with ⌘ represented by Ctrl on Windows/Linux; Windows alone uses Enter
-  for open and F2 for rename. A ` key also answers to ₩.
+  Defaults follow macOS, with ⌘ represented by Ctrl on Windows/Linux, on every platform (Windows
+  too: Return renames, Ctrl+Down opens — no Windows-only keys). A ` key also answers to ₩.
 - **"선택한 항목들로…" commands:** config.toml `[selection_menu] commands`, each `{ id?, label, key, terminal,
   command }` (per-platform defaults in `Settings.cpp`: `new_folder` and `zip` quiet, `ai` in the terminal). The
   built-in ones (with `id`) can be edited but not removed (`withBuiltins` puts a missing one back; the page's

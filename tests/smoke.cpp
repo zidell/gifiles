@@ -395,20 +395,13 @@ private slots:
     void platformRenameAndOpenDefaults()
     {
         const auto *sc = Shortcuts::instance();
-#ifdef Q_OS_WIN
-        QVERIFY(sc->defaults(QStringLiteral("열기")).contains(QKeySequence(QStringLiteral("Return"))));
-        QCOMPARE(sc->defaults(QStringLiteral("이름 변경")), QList<QKeySequence>{QKeySequence(QStringLiteral("F2"))});
-#else
+        // Finder's keys on every platform: Return renames, Command/Ctrl+Down opens.
+        QCOMPARE(sc->defaults(QStringLiteral("열기")), QList<QKeySequence>{QKeySequence(QStringLiteral("Ctrl+Down"))});
         QCOMPARE(sc->defaults(QStringLiteral("이름 변경")), QList<QKeySequence>{QKeySequence(QStringLiteral("Return"))});
-#endif
         QCOMPARE(sc->defaults(QStringLiteral("상위 폴더")), QList<QKeySequence>{QKeySequence(QStringLiteral("Ctrl+Up"))});
         tab()->selectPaths({p("Alpha")});
         QTRY_COMPARE(tab()->selectedPaths(), QStringList{p("Alpha")});
-#ifdef Q_OS_WIN
-        key(Qt::Key_Return);
-#else
         key(Qt::Key_Down, Qt::ControlModifier);
-#endif
         QTRY_COMPARE(tab()->path(), p("Alpha"));
         tab()->navigate(m_tmp.path());
     }
@@ -492,11 +485,7 @@ private slots:
     {
         tab()->focusView();
         tab()->selectPaths({p("notes.txt")});
-#ifdef Q_OS_WIN
-        key(Qt::Key_F2);
-#else
         key(Qt::Key_Return);
-#endif
         QTRY_VERIFY(qobject_cast<QLineEdit *>(focus()));
         auto *le = qobject_cast<QLineEdit *>(focus());
         QTRY_COMPARE(le->selectedText(), QStringLiteral("notes")); // extension not selected

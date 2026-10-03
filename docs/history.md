@@ -550,4 +550,18 @@ shortcuts in `../README.md`. Dates are 2026.
   `Users/demo` so the real session, folders.ini and machine name stay out of them (zsh `PROMPT` set
   to the folder only). In the gallery shot the toolbar still highlights the list button: the snapshot
   switches views without updating the view buttons.
+- The page lists the six highlights the user named (Finder usability, colors by extension, Quick
+  Look, AI, the selection menu, terminal), each with its screenshot; the list view is the lead
+  image. `GIFILES_SNAPSHOT` now also saves `context-menu-window.png`: the window with the context
+  menu painted over it and "선택한 항목들로…" open. For the terminal shots the demo `.zshrc` lists the
+  folder with `ls -lhgo` (no owner/group) and clears on `chpwd`, so the cd Gifiles types (with the
+  scratch path) isn't left on screen; the demo root is named `Macintosh HD`.
+
+## Windows uses the Mac keys too (2026-10-03)
+
+- The user wants Finder's behavior everywhere, so Windows lost its two exceptions from 2026-10-02:
+  Return now renames and Ctrl+Down opens there as well (Enter no longer opens, F2 is no longer the
+  rename key). Only the modifier mapping differs by platform (⌘ → Ctrl, ⌃ → Ctrl/Alt where ⌘ is
+  taken). Keys a user set in config.toml `[shortcuts]` stay as they are; defaults are written
+  only as comments, so installed copies pick up the new defaults.
 

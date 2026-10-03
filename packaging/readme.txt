@@ -172,6 +172,6 @@ Commands: Gifiles --help | --version | --config-path | --print-config | --print-
 터미널에서도 뷰 이동이 우선합니다. 설정 → 단축키에서 변경할 수 있습니다.
 
 App keys use Mac-style defaults: Command on macOS, Ctrl on Windows/Linux.
-Windows exceptions: Enter opens, F2 renames. Ctrl+Up remains the parent folder.
+Windows uses the same keys as the Mac: Enter renames, Ctrl+Down opens, Ctrl+Up goes to the parent folder.
 Settings > Shortcuts includes file views, Quick Look, terminal, sidebar, search, path entry,
 rename editing and context-menu keys; keys in different areas can be assigned independently.

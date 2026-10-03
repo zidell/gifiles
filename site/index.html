@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gifiles — 터미널과 맞물린 Finder 스타일 파일 관리자</title>
-  <meta name="description" content="macOS Finder의 사용감을 그대로 옮긴 macOS·Windows·Linux 파일 관리자. 목록과 맞물려 움직이는 터미널을 품고, 가볍고 키보드로 모든 걸 다룹니다.">
+  <title>Gifiles — 크로스 플랫폼 파일 관리 도구</title>
+  <meta name="description" content="macOS Finder의 사용감을 Windows·Linux에서도. 확장자별 색 구분, 퀵 뷰, 터미널·AI 연동을 갖춘 네이티브 파일 관리 앱.">
   <link rel="canonical" href="https://files.gitools.net/">
   <link rel="icon" href="logo.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://files.gitools.net/">
   <meta property="og:site_name" content="Gifiles">
-  <meta property="og:title" content="Gifiles — 터미널과 맞물린 Finder 스타일 파일 관리자">
-  <meta property="og:description" content="macOS Finder의 사용감을 그대로 옮긴 macOS·Windows·Linux 파일 관리자">
-  <meta property="og:image" content="https://files.gitools.net/screenshots/terminal.png">
+  <meta property="og:title" content="Gifiles — 크로스 플랫폼 파일 관리 도구">
+  <meta property="og:description" content="macOS Finder의 사용감을 Windows·Linux에서도. 확장자별 색 구분, 퀵 뷰, 터미널·AI 연동을 갖춘 네이티브 파일 관리 앱.">
+  <meta property="og:image" content="https://files.gitools.net/screenshots/list.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:image" content="https://files.gitools.net/screenshots/terminal.png">
+  <meta name="twitter:image" content="https://files.gitools.net/screenshots/list.png">
   <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Gifiles","applicationCategory":"UtilitiesApplication","operatingSystem":"macOS, Windows, Linux","description":"A Finder-style cross-platform file manager with a terminal wired to the file list.","url":"https://files.gitools.net/","downloadUrl":"https://github.com/zidell/gifiles/releases/latest","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+    {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Gifiles","applicationCategory":"UtilitiesApplication","operatingSystem":"macOS, Windows, Linux","description":"A cross-platform file manager that keeps the feel of the macOS Finder, with colors by extension, Quick Look, and terminal and AI integration.","url":"https://files.gitools.net/","downloadUrl":"https://github.com/zidell/gifiles/releases/latest","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
   </script>
   <style>
     :root { color-scheme: light dark; font-family: system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
@@ -34,18 +34,20 @@
     .languages a[aria-current="true"] { color: var(--fg); font-weight: 800; text-decoration: underline; }
     h1 { font-size: clamp(2.1rem, 6vw, 3.4rem); line-height: 1.18; margin: 0 0 18px; letter-spacing: -.035em; }
     h2 { font-size: 1.3rem; margin: 0 0 18px; }
-    p, li { line-height: 1.7; }
-    .intro { font-size: 1.12rem; max-width: 660px; color: var(--fg); }
-    section { margin-top: 56px; }
-    .hero { width: min(100vw - 32px, 1080px); margin: 40px 0 0 50%; transform: translateX(-50%); }
+    p { line-height: 1.75; }
+    .intro { font-size: 1.12rem; max-width: 680px; }
+    .cta { display: inline-block; margin-top: 8px; border-radius: 10px; padding: 12px 20px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; }
+    .cta:hover { background: var(--accent-hover); }
+    .wide { width: min(100vw - 32px, 1080px); margin-left: 50%; transform: translateX(-50%); }
     figure { margin: 0; }
-    figure img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); box-shadow: 0 18px 50px rgba(15, 20, 40, .18); }
-    figcaption { margin-top: 10px; color: var(--muted); font-size: .9rem; }
-    .shots { width: min(100vw - 32px, 1080px); margin-left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-    .features { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .feature { padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
-    .feature h3 { margin: 0 0 6px; font-size: 1rem; }
-    .feature p { margin: 0; color: var(--muted); font-size: .95rem; line-height: 1.6; }
+    figure img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); box-shadow: 0 18px 50px rgba(15, 20, 40, .16); }
+    .hero { margin-top: 40px; }
+    .feature { margin-top: 88px; }
+    .feature .num { display: block; color: var(--accent); font-size: .8rem; font-weight: 800; letter-spacing: .06em; margin-bottom: 6px; }
+    .feature h2 { font-size: clamp(1.4rem, 3.4vw, 1.9rem); letter-spacing: -.02em; margin-bottom: 10px; }
+    .feature p { margin: 0 0 24px; color: var(--muted); font-size: 1.02rem; max-width: 680px; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    section.get { margin-top: 96px; }
     .downloads { display: grid; gap: 10px; }
     .download { display: block; border-radius: 12px; padding: 16px 20px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; }
     .download:hover { background: var(--accent-hover); }
@@ -54,11 +56,9 @@
     .download.secondary:hover { background: var(--card); }
     .download[hidden] { display: none; }
     .note { font-size: .93rem; color: var(--muted); }
-    .note a, footer a { color: inherit; }
-    .notice { margin-top: 56px; padding: 14px 16px; border-left: 3px solid var(--accent); background: var(--card); border-radius: 4px; color: var(--muted); font-size: .93rem; }
-    footer { margin-top: 40px; color: var(--muted); font-size: .88rem; }
-    kbd { font-family: inherit; font-size: .85em; padding: 1px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--card); }
-    @media (max-width: 620px) { .shots, .features { grid-template-columns: 1fr; } }
+    footer { margin-top: 48px; color: var(--muted); font-size: .88rem; }
+    footer a { color: inherit; }
+    @media (max-width: 620px) { .pair { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -67,35 +67,63 @@
       <nav class="languages" aria-label="Language"><a href="?lang=ko" data-language="ko">한국어</a><a href="?lang=en" data-language="en">English</a><a href="?lang=ja" data-language="ja">日本語</a><a href="?lang=zh" data-language="zh">中文</a></nav>
     </div>
 
-    <h1 data-t="title">내 손에 맞는 Finder,<br>터미널과 함께.</h1>
-    <p class="intro" data-t="intro">Gifiles는 macOS Finder의 사용감을 그대로 옮긴 macOS·Windows·Linux 파일 관리자입니다. 목록 아래 터미널이 목록과 맞물려 움직이고, 모든 기능을 키보드로 다룰 수 있으며, 네이티브(Qt)로 만들어 가볍습니다.</p>
+    <h1 data-t="title">크로스 플랫폼<br>파일 관리 도구</h1>
+    <p class="intro" data-t="intro">macOS의 파인더를 아주 사랑하는데 윈도우와 리눅스에서는 쓸 수가 없어서 비슷하게 만들었습니다. 최대한 사용감을 유지하면서 불편했던 몇 가지 기능(확장자별 색 구분, 터미널 및 AI 연동)을 보완한 네이티브 앱입니다.</p>
+    <a class="cta" href="#download" data-t="ctaDownload">다운로드</a>
 
-    <figure class="hero">
-      <img src="screenshots/terminal.png" width="1600" height="976" alt="컬럼 보기와 아래 터미널 패널이 열린 Gifiles 창" data-t-alt="heroAlt">
-      <figcaption data-t="heroCaption">폴더를 옮기면 터미널이 따라 cd 하고, 터미널에서 cd 하면 목록이 따라갑니다.</figcaption>
+    <figure class="hero wide">
+      <img src="screenshots/list.png" width="1600" height="976" alt="Gifiles 목록 보기" data-t-alt="listAlt">
     </figure>
 
-    <section aria-labelledby="features-title">
-      <h2 id="features-title" data-t="featuresTitle">특징</h2>
-      <div class="features">
-        <div class="feature"><h3 data-t="f1t">목록과 맞물린 터미널</h3><p data-t="f1d">파일을 터미널로 끌어 놓으면 따옴표 친 경로가 입력되고, 입력 중인 명령은 절대 덮어쓰지 않습니다. 크롬처럼 터미널 탭도 씁니다.</p></div>
-        <div class="feature"><h3 data-t="f2t">Finder 그대로의 키보드</h3><p data-t="f2d">⌘1 갤러리 · ⌘2 목록 · ⌘3 컬럼, Space 미리보기, Return 이름 바꾸기. 모든 단축키는 설정에서 바꿀 수 있습니다.</p></div>
-        <div class="feature"><h3 data-t="f3t">빠른 미리보기</h3><p data-t="f3d">이미지·영상·음악·PDF·코드를 바로 보고, 오피스 문서는 운영체제의 미리보기를 그대로 씁니다.</p></div>
-        <div class="feature"><h3 data-t="f4t">선택한 항목으로 명령 · AI</h3><p data-t="f4d">고른 파일에 내 스크립트나 AI 요청(claude, codex 등)을 바로 실행합니다. 경로는 셸에 맞게 안전하게 감쌉니다.</p></div>
-        <div class="feature"><h3 data-t="f5t">모든 작업 되돌리기</h3><p data-t="f5d">복사·이동·이름 바꾸기·삭제를 ⌘Z로 되돌립니다. 지우는 건 언제나 휴지통으로 갑니다.</p></div>
-        <div class="feature"><h3 data-t="f6t">설정 파일 하나, 자동 업데이트</h3><p data-t="f6d">모든 설정은 설명이 달린 config.toml 하나에 있고, 새 버전은 서명을 확인한 뒤 알아서 받아 둡니다.</p></div>
+    <section class="feature" aria-labelledby="f1">
+      <span class="num">01</span>
+      <h2 id="f1" data-t="f1t">Mac Finder 사용성 기준</h2>
+      <p data-t="f1d">목록·갤러리·컬럼 세 가지 보기와 ⌘1 · ⌘2 · ⌘3, Space 미리보기, Return 이름 바꾸기, ⌘↓ 열기까지 Finder 그대로입니다. 윈도우와 리눅스에서도 같은 키를 쓰고, ⌘ 자리에 Ctrl을 누르면 됩니다.</p>
+      <div class="pair wide">
+        <figure><img src="screenshots/columns.png" width="1600" height="976" loading="lazy" alt="컬럼 보기" data-t-alt="columnsAlt"></figure>
+        <figure><img src="screenshots/gallery.png" width="1600" height="976" loading="lazy" alt="갤러리 보기" data-t-alt="galleryAlt"></figure>
       </div>
     </section>
 
-    <section aria-labelledby="shots-title">
-      <h2 id="shots-title" data-t="shotsTitle">화면</h2>
-      <div class="shots">
-        <figure><img src="screenshots/list.png" width="1600" height="976" loading="lazy" alt="종류별로 이름에 색이 입혀진 Gifiles 목록 보기" data-t-alt="listAlt"><figcaption data-t="listCaption">목록 보기 · 종류별 이름 색</figcaption></figure>
-        <figure><img src="screenshots/gallery.png" width="1600" height="976" loading="lazy" alt="사진 썸네일이 보이는 Gifiles 갤러리 보기" data-t-alt="galleryAlt"><figcaption data-t="galleryCaption">갤러리 보기 · 썸네일</figcaption></figure>
+    <section class="feature" aria-labelledby="f2">
+      <span class="num">02</span>
+      <h2 id="f2" data-t="f2t">확장자별 색상</h2>
+      <p data-t="f2d">Mdir처럼 확장자마다 파일 이름에 색을 입혀 실행 파일, 압축 파일, 문서, 코드를 한눈에 구분합니다. 색과 확장자 묶음은 설정에서 바꿀 수 있고, 다크 모드에 맞춘 색이 라이트 모드에서는 자동으로 진해집니다.</p>
+      <figure class="wide"><img src="screenshots/settings-colors.png" width="1600" height="765" loading="lazy" alt="확장자별 색상 설정" data-t-alt="colorsAlt"></figure>
+    </section>
+
+    <section class="feature" aria-labelledby="f3">
+      <span class="num">03</span>
+      <h2 id="f3" data-t="f3t">퀵 뷰 내장</h2>
+      <p data-t="f3d">Space를 누르면 이미지·영상·음악·PDF·코드를 바로 보고, 방향키로 다음 파일로 넘어갑니다. 오피스 문서처럼 직접 그리지 못하는 파일은 운영체제의 미리보기를 그대로 씁니다.</p>
+      <figure class="wide"><img src="screenshots/quick-look.png" width="1600" height="1098" loading="lazy" alt="퀵 뷰로 연 사진" data-t-alt="quickLookAlt"></figure>
+    </section>
+
+    <section class="feature" aria-labelledby="f4">
+      <span class="num">04</span>
+      <h2 id="f4" data-t="f4t">AI 연동</h2>
+      <p data-t="f4d">파일을 고르고 요청을 한 줄 적으면, 터미널에서 Claude Code나 Codex 같은 AI 도구가 그 파일들을 대상으로 실행됩니다. 쓰려는 AI 도구를 설치하고 API 키 등록이나 로그인을 먼저 해 두어야 합니다.</p>
+      <figure class="wide"><img src="screenshots/prompt-window.png" width="1600" height="976" loading="lazy" alt="AI 요청 입력창" data-t-alt="aiAlt"></figure>
+    </section>
+
+    <section class="feature" aria-labelledby="f5">
+      <span class="num">05</span>
+      <h2 id="f5" data-t="f5t">사용자 메뉴</h2>
+      <p data-t="f5d">우클릭 → 선택한 항목들로…에 내 명령이나 스크립트를 등록해 두면, 고른 파일들의 경로를 셸에 맞게 안전하게 채워 실행합니다. 새 폴더로 묶기, 압축, AI 실행이 기본으로 들어 있습니다.</p>
+      <div class="pair wide">
+        <figure><img src="screenshots/context-menu-window.png" width="1600" height="976" loading="lazy" alt="선택한 항목들로 하위 메뉴" data-t-alt="menuAlt"></figure>
+        <figure><img src="screenshots/settings-selection.png" width="1600" height="765" loading="lazy" alt="선택 항목 메뉴 설정" data-t-alt="menuSettingsAlt"></figure>
       </div>
     </section>
 
-    <section aria-labelledby="download-title">
+    <section class="feature" aria-labelledby="f6">
+      <span class="num">06</span>
+      <h2 id="f6" data-t="f6t">터미널 연동</h2>
+      <p data-t="f6d">목록 아래 터미널이 폴더를 옮길 때마다 따라서 cd 하고, 터미널에서 cd 하면 목록이 따라옵니다. 파일을 끌어 놓으면 따옴표 친 경로가 입력되고, 입력 중인 명령은 절대 덮어쓰지 않습니다.</p>
+      <figure class="wide"><img src="screenshots/terminal.png" width="1600" height="976" loading="lazy" alt="컬럼 보기와 터미널 패널" data-t-alt="terminalAlt"></figure>
+    </section>
+
+    <section class="get" id="download" aria-labelledby="download-title">
       <h2 id="download-title" data-t="downloadTitle">다운로드</h2>
       <div class="downloads">
         <a class="download" id="dl-primary" href="https://github.com/zidell/gifiles/releases/latest"><span data-t="dlLatest">최신 버전 받기</span><small id="dl-primary-detail">GitHub Releases</small></a>
@@ -107,72 +135,73 @@
       <p class="note" data-t="dlNote">한 번 설치하면 앱이 새 버전을 확인해 받아 두고, 종료할 때 설치합니다. Windows 앱은 서명되지 않아 처음 실행할 때 경고가 뜰 수 있습니다(추가 정보 → 실행).</p>
     </section>
 
-    <p class="notice" data-t="notice">개인이 만들어 무료로 공개하는 앱입니다. 자유롭게 쓰셔도 되지만 기능 제안, 버그 신고, 사용 지원은 받지 않습니다. 원하는 기능이 있으면 MIT 라이선스에 따라 포크해서 고쳐 쓰세요.</p>
-
     <footer><a href="https://github.com/zidell/gifiles">GitHub</a> · <a href="https://github.com/zidell/gifiles/blob/main/LICENSE">MIT License</a></footer>
   </main>
   <script>
     const copy = {
       en: {
-        title: 'A Finder that fits your hands,<br>with a terminal.',
-        intro: 'Gifiles brings the feel of the macOS Finder to macOS, Windows and Linux. A terminal under the list moves together with it, every feature is reachable from the keyboard, and it is light because it is native (Qt).',
-        heroAlt: 'Gifiles window in column view with the terminal panel open below',
-        heroCaption: 'Change folders and the terminal follows with cd; cd in the terminal and the list follows.',
-        featuresTitle: 'Highlights',
-        f1t: 'A terminal wired to the list', f1d: 'Drop files on the terminal to type their quoted paths; a half-typed command is never overwritten. Terminal tabs work like Chrome tabs.',
-        f2t: 'Finder keys', f2d: '⌘1 gallery · ⌘2 list · ⌘3 columns, Space to preview, Return to rename. Every shortcut can be changed in Settings.',
-        f3t: 'Quick preview', f3d: 'See images, video, music, PDFs and code at once; office documents use the operating system\'s own preview.',
-        f4t: 'Commands and AI on the selection', f4d: 'Run your scripts or an AI request (claude, codex, …) on the selected files. Paths are quoted safely for the shell.',
-        f5t: 'Undo everything', f5d: 'Copy, move, rename and delete all undo with ⌘Z. Deleting always goes to the trash.',
-        f6t: 'One settings file, automatic updates', f6d: 'Every setting lives in one commented config.toml, and new versions are fetched after their signature is checked.',
-        shotsTitle: 'Screens', listAlt: 'Gifiles list view with names colored by kind', listCaption: 'List view · names colored by kind',
-        galleryAlt: 'Gifiles gallery view with photo thumbnails', galleryCaption: 'Gallery view · thumbnails',
+        title: 'A cross-platform<br>file manager',
+        intro: 'I love the macOS Finder, but I couldn\'t use it on Windows or Linux, so I made something like it. It keeps the feel as close as possible and adds a few things I always missed (colors by file extension, terminal and AI integration). It is a native app.',
+        ctaDownload: 'Download', listAlt: 'Gifiles list view',
+        f1t: 'Built on the Mac Finder\'s usability', f1d: 'List, gallery and column views, ⌘1 · ⌘2 · ⌘3, Space to preview, Return to rename, ⌘↓ to open: all as in the Finder. Windows and Linux use the same keys, with Ctrl in place of ⌘.',
+        columnsAlt: 'Column view', galleryAlt: 'Gallery view',
+        f2t: 'Colors by extension', f2d: 'Like Mdir, file names are colored by extension so programs, archives, documents and code stand apart at a glance. Colors and extension groups are editable in Settings, and the dark-mode colors deepen automatically in light mode.',
+        colorsAlt: 'Colors-by-extension settings',
+        f3t: 'Built-in Quick Look', f3d: 'Press Space to see images, video, music, PDFs and code at once, and move to the next file with the arrow keys. Files it can\'t draw itself, such as office documents, use the operating system\'s own preview.',
+        quickLookAlt: 'A photo opened in Quick Look',
+        f4t: 'AI integration', f4d: 'Pick files and type one line of request: an AI tool such as Claude Code or Codex runs on those files in the terminal. Install the AI tool you want and register its API key or sign in first.',
+        aiAlt: 'The AI request box',
+        f5t: 'Your own menu', f5d: 'Register your commands or scripts under right-click → With Selected Items…, and they run with the selected paths filled in, quoted safely for the shell. Grouping into a new folder, zipping and running AI come built in.',
+        menuAlt: 'The With Selected Items submenu', menuSettingsAlt: 'Selection menu settings',
+        f6t: 'Terminal integration', f6d: 'The terminal under the list cds along whenever you change folders, and the list follows when you cd in the terminal. Drop files to type their quoted paths; a half-typed command is never overwritten.',
+        terminalAlt: 'Column view with the terminal panel',
         downloadTitle: 'Download', dlLatest: 'Get the latest version', dlMac: 'Apple Silicon and Intel · signed and notarized app (zip)',
         dlWindows: 'x64 · unzip and run Gifiles.exe', dlLinux: 'x86_64 · AppImage (make it executable, then run)',
         dlNote: 'Once installed, the app checks for new versions, downloads them and installs them when you quit. The Windows app is not signed, so Windows may warn the first time you run it (More info → Run anyway).',
-        notice: 'A personal app, shared for free. You\'re welcome to use it, but feature requests, bug reports and support requests aren\'t accepted. If you want a feature, fork it and change it under the MIT license.',
         version: 'Latest version {v}', pending: 'The macOS package for this version is not published yet.',
         primaryMac: 'Download for macOS', primaryWindows: 'Download for Windows', primaryLinux: 'Download for Linux'
       },
       ja: {
-        title: '手になじむ Finder を、<br>ターミナルと一緒に。',
-        intro: 'Gifiles は macOS Finder の使い心地をそのまま移した macOS・Windows・Linux 向けファイルマネージャーです。リストの下のターミナルがリストと連動し、すべての機能をキーボードで操作でき、ネイティブ（Qt）製なので軽快です。',
-        heroAlt: 'カラム表示で下にターミナルパネルを開いた Gifiles のウインドウ',
-        heroCaption: 'フォルダを移るとターミナルが cd し、ターミナルで cd するとリストが追いかけます。',
-        featuresTitle: '特長',
-        f1t: 'リストと連動するターミナル', f1d: 'ファイルをターミナルにドロップすると引用符付きのパスが入力され、入力途中のコマンドは決して上書きしません。Chrome のようなターミナルタブも使えます。',
-        f2t: 'Finder そのままのキー操作', f2d: '⌘1 ギャラリー · ⌘2 リスト · ⌘3 カラム、Space でプレビュー、Return で名前変更。ショートカットはすべて設定で変更できます。',
-        f3t: 'すばやいプレビュー', f3d: '画像・動画・音楽・PDF・コードをすぐに表示し、Office 文書は OS のプレビューをそのまま使います。',
-        f4t: '選択した項目にコマンド · AI', f4d: '選んだファイルに自分のスクリプトや AI への依頼（claude、codex など）をすぐ実行します。パスはシェルに合わせて安全に引用します。',
-        f5t: 'すべての操作を取り消し', f5d: 'コピー・移動・名前変更・削除を ⌘Z で取り消せます。削除は常にゴミ箱へ移します。',
-        f6t: '設定ファイルひとつ、自動アップデート', f6d: 'すべての設定は説明付きの config.toml ひとつにまとまり、新しいバージョンは署名を確認してから自動で取得します。',
-        shotsTitle: '画面', listAlt: '種類ごとに名前が色分けされた Gifiles のリスト表示', listCaption: 'リスト表示 · 種類ごとの名前の色',
-        galleryAlt: '写真のサムネイルが並ぶ Gifiles のギャラリー表示', galleryCaption: 'ギャラリー表示 · サムネイル',
+        title: 'クロスプラットフォームの<br>ファイル管理ツール',
+        intro: 'macOS の Finder が大好きなのに、Windows や Linux では使えないので、似たものを作りました。使い心地はできるだけそのままに、不便だったいくつかの機能（拡張子ごとの色分け、ターミナルと AI の連携）を補ったネイティブアプリです。',
+        ctaDownload: 'ダウンロード', listAlt: 'Gifiles のリスト表示',
+        f1t: 'Mac Finder の使い勝手が基準', f1d: 'リスト・ギャラリー・カラムの 3 つの表示と ⌘1 · ⌘2 · ⌘3、Space でプレビュー、Return で名前変更、⌘↓ で開くまで Finder そのままです。Windows と Linux でも同じキーを使い、⌘ の代わりに Ctrl を押します。',
+        columnsAlt: 'カラム表示', galleryAlt: 'ギャラリー表示',
+        f2t: '拡張子ごとの色', f2d: 'Mdir のように拡張子ごとにファイル名へ色を付け、実行ファイル・圧縮ファイル・文書・コードをひと目で見分けられます。色と拡張子のまとまりは設定で変更でき、ダークモード用の色はライトモードで自動的に濃くなります。',
+        colorsAlt: '拡張子ごとの色の設定',
+        f3t: 'クイックルック内蔵', f3d: 'Space で画像・動画・音楽・PDF・コードをすぐに表示し、矢印キーで次のファイルへ移れます。Office 文書のように自前で描けないファイルは OS のプレビューをそのまま使います。',
+        quickLookAlt: 'クイックルックで開いた写真',
+        f4t: 'AI 連携', f4d: 'ファイルを選んで依頼を 1 行書くと、ターミナルで Claude Code や Codex などの AI ツールがそのファイルを対象に実行されます。使う AI ツールをインストールし、API キーの登録やログインを済ませておく必要があります。',
+        aiAlt: 'AI への依頼入力欄',
+        f5t: 'ユーザーメニュー', f5d: '右クリック →「選択した項目で…」に自分のコマンドやスクリプトを登録しておくと、選んだファイルのパスをシェルに合わせて安全に埋めて実行します。新しいフォルダにまとめる・圧縮・AI 実行が標準で入っています。',
+        menuAlt: '「選択した項目で…」サブメニュー', menuSettingsAlt: '選択項目メニューの設定',
+        f6t: 'ターミナル連携', f6d: 'リストの下のターミナルはフォルダを移るたびに cd し、ターミナルで cd するとリストが追いかけます。ファイルをドロップすると引用符付きのパスが入力され、入力途中のコマンドは決して上書きしません。',
+        terminalAlt: 'カラム表示とターミナルパネル',
         downloadTitle: 'ダウンロード', dlLatest: '最新版を入手', dlMac: 'Apple Silicon・Intel 共通 · 署名・公証済みアプリ（zip）',
         dlWindows: 'x64 · zip を展開して Gifiles.exe を実行', dlLinux: 'x86_64 · AppImage（実行権限を付けて実行）',
         dlNote: '一度インストールすると、アプリが新しいバージョンを確認して取得し、終了時にインストールします。Windows 版は署名されていないため、初回起動時に警告が出ることがあります（詳細情報 → 実行）。',
-        notice: '個人が作って無料で公開しているアプリです。自由に使っていただいて構いませんが、機能の提案・バグ報告・使い方のサポートは受け付けていません。欲しい機能があれば、MIT ライセンスに従ってフォークして改造してください。',
         version: '最新バージョン {v}', pending: 'このバージョンの macOS パッケージはまだ公開されていません。',
         primaryMac: 'macOS 版をダウンロード', primaryWindows: 'Windows 版をダウンロード', primaryLinux: 'Linux 版をダウンロード'
       },
       zh: {
-        title: '顺手的 Finder，<br>再加上终端。',
-        intro: 'Gifiles 把 macOS Finder 的使用手感原样带到 macOS、Windows 和 Linux。列表下方的终端与列表联动，所有功能都能用键盘完成，原生（Qt）实现，轻快不臃肿。',
-        heroAlt: '分栏视图下方打开终端面板的 Gifiles 窗口',
-        heroCaption: '切换文件夹时终端会跟着 cd，在终端里 cd 时列表也会跟随。',
-        featuresTitle: '特点',
-        f1t: '与列表联动的终端', f1d: '把文件拖到终端即可输入带引号的路径，正在输入的命令绝不会被覆盖。终端也像 Chrome 一样支持标签页。',
-        f2t: 'Finder 原样的键盘操作', f2d: '⌘1 图库 · ⌘2 列表 · ⌘3 分栏，Space 预览，Return 重命名。所有快捷键都可在设置中修改。',
-        f3t: '快速预览', f3d: '图片、视频、音乐、PDF、代码即时查看，Office 文档直接使用操作系统自带的预览。',
-        f4t: '对所选项目执行命令 · AI', f4d: '对选中的文件直接运行你的脚本或 AI 请求（claude、codex 等）。路径会按 shell 规则安全加引号。',
-        f5t: '一切操作皆可撤销', f5d: '复制、移动、重命名、删除都能用 ⌘Z 撤销。删除总是移到废纸篓。',
-        f6t: '一个配置文件，自动更新', f6d: '所有设置都在一个带说明的 config.toml 中，新版本在校验签名后自动下载。',
-        shotsTitle: '界面', listAlt: '按类型给文件名着色的 Gifiles 列表视图', listCaption: '列表视图 · 按类型着色的文件名',
-        galleryAlt: '显示照片缩略图的 Gifiles 图库视图', galleryCaption: '图库视图 · 缩略图',
+        title: '跨平台<br>文件管理工具',
+        intro: '我非常喜欢 macOS 的访达（Finder），但在 Windows 和 Linux 上用不了，于是做了一个类似的。在尽量保留使用手感的同时，补上了几项一直觉得不便的功能（按扩展名区分颜色、终端与 AI 联动），是一款原生应用。',
+        ctaDownload: '下载', listAlt: 'Gifiles 列表视图',
+        f1t: '以 Mac 访达的易用性为准', f1d: '列表、图库、分栏三种视图，⌘1 · ⌘2 · ⌘3，Space 预览，Return 重命名，⌘↓ 打开，都与访达一致。Windows 和 Linux 使用同样的按键，用 Ctrl 代替 ⌘。',
+        columnsAlt: '分栏视图', galleryAlt: '图库视图',
+        f2t: '按扩展名着色', f2d: '像 Mdir 一样按扩展名给文件名上色，可执行文件、压缩包、文档和代码一眼就能分清。颜色和扩展名分组可在设置中修改，深色模式下的颜色在浅色模式中会自动加深。',
+        colorsAlt: '按扩展名着色的设置',
+        f3t: '内置快速查看', f3d: '按 Space 即可查看图片、视频、音乐、PDF 和代码，用方向键切换到下一个文件。Office 文档等无法自行绘制的文件，直接使用操作系统自带的预览。',
+        quickLookAlt: '用快速查看打开的照片',
+        f4t: 'AI 联动', f4d: '选中文件并写一行请求，Claude Code、Codex 等 AI 工具就会在终端中针对这些文件运行。需要先安装要用的 AI 工具，并注册 API 密钥或完成登录。',
+        aiAlt: 'AI 请求输入框',
+        f5t: '自定义菜单', f5d: '在右键 →「用所选项目…」中注册自己的命令或脚本，就会把所选文件的路径按 shell 规则安全填入后执行。默认已包含归入新文件夹、压缩和 AI 执行。',
+        menuAlt: '「用所选项目…」子菜单', menuSettingsAlt: '所选项目菜单设置',
+        f6t: '终端联动', f6d: '列表下方的终端会在切换文件夹时跟着 cd，在终端里 cd 时列表也会跟随。拖放文件即可输入带引号的路径，正在输入的命令绝不会被覆盖。',
+        terminalAlt: '分栏视图与终端面板',
         downloadTitle: '下载', dlLatest: '获取最新版本', dlMac: 'Apple Silicon 与 Intel 通用 · 已签名并公证的应用（zip）',
         dlWindows: 'x64 · 解压后运行 Gifiles.exe', dlLinux: 'x86_64 · AppImage（添加执行权限后运行）',
         dlNote: '安装后，应用会检查并下载新版本，在退出时完成安装。Windows 版未签名，首次运行时 Windows 可能会发出警告（更多信息 → 仍要运行）。',
-        notice: '这是个人制作并免费公开的应用。欢迎自由使用，但不接受功能建议、错误报告或使用支持。如需某项功能，请按照 MIT 许可证 fork 后自行修改。',
         version: '最新版本 {v}', pending: '此版本的 macOS 安装包尚未发布。',
         primaryMac: '下载 macOS 版', primaryWindows: '下载 Windows 版', primaryLinux: '下载 Linux 版'
       },

@@ -39,11 +39,6 @@ const QList<Shortcuts::Entry> &Shortcuts::entries()
 #else
     const bool mac = false;
 #endif
-#ifdef Q_OS_WIN
-    const bool windows = true;
-#else
-    const bool windows = false;
-#endif
     auto e = [](const QString &id, const QString &group, QStringList keys, const QString &context = {}) {
         QList<QKeySequence> ks;
         for (const QString &k : keys)
@@ -63,14 +58,14 @@ const QList<Shortcuts::Entry> &Shortcuts::entries()
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "새로운 탭")), file, L{"Ctrl+T"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "새로운 폴더")), file, L{"Ctrl+Shift+N"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "선택 항목으로 새로운 폴더")), file, mac ? L{"Ctrl+Meta+N"} : L{"Ctrl+Alt+N"}),
-            e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "열기")), file, windows ? L{"Return", "Ctrl+Down"} : L{"Ctrl+Down"}, QStringLiteral("files")),
+            e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "열기")), file, L{"Ctrl+Down"}, QStringLiteral("files")),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "다음으로 열기…")), file, L{}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "새로운 탭에서 열기")), file, mac ? L{"Ctrl+Meta+O"} : L{"Ctrl+Alt+O"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "탭 닫기")), file, L{"Ctrl+W"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "윈도우 닫기")), file, L{"Ctrl+Shift+W"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "정보 가져오기")), file, L{"Ctrl+I"}),
             e(util::revealActionId(), file, L{}),
-            e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "이름 변경")), file, windows ? L{"F2"} : L{"Return"}, QStringLiteral("files")),
+            e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "이름 변경")), file, L{"Return"}, QStringLiteral("files")),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "복제")), file, L{"Ctrl+D"}),
             // Quick Look keys are configurable, including the unmodified Space key.
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어")), file, L{"Space", "Ctrl+Y"}, QStringLiteral("files")),

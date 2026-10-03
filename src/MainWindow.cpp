@@ -38,6 +38,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QPainter>
 #include <QProgressBar>
 #include <QProcess>
 #include <QPushButton>
@@ -1926,6 +1927,24 @@ void MainWindow::showContextMenu(const QPoint &globalPos, bool onItem, bool from
         menu.ensurePolished();
         menu.resize(menu.sizeHint());
         menu.grab().save(QDir(dir).filePath(QStringLiteral("context-menu.png")));
+        // The same menu over the window with "선택한 항목들로…" open, as a user sees it.
+        for (QAction *withAct : menu.actions()) {
+            QMenu *sub = withAct->menu();
+            if (withAct->objectName() != QStringLiteral("선택한 항목들로…") || !sub)
+                continue;
+            menu.setActiveAction(withAct);
+            sub->ensurePolished();
+            sub->resize(sub->sizeHint());
+            if (!sub->actions().isEmpty())
+                sub->setActiveAction(sub->actions().constFirst());
+            QPixmap shot = grab();
+            const QPoint at = mapFromGlobal(globalPos);
+            QPainter painter(&shot);
+            painter.drawPixmap(at, menu.grab());
+            painter.drawPixmap(at + QPoint(menu.width() - 6, menu.actionGeometry(withAct).top() - 6), sub->grab());
+            painter.end();
+            shot.save(QDir(dir).filePath(QStringLiteral("context-menu-window.png")));
+        }
         restore();
         return;
     }
