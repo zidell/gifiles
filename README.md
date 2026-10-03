@@ -2,6 +2,14 @@
 
 macOS Finder의 사용감을 그대로 옮긴 크로스 플랫폼(macOS·Windows·Linux) 파일 관리자. Qt 6 Widgets(C++20).
 
+> 개인이 만들어 무료로 공개하는 앱입니다. 자유롭게 쓰셔도 되지만 기능 제안, 버그 신고, 사용 지원은 받지 않습니다. 원하는 기능이 있으면 MIT 라이선스에 따라 포크해서 고쳐 쓰세요.
+>
+> A personal app, shared for free. You're welcome to use it, but feature requests, bug reports and support requests aren't accepted. If you want a feature, fork it and change it under the MIT license.
+>
+> 個人が作って無料で公開しているアプリです。自由に使っていただいて構いませんが、機能の提案・バグ報告・使い方のサポートは受け付けていません。欲しい機能があれば、MIT ライセンスに従ってフォークして改造してください。
+>
+> 这是个人制作并免费公开的应用。欢迎自由使用，但不接受功能建议、错误报告或使用支持。如需某项功能，请按照 MIT 许可证 fork 后自行修改。
+
 ## 빌드·실행
 
 ```sh

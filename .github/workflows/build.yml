@@ -1,10 +1,12 @@
 name: build
 
 # Every push to main that passes on all three platforms becomes a release (v0.1.<run number>) that
-# the installed apps update to (src/Updater): signed update.json + the three packages.
+# the installed apps update to (src/Updater): signed update.json + the three packages. Pushes that
+# change only Markdown or docs/ don't run.
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md', 'docs/**'] # text only: no build, no release for the installed apps to download
   pull_request:
   workflow_dispatch:
 
