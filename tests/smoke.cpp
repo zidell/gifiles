@@ -236,6 +236,19 @@ class Smoke : public QObject {
         return nullptr;
     }
 
+    // Replaces a file the way an editor does. On Windows the app (or a virus scanner) can hold it for a
+    // moment right after its own save, and the replace fails: try again, as editors do.
+    static bool replaceFile(const QString &path, const QByteArray &data)
+    {
+        for (int attempt = 0; attempt < 30; ++attempt) {
+            QSaveFile out(path);
+            if (out.open(QIODevice::WriteOnly) && out.write(data) == data.size() && out.commit())
+                return true;
+            QTest::qWait(100);
+        }
+        return false;
+    }
+
     static bool showsText(QWidget *w, const QString &text)
     {
         for (QLabel *l : w->findChildren<QLabel *>())
@@ -1604,10 +1617,7 @@ private slots:
         f.close();
         QVERIFY(original.contains(QStringLiteral("stripes = true")));
         auto writeConfig = [&](const QString &text) {
-            QSaveFile out(path); // like an editor: replace the file
-            QVERIFY(out.open(QIODevice::WriteOnly));
-            out.write(text.toUtf8());
-            QVERIFY(out.commit());
+            QVERIFY(replaceFile(path, text.toUtf8())); // like an editor: replace the file
         };
         writeConfig(QString(original).replace(QStringLiteral("stripes = true"), QStringLiteral("stripes = false")));
         QTRY_VERIFY(!tree->property("stripedRows").toBool()); // applied without restarting
@@ -1759,10 +1769,7 @@ private slots:
         const QString original = Settings::instance()->render();
         QVERIFY(original.contains(QStringLiteral("[shortcuts]")));
         auto writeConfig = [&](const QString &text) {
-            QSaveFile out(path);
-            QVERIFY(out.open(QIODevice::WriteOnly));
-            out.write(text.toUtf8());
-            QVERIFY(out.commit());
+            QVERIFY(replaceFile(path, text.toUtf8())); // like an editor: replace the file
         };
         writeConfig(QString(original).replace(QStringLiteral("[shortcuts]"), QStringLiteral("[shortcuts]\n\"훑어보기\" = [\"F9\"]")));
         QTRY_COMPARE(Shortcuts::instance()->keys(QStringLiteral("퀵 뷰어")), QList<QKeySequence>{QKeySequence(QStringLiteral("F9"))});
