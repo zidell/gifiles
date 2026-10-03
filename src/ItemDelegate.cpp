@@ -133,7 +133,7 @@ QColor ItemDelegate::selectionColor(const QModelIndex &index) const
         return {};
     const QModelIndex name = index.siblingAtColumn(ColName);
     const QColor c = isFolder(name) ? Theme::folderBaseColor() : Theme::fileBaseColor(name.data().toString());
-    return c.isValid() ? c : Theme::plainSelectionColor();
+    return Theme::selectionFill(c.isValid() ? c : Theme::plainSelectionColor());
 }
 
 void ItemDelegate::paintItem(QPainter *p, const QStyleOptionViewItem &option, const QModelIndex &index) const

@@ -1486,14 +1486,15 @@ private slots:
         QCOMPARE(peek.text(idx), QStringLiteral("README.TXT"));
         QCOMPARE(idx.data().toString(), QStringLiteral("readme.txt")); // the name itself is untouched
         QVERIFY(editorBold()); // the editor matches the bold row, so nothing moves when renaming starts
-        // A selected item's background is its own color (as given, either theme); off → the accent.
-        QCOMPARE(peek.selectionColor(idx), Theme::fileBaseColor(QStringLiteral("readme.txt")));
+        // A selected item's background is its own color (as given, either theme), dimmed to 80% of
+        // its lightness; off → the accent.
+        QCOMPARE(peek.selectionColor(idx), Theme::selectionFill(Theme::fileBaseColor(QStringLiteral("readme.txt"))));
         QVERIFY(peek.selectionColor(idx).isValid());
         QFile plain(dir.filePath(QStringLiteral("Makefile")));
         QVERIFY(plain.open(QIODevice::WriteOnly));
         plain.close();
         QTRY_VERIFY(proxy->indexForPath(plain.fileName()).isValid());
-        QCOMPARE(peek.selectionColor(proxy->indexForPath(plain.fileName())), Theme::plainSelectionColor()); // no color: light gray
+        QCOMPARE(peek.selectionColor(proxy->indexForPath(plain.fileName())), Theme::selectionFill(Theme::plainSelectionColor())); // no color: gray
         st->setValue(Settings::FileColorSelection, false);
         QVERIFY(!peek.selectionColor(idx).isValid());
         st->remove(Settings::FileColorSelection);

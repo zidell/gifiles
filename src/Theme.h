@@ -44,6 +44,9 @@ public:
     // Selection in the items' colors (file_colors.selection): items without a color get this light
     // gray; the text on any of them is this black (Mdir's selection bar).
     static QColor plainSelectionColor();
+    // The selection bar's fill for an item color: the same hue at 80% of its perceived lightness,
+    // so the bar doesn't glare and the black text on it reads well.
+    static QColor selectionFill(const QColor &color);
     static QColor selectionTextColor();
     // The color picker's live preview: these extensions (or folders) show `darkModeColor` until it's
     // called with an invalid color; repaints the file views.

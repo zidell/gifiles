@@ -569,3 +569,13 @@ shortcuts in `../README.md`. Dates are 2026.
   taken). Keys a user set in config.toml `[shortcuts]` stay as they are; defaults are written
   only as comments, so installed copies pick up the new defaults.
 
+## Selection bar 20% darker (2026-10-03)
+
+- The user found the selection bar (an item's own color behind black text) too bright. Every fill now
+  goes through `Theme::selectionFill`: the same hue at 80% of its OKLab lightness (chroma eased only
+  if the darker color leaves sRGB), the plain gray included. Done in OKLab like the rest of the color
+  work, so yellow and blue darken by the same perceived amount. `unit_core` `selectionFillIsDarker`
+  checks L × 0.8 and the hue; checked on real rendering (list row and gallery name pill, active window).
+- Landing page: features reordered (Finder, terminal, colors, Quick Look, AI, your menu) with the
+  user's own wording, and every screenshot re-shot with the darker bar.
+

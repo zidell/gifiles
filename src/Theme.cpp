@@ -610,6 +610,20 @@ QColor Theme::lightModeColor(const QColor &c)
                             float(fromLinear(qBound(0.0, rgb[2], 1.0))));
 }
 
+QColor Theme::selectionFill(const QColor &color)
+{
+    OkLch o = toOkLch(color);
+    o.l *= 0.8;
+    bool fits = false;
+    auto rgb = fromOkLch(o, &fits);
+    for (int i = 0; i < 24 && !fits; ++i) { // darker can leave the gamut for vivid hues: ease chroma
+        o.c *= 0.95;
+        rgb = fromOkLch(o, &fits);
+    }
+    return QColor::fromRgbF(float(fromLinear(qBound(0.0, rgb[0], 1.0))), float(fromLinear(qBound(0.0, rgb[1], 1.0))),
+                            float(fromLinear(qBound(0.0, rgb[2], 1.0))));
+}
+
 void Theme::previewFileColor(const QStringList &extensions, const QColor &darkModeColor)
 {
     previewExtensions.clear();

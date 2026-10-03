@@ -1036,6 +1036,25 @@ private slots:
         QCOMPARE(Theme::lightModeColor(Qt::white), Theme::lightModeColor(Qt::black));
     }
 
+    // The selection bar: each item color at 80% of its perceived lightness, same hue, in sRGB.
+    void selectionFillIsDarker()
+    {
+        QList<QColor> inputs{Theme::plainSelectionColor()};
+        for (const QVariant &r : Settings::defaultFileColors())
+            inputs << QColor(r.toMap().value(QStringLiteral("color")).toString());
+        inputs << QColor(Qt::yellow) << QColor(Qt::blue) << QColor(QStringLiteral("#CD6A51"));
+        for (const QColor &c : inputs) {
+            const QColor out = Theme::selectionFill(c);
+            const Lab in = oklab(c), o = oklab(out);
+            QVERIFY2(std::abs(o.l - in.l * 0.8) < 0.01, qPrintable(c.name() + QStringLiteral(" -> ") + out.name()));
+            if (std::hypot(in.a, in.b) > 0.02) { // grays have no hue to keep
+                double dh = std::abs(std::atan2(in.b, in.a) - std::atan2(o.b, o.a));
+                dh = std::min(dh, 2 * 3.14159265358979323846 - dh);
+                QVERIFY2(dh < 0.08, qPrintable(c.name() + QStringLiteral(" -> ") + out.name()));
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- Shortcuts
 
     void shortcutIds()
