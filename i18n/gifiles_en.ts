@@ -807,6 +807,10 @@ Network and FUSE drives are included only when listed here.</translation>
         <translation>The list is built in the background and cached; it is read again when it gets old or when folders change in the app.</translation>
     </message>
     <message>
+        <source>폴더 트리에서 찾을 때 대소문자를 구분합니다. 찾는 칸 오른쪽의 Aa 버튼(⌥C / Alt+C)과 같습니다.</source>
+        <translation>Match case when searching the folder tree. Same as the Aa button right of the search field (⌥C / Alt+C).</translation>
+    </message>
+    <message>
         <source>폴더 트리에서 뺄 폴더 (그 안의 모든 폴더도). 이름만 적으면 어디에 있든 그 이름의 폴더를 빼고 (&quot;node_modules&quot;),
 / 나 ~ 나 드라이브 문자로 시작하면 그 경로 하나만 뺍니다 (&quot;~/Library&quot;). * 와 ? 를 쓸 수 있습니다 (&quot;*.tmp&quot;).</source>
         <translation>Folders to leave out of the folder tree (with every folder inside). A bare name leaves out folders of that name anywhere (&quot;node_modules&quot;);
@@ -1693,6 +1697,14 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>Previous Match in Folder Tree</translation>
     </message>
     <message>
+        <source>폴더 트리 대소문자 구분</source>
+        <translation>Match Case in Folder Tree</translation>
+    </message>
+    <message>
+        <source>폴더 트리 새로 읽기</source>
+        <translation>Refresh Folder Tree</translation>
+    </message>
+    <message>
         <source>퀵 뷰어 닫기</source>
         <translation>Close Quick Look</translation>
     </message>
@@ -2133,8 +2145,40 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>Can&apos;t read the update information.</translation>
     </message>
     <message>
-        <source>폴더 이름을 치면 바로 찾아갑니다 · Tab 다음 · Enter 이동 · Esc 닫기</source>
-        <translation>Type a folder name to jump to it · Tab next · Enter go · Esc close</translation>
+        <source>폴더 경로의 글자를 차례로 치면 바로 찾아갑니다 (예: sigif → Sites/gifiles)</source>
+        <translation>Type letters of a folder path in order to jump there (e.g. sigif → Sites/gifiles)</translation>
+    </message>
+    <message>
+        <source>다음 일치</source>
+        <translation>next match</translation>
+    </message>
+    <message>
+        <source>이전 일치</source>
+        <translation>previous match</translation>
+    </message>
+    <message>
+        <source>들어가기</source>
+        <translation>go in</translation>
+    </message>
+    <message>
+        <source>한 줄씩</source>
+        <translation>line by line</translation>
+    </message>
+    <message>
+        <source>상위·하위 폴더</source>
+        <translation>parent / subfolder</translation>
+    </message>
+    <message>
+        <source>대소문자 구분</source>
+        <translation>match case</translation>
+    </message>
+    <message>
+        <source>새로 읽기</source>
+        <translation>refresh</translation>
+    </message>
+    <message>
+        <source>닫기</source>
+        <translation>close</translation>
     </message>
     <message>
         <source>폴더 목록을 만드는 중… %1개</source>

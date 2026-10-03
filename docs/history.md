@@ -633,3 +633,22 @@ shortcuts in `../README.md`. Dates are 2026.
   input method commits ₩ into the query line, the panel closes, and the same key then reaches the
   file view and opened it again in the same millisecond — a close by typed ` / ₩ now ignores a
   reopen within 300 ms (`FolderTreePanel::justDismissed`).
+- Second round with the user: matching is now over the whole path below the root with the slashes
+  left out, the query's characters in order (`sigif` → Sites/gifiles). One pass over the names in
+  breadth-first order carries each parent's progress into its children (greedy in-order matching
+  is exact for "does it match"). Because every folder inside a match matches too, the tiers are:
+  name equal > name prefix > query inside the name > its characters in order inside the name >
+  the match ends in this name (more of it in the name first) > inside a matched folder. The
+  root's own path doesn't count (a `roots` entry like the tests' temp folder matched everything).
+- `Aa` toggle (⌥C, `folder_tree.case_sensitive`), the selected row shows its full path at 0.5
+  opacity, a key line at the bottom built from the current shortcuts (Tab/Return/Esc spelled out
+  instead of macOS's ⇥ ↩ ⎋), ⌘R rescans. Keys: the user tried Return = next match / ⌘↓ = go in,
+  then went back to Tab = next and Return = go in (⌘↓ kept as a second key).
+- Order among equal matches, asked by the user: nearest to the folder the browser shows first (tree
+  steps through the common parent), then visits, then depth — typing "src" wants this project's
+  src, while a name that matches exactly still wins by its tier.
+- Scale, measured in the Release build on the developer's Mac (115 621 folders, `folderIndexBenchmark`):
+  scan 8.3 s off the GUI thread, cache load and the unfolded tree's row table under 1 ms each,
+  every search 1–2 ms including one-letter queries matching 113 000 folders (the Debug build is
+  ~10× slower: 15–26 ms). Everything is linear, so 10× the folders means ~80 s of background scan,
+  ~20 ms a keystroke and ~45 MB while the panel is open — no freeze.

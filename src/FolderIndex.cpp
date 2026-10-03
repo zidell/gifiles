@@ -294,53 +294,105 @@ int FolderIndex::find(const QString &path) const
     return n >= 0 && foldPath(this->path(n)) == foldPath(cleanRoot(path)) ? n : -1;
 }
 
-FolderIndex::Matches FolderIndex::match(const QString &query, const QHash<int, int> &boost, int limit) const
+namespace {
+
+// The next code point of UTF-8 text (the arenas hold valid UTF-8 from QString::toUtf8).
+inline char32_t nextCodePoint(const char *&p, const char *end)
+{
+    const unsigned char c = static_cast<unsigned char>(*p++);
+    if (c < 0x80)
+        return c;
+    int extra = c >= 0xF0 ? 3 : c >= 0xE0 ? 2 : 1;
+    char32_t cp = c & (0x3F >> extra);
+    while (extra-- > 0 && p < end)
+        cp = (cp << 6) | (static_cast<unsigned char>(*p++) & 0x3F);
+    return cp;
+}
+
+// How far the query is matched in order after `name`, starting at `from`.
+inline int advance(const std::u32string &q, int from, QByteArrayView name)
+{
+    const char *p = name.data(), *end = p + name.size();
+    int j = from;
+    while (p < end && j < int(q.size()))
+        if (nextCodePoint(p, end) == q[size_t(j)])
+            ++j;
+    return j;
+}
+
+} // namespace
+
+FolderIndex::Matches FolderIndex::match(const QString &query, const QHash<int, int> &boost, int limit, bool caseSensitive,
+                                       int near) const
 {
     Matches out;
-    QStringList parts = fold(QDir::fromNativeSeparators(query.trimmed())).split(QLatin1Char('/'), Qt::SkipEmptyParts);
-    if (parts.isEmpty())
+    QString text = QDir::fromNativeSeparators(query).remove(QLatin1Char('/')).trimmed().normalized(QString::NormalizationForm_C);
+    if (!caseSensitive)
+        text = text.toCaseFolded();
+    const QList<uint> ucs = text.toUcs4();
+    const std::u32string q(ucs.cbegin(), ucs.cend());
+    if (q.empty() || q.size() > 0xFFFF)
         return out;
-    const QByteArray last = parts.takeLast().toUtf8();
-    QList<QByteArray> before;
-    for (const QString &s : parts)
-        before << s.toUtf8();
-    const std::string_view needle(last.constData(), size_t(last.size()));
-    auto sv = [](QByteArrayView v) { return std::string_view(v.data(), size_t(v.size())); };
+    const int qn = int(q.size());
+    auto nameOf = [&](int n) { return caseSensitive ? raw(n) : folded(n); };
 
+    // Breadth-first order puts every parent before its children: the path's progress is the
+    // parent's carried through this name, one pass over all names.
+    std::vector<quint16> done(m_nodes.size());
+    // Distance in the tree from `near`: its ancestors are marked with their depth.
+    std::vector<int> nearDepth;
+    if (near >= 0 && near < size()) {
+        nearDepth.assign(m_nodes.size(), -1);
+        for (int a = near; a >= 0; a = m_nodes[size_t(a)].parent)
+            nearDepth[size_t(a)] = m_nodes[size_t(a)].depth;
+    }
+    auto distance = [&](int n) {
+        if (nearDepth.empty())
+            return 0;
+        int a = n;
+        while (a >= 0 && nearDepth[size_t(a)] < 0)
+            a = m_nodes[size_t(a)].parent;
+        const int common = a < 0 ? -1 : nearDepth[size_t(a)]; // another root: through the top
+        return (m_nodes[size_t(near)].depth - common) + (m_nodes[size_t(n)].depth - common);
+    };
     struct Hit {
-        int node, score, boost, depth;
+        int node, tier, own, distance, boost, depth;
     };
     std::vector<Hit> hits;
-    for (int n = m_roots; n < size(); ++n) {
-        const std::string_view name = sv(folded(n));
-        const size_t pos = name.find(needle);
-        if (pos == std::string_view::npos)
+    for (int n = 0; n < size(); ++n) {
+        if (n < m_roots) // the path is matched below the root ("/", or a folder from folder_tree.roots)
             continue;
-        if (!before.isEmpty()) { // each earlier part in an ancestor, in order upward
-            int a = m_nodes[n].parent;
-            bool found = true;
-            for (qsizetype k = before.size() - 1; k >= 0 && found; --k) {
-                const std::string_view part(before[k].constData(), size_t(before[k].size()));
-                while (a >= 0 && sv(folded(a)).find(part) == std::string_view::npos)
-                    a = m_nodes[a].parent;
-                found = a >= 0;
-                if (found)
-                    a = m_nodes[a].parent;
-            }
-            if (!found)
-                continue;
+        const int before = done[size_t(m_nodes[n].parent)];
+        const int after = before == qn ? qn : advance(q, before, nameOf(n));
+        done[size_t(n)] = quint16(after);
+        if (after < qn)
+            continue;
+        int tier = 0; // inside a folder that matched already
+        if (before < qn) {
+            const QString nm = QString::fromUtf8(nameOf(n));
+            const QList<uint> nu = nm.toUcs4();
+            const std::u32string name(nu.cbegin(), nu.cend());
+            if (name == q)
+                tier = 6;
+            else if (name.compare(0, q.size(), q) == 0)
+                tier = 5;
+            else if (name.find(q) != std::u32string::npos)
+                tier = 4;
+            else if (advance(q, 0, nameOf(n)) == qn)
+                tier = 3;
+            else
+                tier = 2; // the match ends in this name
         }
-        int score = 0;
-        if (pos == 0)
-            score = name.size() == needle.size() ? 3 : 2;
-        else if (std::string_view(" -_.()[]{}+,@#").find(name[pos - 1]) != std::string_view::npos)
-            score = 1;
-        hits.push_back({n, score, boost.value(n), m_nodes[n].depth});
+        hits.push_back({n, tier, qn - before, distance(n), boost.value(n), m_nodes[n].depth});
     }
     out.total = int(hits.size());
     const auto better = [](const Hit &a, const Hit &b) {
-        if (a.score != b.score)
-            return a.score > b.score;
+        if (a.tier != b.tier)
+            return a.tier > b.tier;
+        if (a.tier == 2 && a.own != b.own)
+            return a.own > b.own;
+        if (a.distance != b.distance)
+            return a.distance < b.distance;
         if (a.boost != b.boost)
             return a.boost > b.boost;
         if (a.depth != b.depth)

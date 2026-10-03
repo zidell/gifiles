@@ -806,6 +806,10 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>列表在后台生成并缓存;过旧或在应用中更改了文件夹时会重新读取。</translation>
     </message>
     <message>
+        <source>폴더 트리에서 찾을 때 대소문자를 구분합니다. 찾는 칸 오른쪽의 Aa 버튼(⌥C / Alt+C)과 같습니다.</source>
+        <translation>在文件夹树中搜索时区分大小写。与搜索框右侧的 Aa 按钮(⌥C / Alt+C)相同。</translation>
+    </message>
+    <message>
         <source>폴더 트리에서 뺄 폴더 (그 안의 모든 폴더도). 이름만 적으면 어디에 있든 그 이름의 폴더를 빼고 (&quot;node_modules&quot;),
 / 나 ~ 나 드라이브 문자로 시작하면 그 경로 하나만 뺍니다 (&quot;~/Library&quot;). * 와 ? 를 쓸 수 있습니다 (&quot;*.tmp&quot;).</source>
         <translation>从文件夹树中排除的文件夹 (连同其中的所有文件夹)。只写名称则排除任何位置的同名文件夹 (&quot;node_modules&quot;),
@@ -1692,6 +1696,14 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>文件夹树中的上一个匹配</translation>
     </message>
     <message>
+        <source>폴더 트리 대소문자 구분</source>
+        <translation>文件夹树区分大小写</translation>
+    </message>
+    <message>
+        <source>폴더 트리 새로 읽기</source>
+        <translation>刷新文件夹树</translation>
+    </message>
+    <message>
         <source>퀵 뷰어 닫기</source>
         <translation>关闭快速查看</translation>
     </message>
@@ -2132,8 +2144,40 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>无法读取更新信息。</translation>
     </message>
     <message>
-        <source>폴더 이름을 치면 바로 찾아갑니다 · Tab 다음 · Enter 이동 · Esc 닫기</source>
-        <translation>输入文件夹名称即可跳转 · Tab 下一个 · Enter 前往 · Esc 关闭</translation>
+        <source>폴더 경로의 글자를 차례로 치면 바로 찾아갑니다 (예: sigif → Sites/gifiles)</source>
+        <translation>按顺序输入文件夹路径中的字母即可跳转 (例: sigif → Sites/gifiles)</translation>
+    </message>
+    <message>
+        <source>다음 일치</source>
+        <translation>下一个匹配</translation>
+    </message>
+    <message>
+        <source>이전 일치</source>
+        <translation>上一个匹配</translation>
+    </message>
+    <message>
+        <source>들어가기</source>
+        <translation>进入</translation>
+    </message>
+    <message>
+        <source>한 줄씩</source>
+        <translation>逐行</translation>
+    </message>
+    <message>
+        <source>상위·하위 폴더</source>
+        <translation>上级 / 子文件夹</translation>
+    </message>
+    <message>
+        <source>대소문자 구분</source>
+        <translation>区分大小写</translation>
+    </message>
+    <message>
+        <source>새로 읽기</source>
+        <translation>刷新</translation>
+    </message>
+    <message>
+        <source>닫기</source>
+        <translation>关闭</translation>
     </message>
     <message>
         <source>폴더 목록을 만드는 중… %1개</source>

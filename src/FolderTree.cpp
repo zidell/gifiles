@@ -24,6 +24,7 @@
 #include <QListView>
 #include <QPainter>
 #include <QStyledItemDelegate>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <QtConcurrent/QtConcurrentRun>
 
@@ -423,8 +424,17 @@ public:
         const QRect textRect(iconX + 22, r.top(), r.right() - iconX - 26, r.height());
         p->setPen(selected ? c.selText : c.text);
         p->setFont(option.font);
-        p->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft,
-                    option.fontMetrics.elidedText(index.data().toString(), Qt::ElideMiddle, textRect.width()));
+        const QString name = option.fontMetrics.elidedText(index.data().toString(), Qt::ElideMiddle, textRect.width());
+        p->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, name);
+        // The selected folder's whole path after its name, dimmed.
+        const int gap = option.fontMetrics.horizontalAdvance(name) + 14;
+        if (selected && n >= f->rootCount() && gap < textRect.width() - 40) {
+            const QRect pathRect = textRect.adjusted(gap, 0, 0, 0);
+            p->setOpacity(0.5);
+            p->drawText(pathRect, Qt::AlignVCenter | Qt::AlignLeft,
+                        option.fontMetrics.elidedText(QDir::toNativeSeparators(f->path(n)), Qt::ElideMiddle, pathRect.width()));
+            p->setOpacity(1);
+        }
         p->restore();
     }
 
@@ -458,11 +468,26 @@ FolderTreePanel::FolderTreePanel(QWidget *parent) : QFrame(parent)
     m_edit = new FolderTreeQuery(this);
     m_edit->setObjectName(QStringLiteral("folderTreeQuery"));
     m_edit->setAttribute(Qt::WA_InputMethodEnabled, true);
-    m_edit->setPlaceholderText(Gifiles::tr("폴더 이름을 치면 바로 찾아갑니다 · Tab 다음 · Enter 이동 · Esc 닫기"));
     m_edit->installEventFilter(this);
+    m_case = new QToolButton(this);
+    m_case->setObjectName(QStringLiteral("folderTreeCase"));
+    m_case->setText(QStringLiteral("Aa"));
+    m_case->setCheckable(true);
+    m_case->setFocusPolicy(Qt::NoFocus);
+    m_case->setChecked(Settings::instance()->flag(Settings::FolderTreeCase));
+    connect(m_case, &QToolButton::toggled, this, [this](bool on) {
+        if (Settings::instance()->flag(Settings::FolderTreeCase) != on)
+            Settings::instance()->setValue(Settings::FolderTreeCase, on);
+        runQuery(true);
+    });
+    connect(Settings::instance(), &Settings::changed, m_case, [this](const QString &k) {
+        if (k.isEmpty() || k == QLatin1String(Settings::FolderTreeCase))
+            m_case->setChecked(Settings::instance()->flag(Settings::FolderTreeCase));
+    });
     m_status = new QLabel(this);
     m_status->setObjectName(QStringLiteral("secondary"));
     row->addWidget(m_edit, 1);
+    row->addWidget(m_case);
     row->addWidget(m_status);
     l->addLayout(row);
 
@@ -478,6 +503,12 @@ FolderTreePanel::FolderTreePanel(QWidget *parent) : QFrame(parent)
     m_view->setModel(m_model);
     m_view->setItemDelegate(new FolderTreeDelegate(m_model, m_view));
     l->addWidget(m_view, 1);
+    m_keys = new QLabel(this);
+    m_keys->setObjectName(QStringLiteral("folderTreeKeys"));
+    m_keys->setWordWrap(true);
+    l->addWidget(m_keys);
+    m_edit->setPlaceholderText(Gifiles::tr("폴더 경로의 글자를 차례로 치면 바로 찾아갑니다 (예: sigif → Sites/gifiles)"));
+    connect(Shortcuts::instance(), &Shortcuts::changed, this, &FolderTreePanel::updateKeys);
 
     connect(m_view, &QListView::doubleClicked, this, [this](const QModelIndex &i) {
         m_view->setCurrentIndex(i);
@@ -517,6 +548,7 @@ FolderTreePanel::FolderTreePanel(QWidget *parent) : QFrame(parent)
 void FolderTreePanel::open(const QString &current)
 {
     m_current = current;
+    updateKeys();
     {
         QSignalBlocker block(m_edit);
         m_edit->clear();
@@ -569,7 +601,8 @@ void FolderTreePanel::runQuery(bool jump)
         m_matchPos = -1;
         return updateStatus();
     }
-    m_matches = m_index->match(q, m_boost);
+    // Among equal matches the nearest to the folder the browser shows comes first.
+    m_matches = m_index->match(q, m_boost, 2000, m_case->isChecked(), m_index->findNearest(m_current));
     const int here = m_model->nodeOf(m_view->currentIndex());
     const auto it = std::find(m_matches.best.begin(), m_matches.best.end(), here);
     m_matchPos = jump ? (m_matches.best.empty() ? -1 : 0) : (it == m_matches.best.end() ? -1 : int(it - m_matches.best.begin()));
@@ -607,6 +640,36 @@ void FolderTreePanel::choose()
         emit chosen(path);
 }
 
+void FolderTreePanel::updateKeys()
+{
+    // Every key of each action as it is set now (Settings → 단축키 may have changed them).
+    auto keys = [](const char *id) {
+        QStringList out;
+        for (const QKeySequence &k : Shortcuts::instance()->keys(QString::fromUtf8(id))) {
+            // macOS writes Tab, Return and Esc as ⇥ ↩ ⎋, which few people read at a glance.
+            QString t = k.toString(QKeySequence::NativeText);
+            t.replace(QChar(0x21E5), QStringLiteral("Tab")).replace(QChar(0x21A9), QStringLiteral("Enter")).replace(QChar(0x21B5), QStringLiteral("Enter")).replace(QChar(0x238B), QStringLiteral("Esc"));
+            out << t;
+        }
+        return out.isEmpty() ? QStringLiteral("—") : out.join(QStringLiteral(" / "));
+    };
+    const QList<QPair<QString, QString>> items = {
+        {keys("폴더 트리 다음 일치"), Gifiles::tr("다음 일치")},
+        {keys("폴더 트리 이전 일치"), Gifiles::tr("이전 일치")},
+        {keys("폴더 트리에서 이동"), Gifiles::tr("들어가기")},
+        {QStringLiteral("↑ ↓"), Gifiles::tr("한 줄씩")},
+        {QStringLiteral("← →"), Gifiles::tr("상위·하위 폴더")},
+        {keys("폴더 트리 대소문자 구분"), Gifiles::tr("대소문자 구분")},
+        {keys("폴더 트리 새로 읽기"), Gifiles::tr("새로 읽기")},
+        {keys("폴더 트리 닫기"), Gifiles::tr("닫기")},
+    };
+    QStringList parts;
+    for (const auto &[key, what] : items)
+        parts << QStringLiteral("<b>%1</b> %2").arg(key.toHtmlEscaped(), what.toHtmlEscaped());
+    m_keys->setText(parts.join(QStringLiteral("&nbsp;&nbsp;·&nbsp;&nbsp;")));
+    m_case->setToolTip(Gifiles::tr("대소문자 구분") + QStringLiteral("  ") + keys("폴더 트리 대소문자 구분"));
+}
+
 void FolderTreePanel::updateStatus()
 {
     const QLocale loc;
@@ -642,6 +705,15 @@ bool FolderTreePanel::eventFilter(QObject *obj, QEvent *ev)
     }
     if (matches("폴더 트리에서 이동")) {
         choose();
+        return true;
+    }
+    if (matches("폴더 트리 새로 읽기")) {
+        FolderTree::instance()->markStale(); // scans now (the panel is open); the old list stays meanwhile
+        updateStatus();
+        return true;
+    }
+    if (matches("폴더 트리 대소문자 구분")) {
+        m_case->toggle();
         return true;
     }
     if (matches("폴더 트리 다음 일치") || matches("폴더 트리 이전 일치")) {

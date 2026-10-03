@@ -13,6 +13,7 @@
 
 class QLabel;
 class QListView;
+class QToolButton;
 
 // The NCD-style folder tree (` in the file views): every folder of the drive in a tree; typing
 // jumps to the best match, Tab / ⇧Tab to the next ones, arrows walk the tree, Return goes there.
@@ -115,6 +116,7 @@ public:
     // which must not open the panel again.
     bool justDismissed() const { return m_imeClosed.isValid() && m_imeClosed.elapsed() < 300; }
     FolderTreeQuery *queryEdit() const { return m_edit; }
+    QToolButton *caseButton() const { return m_case; }
 
 signals:
     void chosen(const QString &path);
@@ -131,11 +133,14 @@ private:
     void step(int delta);
     void choose();
     void updateStatus();
+    void updateKeys();
 
     FolderTreeQuery *m_edit;
     QListView *m_view;
     FolderTreeModel *m_model;
     QLabel *m_status;
+    QLabel *m_keys; // the keys at the bottom, as set in Settings → 단축키
+    QToolButton *m_case; // Aa: match case
     std::shared_ptr<const FolderIndex> m_index;
     QHash<int, int> m_boost;
     FolderIndex::Matches m_matches;

@@ -64,6 +64,7 @@ public:
     // and what to leave out (folder names with wildcards, or absolute paths).
     static constexpr const char *FolderTreeRoots = "folder_tree/roots";
     static constexpr const char *FolderTreeExclude = "folder_tree/exclude";
+    static constexpr const char *FolderTreeCase = "folder_tree/case_sensitive"; // bool: the Aa toggle
     // "open_with/<extension>": app remembered by "항상 이 앱으로 열기"; "shortcuts/<menu title>": keys.
 
     // A "선택한 항목들로…" command by its id ("ai": the toolbar's AI button).

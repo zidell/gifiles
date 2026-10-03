@@ -1798,7 +1798,7 @@ private slots:
         const QString hangul = QStringLiteral("한글폴더").normalized(QString::NormalizationForm_D); // as macOS names it
         for (const QString &d : {QStringLiteral("Sites/gifiles/src"), QStringLiteral("Sites/big gift"), QStringLiteral("Sites/legif"),
                                  QStringLiteral("gif-tools"), QStringLiteral("work/gif"), QStringLiteral("work/zz/GIF"),
-                                 QStringLiteral("docs/") + hangul})
+                                 QStringLiteral("docs/") + hangul, QStringLiteral("a/x/src"), QStringLiteral("b/src")})
             QVERIFY(QDir().mkpath(root + QLatin1Char('/') + d));
         FolderIndex::Options o;
         o.roots = {root};
@@ -1809,27 +1809,41 @@ private slots:
                 out << idx.path(n).mid(root.size() + 1);
             return out;
         };
-        // Exact name, then name prefix, word start, anywhere; shallower first among equals.
-        QCOMPARE(paths(idx.match(QStringLiteral("gif"))),
-                 (QStringList{QStringLiteral("work/gif"), QStringLiteral("work/zz/GIF"), QStringLiteral("gif-tools"),
-                              QStringLiteral("Sites/gifiles"), QStringLiteral("Sites/big gift"), QStringLiteral("Sites/legif")}));
-        QCOMPARE(idx.match(QStringLiteral("gif")).total, 6);
+        // The query's characters in order anywhere in the path (slashes ignored). Best first: name
+        // equal, name prefix, inside the name, ...; the folders inside a match last.
+        const QStringList gif = {QStringLiteral("work/gif"), QStringLiteral("work/zz/GIF"), QStringLiteral("gif-tools"),
+                                 QStringLiteral("Sites/gifiles"), QStringLiteral("Sites/big gift"), QStringLiteral("Sites/legif"),
+                                 QStringLiteral("Sites/gifiles/src")};
+        QCOMPARE(paths(idx.match(QStringLiteral("gif"))), gif);
+        QCOMPARE(idx.match(QStringLiteral("gif")).total, 7);
+        QCOMPARE(paths(idx.match(QStringLiteral("GIF"), {}, 2000, true)), QStringList{QStringLiteral("work/zz/GIF")});
         // Visits move a folder up among the same kind of match.
         QHash<int, int> boost;
         boost.insert(idx.find(root + QStringLiteral("/work/zz/GIF")), 3);
         QCOMPARE(paths(idx.match(QStringLiteral("GIF"), boost)).first(), QStringLiteral("work/zz/GIF"));
-        // An earlier part must be in an ancestor.
-        QCOMPARE(paths(idx.match(QStringLiteral("si/gif"))),
-                 (QStringList{QStringLiteral("Sites/gifiles"), QStringLiteral("Sites/big gift"), QStringLiteral("Sites/legif")}));
-        QCOMPARE(paths(idx.match(QStringLiteral("work/zz/gif"))), QStringList{QStringLiteral("work/zz/GIF")});
-        QCOMPARE(paths(idx.match(QStringLiteral("zz/work/gif"))), QStringList());
-        QCOMPARE(paths(idx.match(QStringLiteral("gifiles/src"))), QStringList{QStringLiteral("Sites/gifiles/src")});
+        // Across folders: "sigif" is S-I-tes + GIF-iles; a slash typed is ignored.
+        QStringList sigif = paths(idx.match(QStringLiteral("sigif")));
+        QCOMPARE(sigif, paths(idx.match(QStringLiteral("si/gif"))));
+        QCOMPARE(sigif.size(), 4);
+        QCOMPARE(sigif.last(), QStringLiteral("Sites/gifiles/src"));
+        sigif.removeLast();
+        sigif.sort();
+        QCOMPARE(sigif, (QStringList{QStringLiteral("Sites/big gift"), QStringLiteral("Sites/gifiles"), QStringLiteral("Sites/legif")}));
+        QCOMPARE(paths(idx.match(QStringLiteral("gifsrc"))), QStringList{QStringLiteral("Sites/gifiles/src")});
+        // Equal matches: the nearest to the browser's folder first, else the shallowest.
+        const QStringList srcs = {QStringLiteral("b/src"), QStringLiteral("a/x/src"), QStringLiteral("Sites/gifiles/src")};
+        QCOMPARE(paths(idx.match(QStringLiteral("src"))), srcs);
+        QCOMPARE(paths(idx.match(QStringLiteral("src"), {}, 2000, false, idx.find(root + QStringLiteral("/Sites/gifiles")))).first(),
+                 QStringLiteral("Sites/gifiles/src"));
+        QCOMPARE(paths(idx.match(QStringLiteral("src"), {}, 2000, false, idx.find(root + QStringLiteral("/a/x")))),
+                 (QStringList{QStringLiteral("a/x/src"), QStringLiteral("b/src"), QStringLiteral("Sites/gifiles/src")}));
+        QCOMPARE(paths(idx.match(QStringLiteral("zzwork"))), QStringList()); // in order only
         // Decomposed Hangul matches what is typed (composed).
         QCOMPARE(paths(idx.match(QStringLiteral("한글"))).value(0).normalized(QString::NormalizationForm_C),
                  QStringLiteral("docs/한글폴더"));
         QCOMPARE(idx.match(QStringLiteral("  ")).total, 0);
         QCOMPARE(int(idx.match(QStringLiteral("gif"), {}, 2).best.size()), 2);
-        QCOMPARE(idx.match(QStringLiteral("gif"), {}, 2).total, 6);
+        QCOMPARE(idx.match(QStringLiteral("gif"), {}, 2).total, 7);
 
         // The cache file: back as it was; another key, a damaged or missing file is refused.
         const QString file = m_root.filePath(QStringLiteral("folder-match.bin"));
@@ -1867,12 +1881,19 @@ private slots:
         FolderIndex back;
         QVERIFY(FolderIndex::load(file, o.key(), back));
         const qint64 loadMs = t.restart();
-        int total = 0;
-        for (const char *q : {"a", "gif", "src", "si/gif", "한"})
-            total += idx.match(QString::fromUtf8(q)).total;
-        const qint64 matchMs = t.elapsed();
-        qInfo().noquote() << QStringLiteral("folders %1, scan %2 ms, save %3 ms (%4 KB), load %5 ms, 5 searches %6 ms (%7 hits)")
-                                 .arg(idx.size()).arg(scanMs).arg(saveMs).arg(QFileInfo(file).size() / 1024).arg(loadMs).arg(matchMs).arg(total);
+        QStringList each;
+        for (const char *q : {"a", "e", "gif", "src", "sigif", "한", "zzzzqx"}) {
+            t.restart();
+            const int hits = idx.match(QString::fromUtf8(q), {}, 2000, false, idx.find(QDir::homePath())).total;
+            each << QStringLiteral("%1: %2 ms (%3)").arg(QString::fromUtf8(q)).arg(t.elapsed()).arg(hits);
+        }
+        t.restart();
+        FolderTreeModel model;
+        model.setIndex(std::make_shared<FolderIndex>(back));
+        const qint64 modelMs = t.elapsed();
+        qInfo().noquote() << QStringLiteral("folders %1, scan %2 ms, save %3 ms (%4 KB), load %5 ms, tree rows %6 ms; searches %7")
+                                 .arg(idx.size()).arg(scanMs).arg(saveMs).arg(QFileInfo(file).size() / 1024).arg(loadMs).arg(modelMs)
+                                 .arg(each.join(QStringLiteral(", ")));
     }
 };
 

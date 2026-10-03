@@ -806,6 +806,10 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>一覧はバックグラウンドで作ってキャッシュし、古くなったときやアプリでフォルダを変えたときに読み直します。</translation>
     </message>
     <message>
+        <source>폴더 트리에서 찾을 때 대소문자를 구분합니다. 찾는 칸 오른쪽의 Aa 버튼(⌥C / Alt+C)과 같습니다.</source>
+        <translation>フォルダツリーで検索するとき大文字と小文字を区別します。検索欄の右の Aa ボタン(⌥C / Alt+C)と同じです。</translation>
+    </message>
+    <message>
         <source>폴더 트리에서 뺄 폴더 (그 안의 모든 폴더도). 이름만 적으면 어디에 있든 그 이름의 폴더를 빼고 (&quot;node_modules&quot;),
 / 나 ~ 나 드라이브 문자로 시작하면 그 경로 하나만 뺍니다 (&quot;~/Library&quot;). * 와 ? 를 쓸 수 있습니다 (&quot;*.tmp&quot;).</source>
         <translation>フォルダツリーから除くフォルダ (その中のフォルダもすべて)。名前だけ書くとどこにあってもその名前のフォルダを除き (&quot;node_modules&quot;)、
@@ -1692,6 +1696,14 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>フォルダツリーの前の一致</translation>
     </message>
     <message>
+        <source>폴더 트리 대소문자 구분</source>
+        <translation>フォルダツリーで大文字と小文字を区別</translation>
+    </message>
+    <message>
+        <source>폴더 트리 새로 읽기</source>
+        <translation>フォルダツリーを読み直す</translation>
+    </message>
+    <message>
         <source>퀵 뷰어 닫기</source>
         <translation>クイックルックを閉じる</translation>
     </message>
@@ -2132,8 +2144,40 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>アップデート情報を読めません。</translation>
     </message>
     <message>
-        <source>폴더 이름을 치면 바로 찾아갑니다 · Tab 다음 · Enter 이동 · Esc 닫기</source>
-        <translation>フォルダ名を入力するとすぐ移動 · Tab 次へ · Enter 移動 · Esc 閉じる</translation>
+        <source>폴더 경로의 글자를 차례로 치면 바로 찾아갑니다 (예: sigif → Sites/gifiles)</source>
+        <translation>フォルダのパスの文字を順に入力するとすぐ移動します (例: sigif → Sites/gifiles)</translation>
+    </message>
+    <message>
+        <source>다음 일치</source>
+        <translation>次の一致</translation>
+    </message>
+    <message>
+        <source>이전 일치</source>
+        <translation>前の一致</translation>
+    </message>
+    <message>
+        <source>들어가기</source>
+        <translation>開く</translation>
+    </message>
+    <message>
+        <source>한 줄씩</source>
+        <translation>1 行ずつ</translation>
+    </message>
+    <message>
+        <source>상위·하위 폴더</source>
+        <translation>親 / サブフォルダ</translation>
+    </message>
+    <message>
+        <source>대소문자 구분</source>
+        <translation>大文字と小文字を区別</translation>
+    </message>
+    <message>
+        <source>새로 읽기</source>
+        <translation>読み直す</translation>
+    </message>
+    <message>
+        <source>닫기</source>
+        <translation>閉じる</translation>
     </message>
     <message>
         <source>폴더 목록을 만드는 중… %1개</source>

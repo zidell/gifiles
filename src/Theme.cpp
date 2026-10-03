@@ -213,6 +213,10 @@ QColumnView#files QListView::item:selected:!active { background: {selInactive}; 
 QFrame#folderTreePanel { background: {bg}; }
 QLineEdit#folderTreeQuery { padding: 5px 8px; }
 QListView#folderTree { background: {bg}; border: none; }
+QLabel#folderTreeKeys { color: {secondary}; padding: 4px 4px 2px 4px; }
+QToolButton#folderTreeCase { border: none; border-radius: 6px; padding: 4px 7px; color: {secondary}; font-weight: 600; }
+QToolButton#folderTreeCase:hover { background: {hover}; }
+QToolButton#folderTreeCase:checked { background: {accent}; color: {selText}; }
 QHeaderView { background: {bg}; border: none; }
 QHeaderView::section { background: {bg}; color: {secondary}; border: none; border-bottom: 1px solid {separator}; padding: 6px 10px; font-weight: 500; }
 QHeaderView::section:hover { color: {text}; }

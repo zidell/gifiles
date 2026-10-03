@@ -3547,6 +3547,32 @@ private slots:
         QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/two/target2"))));
         QTest::keyClick(panel->queryEdit(), Qt::Key_Backtab, Qt::ShiftModifier);
         QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one/target"))));
+        // Across folders in path order: one + tar(get).
+        panel->queryEdit()->clear();
+        QTest::keyClicks(panel->queryEdit(), QStringLiteral("onetar"));
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one/target"))));
+        // Aa: match case (⌥C), remembered in config.toml.
+        panel->queryEdit()->clear();
+        QTest::keyClick(panel->queryEdit(), Qt::Key_C, Qt::AltModifier);
+        QVERIFY(panel->caseButton()->isChecked());
+        QVERIFY(Settings::instance()->flag(Settings::FolderTreeCase));
+        QVERIFY(panel->queryEdit()->text().isEmpty());
+        QTest::keyClicks(panel->queryEdit(), QStringLiteral("TARGET"));
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one/target")))); // no match: stays
+        panel->caseButton()->click();
+        QVERIFY(!Settings::instance()->flag(Settings::FolderTreeCase));
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Tab);
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/two/target2"))));
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Backtab, Qt::ShiftModifier);
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one/target"))));
+        // The keys at the bottom follow Settings → 단축키.
+        auto *keys = panel->findChild<QLabel *>(QStringLiteral("folderTreeKeys"));
+        QVERIFY(keys && keys->isVisible());
+        QVERIFY(keys->text().contains(QStringLiteral("<b>Tab</b>")));
+        QVERIFY(keys->text().contains(QStringLiteral("Enter")));
+        Shortcuts::instance()->assign(QStringLiteral("폴더 트리 대소문자 구분"), QKeySequence(QStringLiteral("Alt+I")));
+        QTRY_VERIFY(keys->text().contains(QKeySequence(QStringLiteral("Alt+I")).toString(QKeySequence::NativeText)));
+        Shortcuts::instance()->reset(QStringLiteral("폴더 트리 대소문자 구분"));
         QTest::keyClick(panel->queryEdit(), Qt::Key_Up); // the arrows walk the tree
         QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one"))));
         QCOMPARE(QApplication::focusWidget(), panel->queryEdit());
@@ -3556,7 +3582,7 @@ private slots:
         QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/one"))));
         // Always fully unfolded: every folder is a row.
         QCOMPARE(panel->view()->model()->rowCount(), 6);
-        QTest::keyClick(panel->queryEdit(), Qt::Key_Return);
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Return); // Return (or ⌘↓) goes in
         QVERIFY(!panel->isVisible());
         QTRY_COMPARE(norm(tab()->path()), norm(p(QStringLiteral("tree/one"))));
         QTRY_VERIFY(tab()->isAncestorOf(QApplication::focusWidget()));
@@ -3592,6 +3618,19 @@ private slots:
             QTest::keyClick(panel->queryEdit(), Qt::Key_Escape);
             QVERIFY(!panel->isVisible());
         }
+
+        // ⌘R reads the tree again while it is open.
+        QTRY_VERIFY(tab()->isAncestorOf(QApplication::focusWidget()));
+        QVERIFY(QDir().mkpath(p(QStringLiteral("tree/two/later"))));
+        QTest::keyClick(focus(), '`');
+        QTRY_VERIFY(panel->isVisible());
+        QTRY_VERIFY(!FolderTree::instance()->isScanning());
+        QTest::keyClick(panel->queryEdit(), Qt::Key_R, Qt::ControlModifier);
+        QVERIFY(FolderTree::instance()->isScanning());
+        QTRY_VERIFY(!FolderTree::instance()->isScanning());
+        QTest::keyClicks(panel->queryEdit(), QStringLiteral("later"));
+        QTRY_COMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/two/later"))));
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Escape);
 
         // A folder made in the app shows up the next time.
         QTRY_VERIFY(tab()->isAncestorOf(QApplication::focusWidget()));

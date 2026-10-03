@@ -203,6 +203,8 @@ const QList<Item> &items()
          Gifiles::tr("폴더 트리(파일 목록에서 ` 키)에 보일 폴더들. []이면 드라이브 전체 (macOS·Linux는 \"/\", Windows는 모든 고정 드라이브).\n"
                      "네트워크·FUSE 드라이브는 여기에 직접 적었을 때만 들어갑니다."),
          Gifiles::tr("목록은 백그라운드에서 만들어 캐시에 두고, 오래됐거나 앱에서 폴더를 바꾸면 다시 읽습니다.")},
+        {Settings::FolderTreeCase, Type::Bool, false,
+         Gifiles::tr("폴더 트리에서 찾을 때 대소문자를 구분합니다. 찾는 칸 오른쪽의 Aa 버튼(⌥C / Alt+C)과 같습니다.")},
         {Settings::FolderTreeExclude, Type::StringList, QVariant(),
          Gifiles::tr("폴더 트리에서 뺄 폴더 (그 안의 모든 폴더도). 이름만 적으면 어디에 있든 그 이름의 폴더를 빼고 (\"node_modules\"),\n"
                      "/ 나 ~ 나 드라이브 문자로 시작하면 그 경로 하나만 뺍니다 (\"~/Library\"). * 와 ? 를 쓸 수 있습니다 (\"*.tmp\")."),

@@ -41,14 +41,19 @@ public:
     int find(const QString &path) const; // the node of a folder, -1 if it isn't in the index
     int findNearest(const QString &path) const; // that folder or its closest indexed ancestor
 
-    // The folders whose name contains the query's last part (case- and normalization-blind); a
-    // query like "si/gif" also wants an earlier ancestor to contain "si". Best first: exact name,
-    // name prefix, word start, anywhere; then by `boost` (visits per node), then shallower.
+    // Fuzzy match over whole paths: a folder matches when the query's characters (slashes ignored)
+    // appear in order in its path below the root with the slashes left out ("sigif" -> .../Sites/gifiles).
+    // Best first: name equals the query, starts with it, contains it, contains its characters in
+    // order; then the path's match ends in this folder's name (more of it in the name first); last
+    // the folders inside a match. Among equals the nearest to `near` in the tree (the folder the
+    // browser shows: steps up to the common parent and down again), then `boost` (visits per node),
+    // then shallower.
     struct Matches {
         std::vector<int> best; // at most `limit`
         int total = 0;
     };
-    Matches match(const QString &query, const QHash<int, int> &boost = {}, int limit = 2000) const;
+    Matches match(const QString &query, const QHash<int, int> &boost = {}, int limit = 2000,
+                  bool caseSensitive = false, int near = -1) const;
 
     bool save(const QString &file, const QString &key, qint64 scannedAt) const;
     // False if the file is missing, damaged or was made for other options.
@@ -66,6 +71,7 @@ private:
         quint16 depth;
     };
     QByteArrayView folded(int n) const { return QByteArrayView(m_folded.constData() + m_nodes[n].foldOff, m_nodes[n].foldLen); }
+    QByteArrayView raw(int n) const { return QByteArrayView(m_names.constData() + m_nodes[n].nameOff, m_nodes[n].nameLen); }
     int childNamed(int parent, const QByteArray &foldedName) const;
 
     std::vector<Node> m_nodes;
