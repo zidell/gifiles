@@ -92,29 +92,36 @@
       <figure class="wide"><img src="screenshots/terminal.png" width="1600" height="976" loading="lazy" alt="컬럼 보기와 터미널 패널" data-t-alt="terminalAlt"></figure>
     </section>
 
-    <section class="feature" aria-labelledby="f2">
+    <section class="feature" aria-labelledby="f7">
       <span class="num">03</span>
+      <h2 id="f7" data-t="f7t">NCD 스타일 폴더 트리</h2>
+      <p data-t="f7d">옛 노턴 유틸리티의 NCD처럼 ` 키 하나로 드라이브의 모든 폴더를 파란 화면의 트리로 띄웁니다. 경로 글자를 차례로 치면(gifui → gifiles/src/ui) 바로 그 폴더로 커서가 가고, Enter로 이동합니다. 폴더 목록은 백그라운드에서 알아서 최신으로 유지됩니다.</p>
+      <figure class="wide"><img src="screenshots/folder-tree.png" width="1600" height="976" loading="lazy" alt="창 전체를 덮은 파란 폴더 트리" data-t-alt="treeAlt"></figure>
+    </section>
+
+    <section class="feature" aria-labelledby="f2">
+      <span class="num">04</span>
       <h2 id="f2" data-t="f2t">확장자별 색상</h2>
       <p data-t="f2d">Mdir처럼 확장자마다 파일 이름에 색을 입혀 실행 파일, 압축 파일, 문서, 코드를 한눈에 구분합니다. 색과 확장자 묶음은 설정에서 바꿀 수 있고, 다크 모드에 맞춘 색이 라이트 모드에서는 자동으로 진해집니다.</p>
       <figure class="wide"><img src="screenshots/settings-colors.png" width="1600" height="765" loading="lazy" alt="확장자별 색상 설정" data-t-alt="colorsAlt"></figure>
     </section>
 
     <section class="feature" aria-labelledby="f3">
-      <span class="num">04</span>
+      <span class="num">05</span>
       <h2 id="f3" data-t="f3t">퀵 뷰 내장</h2>
       <p data-t="f3d">Space를 누르면 이미지·영상·음악·PDF·코드를 바로 보고, 방향키로 다음 파일로 넘어갑니다. 오피스 문서처럼 직접 그리지 못하는 파일은 운영체제의 미리보기를 그대로 씁니다.</p>
       <figure class="wide"><img src="screenshots/quick-look.png" width="1600" height="976" loading="lazy" alt="퀵 뷰로 연 사진" data-t-alt="quickLookAlt"></figure>
     </section>
 
     <section class="feature" aria-labelledby="f4">
-      <span class="num">05</span>
+      <span class="num">06</span>
       <h2 id="f4" data-t="f4t">AI 연동</h2>
       <p data-t="f4d">Codex나 Claude CLI가 설치돼 있으면 선택한 파일을 바로 명령으로 넘길 수 있습니다. 이미지 변환이나 회전, 파일 이름 일괄 변경 같은 작업을 요청 한 줄로 한 번에 끝냅니다.</p>
       <figure class="wide"><img src="screenshots/prompt-window.png" width="1600" height="976" loading="lazy" alt="AI 요청 입력창" data-t-alt="aiAlt"></figure>
     </section>
 
     <section class="feature" aria-labelledby="f5">
-      <span class="num">06</span>
+      <span class="num">07</span>
       <h2 id="f5" data-t="f5t">사용자 메뉴</h2>
       <p data-t="f5d">자주 하는 반복 작업은 셸 스크립트나 명령어를 사용자 메뉴로 묶어 두면, 선택한 파일에 손쉽게 적용할 수 있습니다.</p>
       <div class="pair wide">
@@ -155,6 +162,8 @@
         menuAlt: 'The With Selected Items submenu', menuSettingsAlt: 'Selection menu settings',
         f6t: 'Terminal integration', f6d: 'Working on a Mac you end up in the terminal more than you\'d think, and opening one every time is a chore, so a terminal panel tied to the folder you\'re looking at sits at the bottom. Change folders and it cds along; cd in the terminal and the list follows.',
         terminalAlt: 'Column view with the terminal panel',
+        f7t: 'NCD-style folder tree', f7d: 'Like NCD from the old Norton Utilities, one ` key brings up every folder on the drive as a tree on a blue screen. Type the letters of a path in order (gifui → gifiles/src/ui) and the cursor lands on that folder; Enter goes there. The folder list keeps itself up to date in the background.',
+        treeAlt: 'The blue folder tree covering the window',
         downloadTitle: 'Download', dlLatest: 'Get the latest version', dlMac: 'Apple Silicon and Intel · signed and notarized app (zip)',
         dlWindows: 'x64 · unzip and run Gifiles.exe', dlLinux: 'x86_64 · AppImage (make it executable, then run)',
         dlNote: 'The Windows app is not signed, so Windows may warn the first time you run it (More info → Run anyway).',
@@ -177,6 +186,8 @@
         menuAlt: '「選択した項目で…」サブメニュー', menuSettingsAlt: '選択項目メニューの設定',
         f6t: 'ターミナル連携', f6d: 'Mac で作業していると思った以上にターミナルを使う場面が増えますが、そのたびに別に開くのは面倒なので、いま見ているフォルダとそのまま連動するターミナルパネルを下に付けました。フォルダを移るとターミナルが cd し、ターミナルで cd するとリストが追いかけます。',
         terminalAlt: 'カラム表示とターミナルパネル',
+        f7t: 'NCD 風フォルダツリー', f7d: '昔の Norton Utilities の NCD のように、` キーひとつでドライブ上のすべてのフォルダを青い画面のツリーで表示します。パスの文字を順に打つと（gifui → gifiles/src/ui）すぐそのフォルダにカーソルが移り、Enter で移動します。フォルダ一覧はバックグラウンドで自動的に最新に保たれます。',
+        treeAlt: 'ウィンドウ全体を覆う青いフォルダツリー',
         downloadTitle: 'ダウンロード', dlLatest: '最新版を入手', dlMac: 'Apple Silicon・Intel 共通 · 署名・公証済みアプリ（zip）',
         dlWindows: 'x64 · zip を展開して Gifiles.exe を実行', dlLinux: 'x86_64 · AppImage（実行権限を付けて実行）',
         dlNote: 'Windows 版は署名されていないため、初回起動時に警告が出ることがあります（詳細情報 → 実行）。',
@@ -199,6 +210,8 @@
         menuAlt: '「用所选项目…」子菜单', menuSettingsAlt: '所选项目菜单设置',
         f6t: '终端联动', f6d: '在 Mac 上工作时，用到终端的地方比想象中多，每次都另开一个很麻烦，于是在底部加了一个与当前浏览文件夹直接联动的终端面板。切换文件夹时终端跟着 cd，在终端里 cd 时列表也会跟随。',
         terminalAlt: '分栏视图与终端面板',
+        f7t: 'NCD 风格的文件夹树', f7d: '就像当年 Norton Utilities 里的 NCD，按一下 ` 键，驱动器上的所有文件夹就会以蓝色画面的树形显示。按顺序输入路径中的字母（gifui → gifiles/src/ui），光标立刻跳到那个文件夹，按 Enter 即可进入。文件夹列表会在后台自动保持最新。',
+        treeAlt: '覆盖整个窗口的蓝色文件夹树',
         downloadTitle: '下载', dlLatest: '获取最新版本', dlMac: 'Apple Silicon 与 Intel 通用 · 已签名并公证的应用（zip）',
         dlWindows: 'x64 · 解压后运行 Gifiles.exe', dlLinux: 'x86_64 · AppImage（添加执行权限后运行）',
         dlNote: 'Windows 版未签名，首次运行时 Windows 可能会发出警告（更多信息 → 仍要运行）。',

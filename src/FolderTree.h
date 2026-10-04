@@ -158,6 +158,7 @@ signals:
 protected:
     bool eventFilter(QObject *obj, QEvent *ev) override;
     void resizeEvent(QResizeEvent *ev) override;
+    void mousePressEvent(QMouseEvent *ev) override;
 
 private:
     void takeIndex();

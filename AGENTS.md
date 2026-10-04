@@ -187,7 +187,7 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   replays the changes since then (also those made while the app was off) and follows them live, re-reading only the
   folders reported (`FolderIndex::update`); a full scan only without a cache, after a journal reset, more than
   `kMaxReplay` events behind, or on ⌘R (`reindex`). Elsewhere the timed rescans stay. ⌘D picks the drive
-  (`FolderTree::setDrive`, until the app quits).
+  (`FolderTree::setDrive`, until the app quits). The panel is NCD's blue screen (`#142d7f`, white text, a light cyan bar) in both light and dark mode (`Theme::Colors::tree*`).
 - **Archives:** opening a .zip/.tar.* etc. expands it next to the archive inside Gifiles
   (`Job::Extract`, undo trashes the result) unless the user set "항상 이 앱으로 열기" for it.
 - **Quick Look size:** text, PDF and other content get a base size (900×680) times
@@ -216,7 +216,7 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   scale with the font (24 px at the default size). Gallery icon size is ⌥⌘+ / ⌥⌘− and the slider.
 - **Rename editor:** its text starts exactly where the name is drawn (`ItemDelegate::updateEditorGeometry`,
   `QLineEdit#renameEdit` has no padding), so nothing moves when editing starts or Return commits.
-  `GIFILES_SNAPSHOT` also saves `*-rename.png` (and `terminal.png`) to measure it.
+  `GIFILES_SNAPSHOT` also saves `*-rename.png` (and `terminal.png`, `folder-tree.png`) to measure it.
 - **List rows:** stripes, hover and selection are painted as one rounded pill per row in
   `FileTreeView::drawRow` (QSS item backgrounds are transparent, `show-decoration-selected: 0`),
   so the fold chevron area never splits from the row; each pill leaves a 1px gap below it so
@@ -260,7 +260,7 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
 | `src/SystemPreview*` | the OS's own preview of office documents & co. (macOS Quick Look, Windows preview handlers) |
 | `src/TerminalWidget`, `src/Pty*` | libvterm terminal, pty (forkpty / ConPTY), list integration, queued commands |
 | `src/Sidebar`, `src/PathBar` | favorites & volumes, breadcrumb / go-to-folder |
-| `src/FolderIndex`, `src/FolderTree` | the NCD-style folder tree (\`): index of every folder (scan, search, cache file), background scans, the panel over the file views |
+| `src/FolderIndex`, `src/FolderTree` | the NCD-style folder tree (\`): index of every folder (scan, search, cache file), background scans, the panel over the whole window |
 | `src/Settings` | preferences in config.toml (schema, load/watch/save, check) and the settings window (⌘,: 일반/보기/모양 및 색상/미리보기/터미널/선택 항목 메뉴/단축키) |
 | `src/Shortcuts` | built-in keys of the menu actions, the user's keys, rebinding |
 | `src/Toml` | the small TOML subset config.toml uses |

@@ -347,6 +347,30 @@ int main(int argc, char *argv[])
                     d->close();
                 }
             }
+            // The folder tree (`) once its index is in (folder-tree.png); a focus change meanwhile may
+            // close it, so it's opened again for the shot.
+            auto toggleTree = [w] {
+                for (QAction *a : w->findChildren<QAction *>())
+                    if (a->objectName() == QStringLiteral("폴더 트리"))
+                        a->trigger();
+            };
+            toggleTree();
+            if (auto *tree = w->findChild<FolderTreePanel *>()) {
+                QElapsedTimer t;
+                t.start();
+                while (t.elapsed() < 10000 && (!FolderTree::instance()->index() || FolderTree::instance()->isScanning()))
+                    QApplication::processEvents(QEventLoop::AllEvents, 50);
+                if (!tree->isVisible()) {
+                    settle(800); // past justDismissed()
+                    toggleTree();
+                }
+                // GIFILES_SNAPSHOT_TREE_QUERY=<text>: typed into its query line first.
+                if (const QString q = qEnvironmentVariable("GIFILES_SNAPSHOT_TREE_QUERY"); !q.isEmpty())
+                    tree->queryEdit()->setText(q);
+                settle(300);
+                w->grab().save(QDir(dir).filePath(QStringLiteral("folder-tree.png")));
+                tree->dismiss();
+            }
 #ifdef Q_OS_MACOS
             // GIFILES_SNAPSHOT_QUICKLOOK=<file>: Quick Look on that file. The system's own preview is a
             // native view Qt's grab() can't see, so the window is captured by screencapture.

@@ -18,6 +18,7 @@
 #include <QLabel>
 #include <QLocale>
 #include <QListWidget>
+#include <QMouseEvent>
 #include <QResizeEvent>
 #include <QSettings>
 #include <QStorageInfo>
@@ -29,6 +30,7 @@
 #include <QStyledItemDelegate>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <QWindow>
 #include <QtConcurrent/QtConcurrentRun>
 
 #include <algorithm>
@@ -588,7 +590,7 @@ public:
         p->setRenderHint(QPainter::Antialiasing);
         if (selected || (option.state & QStyle::State_MouseOver)) {
             p->setPen(Qt::NoPen);
-            p->setBrush(selected ? c.selection : c.hover);
+            p->setBrush(selected ? c.treeSelection : c.treeHover);
             p->drawRoundedRect(r.adjusted(2, 0, -2, -1), 5, 5);
         }
         auto isLast = [f](int node) {
@@ -598,7 +600,7 @@ public:
         // Lines: one per open ancestor level, then this folder's own branch.
         const int depth = f->depth(n);
         p->setRenderHint(QPainter::Antialiasing, false);
-        p->setPen(QPen(selected ? c.selText : c.tertiary, 1));
+        p->setPen(QPen(selected ? c.treeSelText : c.treeLine, 1));
         const int midY = r.center().y();
         auto levelX = [&](int level) { return r.left() + kPad + level * kIndent + kIndent / 2; };
         int a = n;
@@ -615,10 +617,10 @@ public:
         }
         p->setRenderHint(QPainter::Antialiasing);
         const int iconX = r.left() + kPad + depth * kIndent + 2;
-        const QColor iconColor = selected ? c.selText : c.secondary;
+        const QColor iconColor = selected ? c.treeSelText : c.treeSecondary;
         Theme::icon(QStringLiteral("folder"), iconColor, 16).paint(p, QRect(iconX, midY - 8, 16, 16));
         const QRect textRect(iconX + 22, r.top(), r.right() - iconX - 26, r.height());
-        p->setPen(selected ? c.selText : c.text);
+        p->setPen(selected ? c.treeSelText : c.treeText);
         p->setFont(option.font);
         const QString name = option.fontMetrics.elidedText(index.data().toString(), Qt::ElideMiddle, textRect.width());
         p->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, name);
@@ -657,11 +659,11 @@ public:
         p->setRenderHint(QPainter::Antialiasing);
         if (selected || (option.state & QStyle::State_MouseOver)) {
             p->setPen(Qt::NoPen);
-            p->setBrush(selected ? c.selection : c.hover);
+            p->setBrush(selected ? c.treeSelection : c.treeHover);
             p->drawRoundedRect(r.adjusted(0, 1, 0, -1), 6, 6);
         }
-        const QColor fg = selected ? c.selText : c.text;
-        Theme::icon(QStringLiteral("drive"), selected ? c.selText : c.secondary, 16).paint(p, QRect(r.left() + 10, r.center().y() - 8, 16, 16));
+        const QColor fg = selected ? c.treeSelText : c.treeText;
+        Theme::icon(QStringLiteral("drive"), selected ? c.treeSelText : c.treeSecondary, 16).paint(p, QRect(r.left() + 10, r.center().y() - 8, 16, 16));
         const QRect text = r.adjusted(34, 0, -10, 0);
         const QString path = index.data(Qt::UserRole + 1).toString();
         const int pathW = qMin(option.fontMetrics.horizontalAdvance(path), text.width() / 2);
@@ -698,6 +700,9 @@ FolderTreePanel::FolderTreePanel(QWidget *parent) : QFrame(parent)
     l->setSpacing(8);
     auto *row = new QHBoxLayout;
     row->setSpacing(8);
+#ifdef Q_OS_MACOS
+    row->setContentsMargins(66, 0, 0, 0); // it covers the window: the query line sits beside the traffic lights
+#endif
     m_edit = new FolderTreeQuery(this);
     m_edit->setObjectName(QStringLiteral("folderTreeQuery"));
     m_edit->setAttribute(Qt::WA_InputMethodEnabled, true);
@@ -945,6 +950,14 @@ void FolderTreePanel::updateStatus()
     m_busy->setText(done > 0 ? Gifiles::tr("인덱싱 중… %1개").arg(loc.toString(done)) : Gifiles::tr("인덱싱 중…"));
     m_busy->setVisible(scanning);
     placeOverlays();
+}
+
+void FolderTreePanel::mousePressEvent(QMouseEvent *ev)
+{
+    // The panel covers the toolbar, so its empty space drags the window instead.
+    if (ev->button() == Qt::LeftButton && window()->windowHandle())
+        window()->windowHandle()->startSystemMove();
+    QFrame::mousePressEvent(ev);
 }
 
 void FolderTreePanel::resizeEvent(QResizeEvent *ev)

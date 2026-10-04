@@ -21,6 +21,8 @@ public:
         bool dark;
         QColor bg, sidebarBg, text, secondary, tertiary, separator, accent, selection, nameSelection, selText, selInactive,
             hover, inputBg, segmentChecked, menuBg, scroll, scrollHover, tile, altRow, danger;
+        // The folder tree (`): NCD's blue screen with white text, the same in light and dark mode.
+        QColor treeBg, treeText, treeSecondary, treeLine, treeSelection, treeSelText, treeInput, treeHover;
     };
 
     static Theme *instance();

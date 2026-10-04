@@ -673,3 +673,13 @@ shortcuts in `../README.md`. Dates are 2026.
   the volumes' FSEvents UUIDs, `/System/Volumes/Data` with `/`); a different UUID = journal reset → scan. Hourly
   `prefetch` catches up through the journal instead of rescanning. Windows/Linux keep the timed rescans (USN needs
   admin, inotify has watch limits and no history).
+- NCD look and whole window (the user: "ncd 처럼", "#142d7f 배경에 흰 글씨", "창 전체를 덮어야겠다 — 다른 버튼들이 의미가
+  없어서"): the panel is `#142d7f` with white text in both themes (`Theme::Colors::tree*`); the selection is a light cyan
+  bar with navy text, since the system accent disappears on that blue. It covers the whole window (toolbar, sidebar,
+  terminal); on macOS the query line starts 66 px in, beside the traffic lights, and the panel's empty space drags the
+  window. ⌘← / ⌘→ were added to 뒤로 / 앞으로 (next to ⌘[ / ⌘]); the terminal keeps them for line start/end.
+- Landing page: the folder tree is feature 03 (seven now). `site/screenshots/folder-tree.png` comes from
+  `GIFILES_SNAPSHOT` (it saves `folder-tree.png` once the index is in) with `GIFILES_SNAPSHOT_TREE_QUERY=gifui`, on a
+  30 MB APFS image mounted as `/Volumes/Work` (Projects/Documents/Photos/Music/Archive), `folder_tree.roots` set to it and
+  the volume's dot folders excluded, so the selected row's path shows no real or scratch path; resized to 1600 px and
+  pngquant'ed like the others.

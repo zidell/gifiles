@@ -570,6 +570,10 @@ private slots:
         QTRY_COMPARE(tab()->path(), p("Alpha"));
         key(Qt::Key_BracketRight, Qt::ControlModifier);
         QTRY_COMPARE(tab()->path(), m_tmp.path());
+        key(Qt::Key_Left, Qt::ControlModifier); // ⌘← back, ⌘→ forward
+        QTRY_COMPARE(tab()->path(), p("Alpha"));
+        key(Qt::Key_Right, Qt::ControlModifier);
+        QTRY_COMPARE(tab()->path(), m_tmp.path());
     }
 
     void searchFilters()
@@ -3533,10 +3537,12 @@ private slots:
         QVERIFY(panel);
         QTRY_VERIFY(panel->isVisible());
         QCOMPARE(QApplication::focusWidget(), panel->queryEdit());
-        // Over the file views, not the sidebar.
-        QVERIFY(panel->geometry().contains(QRect(tab()->mapTo(m_win, QPoint()), tab()->size())));
-        if (auto *sidebar = m_win->findChild<Sidebar *>(); sidebar && sidebar->isVisible())
-            QVERIFY(!panel->geometry().intersects(QRect(sidebar->mapTo(m_win, QPoint()), sidebar->size())));
+        // Over the whole window (toolbar, sidebar and terminal included), following its size.
+        QCOMPARE(panel->geometry(), m_win->rect());
+        const QSize before = m_win->size();
+        m_win->resize(before + QSize(30, 20));
+        QTRY_COMPARE(panel->geometry(), m_win->rect());
+        m_win->resize(before);
         QTRY_VERIFY(FolderTree::instance()->index() && !FolderTree::instance()->isScanning());
         QTRY_COMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("tree/two")))); // opens where the browser is
         shot("folder-tree", panel);

@@ -210,16 +210,22 @@ QColumnView#files QListView::item:hover { background: {hover}; }
 QColumnView#files QListView::item:selected:active { background: {selection}; color: {selText}; }
 QColumnView#files QListView::item:selected:!active { background: {selInactive}; color: {text}; }
 /* folder tree (`), over the file views */
-QFrame#folderTreePanel { background: {bg}; }
-QLineEdit#folderTreeQuery { padding: 5px 8px; }
-QListView#folderTree { background: {bg}; border: none; }
-QLabel#folderTreeKeys { color: {secondary}; padding: 4px 4px 2px 4px; }
-QToolButton#folderTreeCase { border: none; border-radius: 6px; padding: 4px 7px; color: {secondary}; font-weight: 600; }
-QToolButton#folderTreeCase:hover { background: {hover}; }
-QToolButton#folderTreeCase:checked { background: {accent}; color: {selText}; }
-QLabel#folderTreeBusy { background: {sidebarBg}; color: {secondary}; border: 1px solid {separator}; border-radius: 8px; padding: 8px 16px; }
-QFrame#folderTreeDrives { background: {sidebarBg}; border: 1px solid {separator}; border-radius: 10px; }
+QFrame#folderTreePanel { background: {treeBg}; }
+QFrame#folderTreePanel QLabel { color: {treeText}; }
+QFrame#folderTreePanel QLabel#secondary, QLabel#folderTreeKeys { color: {treeSecondary}; }
+QLineEdit#folderTreeQuery { padding: 5px 8px; background: {treeInput}; color: {treeText}; border: 1px solid {treeLine};
+                            selection-background-color: {treeSelection}; selection-color: {treeSelText}; placeholder-text-color: {treeSecondary}; }
+QLineEdit#folderTreeQuery:focus { border: 1px solid {treeSelection}; }
+QListView#folderTree { background: {treeBg}; border: none; }
+QLabel#folderTreeKeys { padding: 4px 4px 2px 4px; }
+QToolButton#folderTreeCase { border: none; border-radius: 6px; padding: 4px 7px; color: {treeSecondary}; font-weight: 600; }
+QToolButton#folderTreeCase:hover { background: {treeHover}; }
+QToolButton#folderTreeCase:checked { background: {treeSelection}; color: {treeSelText}; }
+QLabel#folderTreeBusy { background: {treeInput}; color: {treeText}; border: 1px solid {treeLine}; border-radius: 8px; padding: 8px 16px; }
+QFrame#folderTreeDrives { background: {treeInput}; border: 1px solid {treeLine}; border-radius: 10px; }
 QListWidget#folderTreeDriveList { background: transparent; border: none; }
+QFrame#folderTreePanel QScrollBar::handle { background: rgba(255, 255, 255, 70); }
+QFrame#folderTreePanel QScrollBar::handle:hover { background: rgba(255, 255, 255, 120); }
 QHeaderView { background: {bg}; border: none; }
 QHeaderView::section { background: {bg}; color: {secondary}; border: none; border-bottom: 1px solid {separator}; padding: 6px 10px; font-weight: 500; }
 QHeaderView::section:hover { color: {text}; }
@@ -429,6 +435,14 @@ void Theme::apply()
         c.altRow = QColor(0, 0, 0, 7);
         c.danger = QColor(215, 0, 21); // systemRed (light)
     }
+    c.treeBg = QColor(0x14, 0x2D, 0x7F);
+    c.treeText = QColor(Qt::white);
+    c.treeSecondary = QColor(0xB4, 0xC2, 0xEC);
+    c.treeLine = QColor(0x6A, 0x82, 0xC8);
+    c.treeSelection = QColor(0x5F, 0xD7, 0xFF); // NCD's light bar
+    c.treeSelText = QColor(0x0A, 0x18, 0x4A);
+    c.treeInput = QColor(0x0C, 0x1E, 0x5C);
+    c.treeHover = QColor(255, 255, 255, 26);
     m_c = c;
 
     QPalette pal;
@@ -462,6 +476,8 @@ void Theme::apply()
         {"selInactive", c.selInactive}, {"hover", c.hover}, {"inputBg", c.inputBg},
         {"segmentChecked", c.segmentChecked}, {"menuBg", c.menuBg}, {"scroll", c.scroll},
         {"scrollHover", c.scrollHover}, {"altRow", c.altRow}, {"danger", c.danger},
+        {"treeBg", c.treeBg}, {"treeText", c.treeText}, {"treeSecondary", c.treeSecondary}, {"treeSelection", c.treeSelection},
+        {"treeSelText", c.treeSelText}, {"treeInput", c.treeInput}, {"treeHover", c.treeHover}, {"treeLine", c.treeLine},
     };
     for (auto it = vars.begin(); it != vars.end(); ++it)
         qss.replace(QLatin1Char('{') + it.key() + QLatin1Char('}'), hex(it.value()));

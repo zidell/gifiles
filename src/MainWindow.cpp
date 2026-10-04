@@ -735,7 +735,7 @@ void MainWindow::toggleFolderTree()
         return;
     if (!m_folderTree) {
         m_folderTree = new FolderTreePanel(this);
-        m_tabs->installEventFilter(this); // it follows the file views' size
+        installEventFilter(this); // it follows the window's size
         connect(m_folderTree, &FolderTreePanel::dismissed, this, [this] { tab()->focusView(); });
         connect(m_folderTree, &FolderTreePanel::chosen, this, [this](const QString &path) { go(path); });
     }
@@ -745,13 +745,13 @@ void MainWindow::toggleFolderTree()
 
 void MainWindow::placeFolderTree()
 {
-    // Over the file views (tabs included), not the sidebar or the terminal.
-    m_folderTree->setGeometry(QRect(m_tabs->mapTo(this, QPoint(0, 0)), m_tabs->size()));
+    // Over the whole window: the toolbar, sidebar and terminal mean nothing while it is open.
+    m_folderTree->setGeometry(rect());
 }
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *ev)
 {
-    if (obj == m_tabs && m_folderTree && m_folderTree->isVisible() && (ev->type() == QEvent::Resize || ev->type() == QEvent::Move))
+    if (obj == this && m_folderTree && m_folderTree->isVisible() && ev->type() == QEvent::Resize)
         placeFolderTree();
     if (obj == m_sidebar && ev->type() == QEvent::ShortcutOverride) {
         auto *ke = static_cast<QKeyEvent *>(ev);
