@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>크로스 플랫폼 파일관리 GiFiles</title>
+  <title>크로스 플랫폼 파일관리도구 GiFiles</title>
   <meta name="description" content="macOS 파인더의 사용감을 다른 플랫폼에서도 쓰고 싶어 만든 파일 관리 유틸리티. 자주 쓰는 기능 위주에 MDIR 감성을 더하고, 터미널과 통합했습니다.">
   <link rel="canonical" href="https://files.gitools.net/">
   <link rel="icon" href="logo.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://files.gitools.net/">
   <meta property="og:site_name" content="Gifiles">
-  <meta property="og:title" content="크로스 플랫폼 파일관리 GiFiles">
+  <meta property="og:title" content="크로스 플랫폼 파일관리도구 GiFiles">
   <meta property="og:description" content="macOS 파인더의 사용감을 다른 플랫폼에서도 쓰고 싶어 만든 파일 관리 유틸리티. 자주 쓰는 기능 위주에 MDIR 감성을 더하고, 터미널과 통합했습니다.">
   <meta property="og:image" content="https://files.gitools.net/screenshots/list.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -19,135 +19,98 @@
     {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Gifiles","applicationCategory":"UtilitiesApplication","operatingSystem":"macOS, Windows, Linux","description":"A cross-platform file manager that keeps the feel of the macOS Finder, with colors by extension, Quick Look, and terminal and AI integration.","url":"https://files.gitools.net/","downloadUrl":"https://github.com/zidell/gifiles/releases/latest","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
   </script>
   <style>
-    :root { color-scheme: light dark; font-family: system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
-      --bg: #f6f7fb; --fg: #1d2030; --muted: #62697b; --line: #dfe3ed; --card: #ffffff; --accent: #2f7cf6; --accent-hover: #1f68dd; }
-    @media (prefers-color-scheme: dark) {
-      :root { --bg: #15171f; --fg: #eef0f7; --muted: #a6adbf; --line: #2e3342; --card: #1d202b; --accent: #4b8ff8; --accent-hover: #6aa3fa; }
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--fg); }
-    main { width: min(820px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0 80px; }
-    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 44px; font-size: 1.1rem; font-weight: 800; }
-    .brand img { width: 40px; height: 40px; }
-    .languages { margin-left: auto; display: flex; flex-wrap: wrap; gap: 10px; font-size: .8rem; font-weight: 500; }
-    .languages a { color: var(--muted); text-decoration: none; }
-    .languages a[aria-current="true"] { color: var(--fg); font-weight: 800; text-decoration: underline; }
-    h1 { font-size: clamp(2.1rem, 6vw, 3.4rem); line-height: 1.18; margin: 0 0 18px; letter-spacing: -.035em; }
-    h2 { font-size: 1.3rem; margin: 0 0 18px; }
-    p { line-height: 1.75; }
-    .intro { font-size: 1.12rem; max-width: 680px; }
-    .cta { display: inline-block; margin-top: 8px; border-radius: 10px; padding: 12px 20px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; }
-    .cta:hover { background: var(--accent-hover); }
-    .wide { width: min(100vw - 32px, 1080px); margin-left: 50%; transform: translateX(-50%); }
-    figure { margin: 0; }
-    figure img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); box-shadow: 0 18px 50px rgba(15, 20, 40, .16); }
-    .hero { margin-top: 40px; }
-    .feature { margin-top: 88px; }
-    .feature .num { display: block; color: var(--accent); font-size: .8rem; font-weight: 800; letter-spacing: .06em; margin-bottom: 6px; }
-    .feature h2 { font-size: clamp(1.4rem, 3.4vw, 1.9rem); letter-spacing: -.02em; margin-bottom: 10px; }
-    .feature p { margin: 0 0 24px; color: var(--muted); font-size: 1.02rem; max-width: 680px; }
-    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    section.get { margin-top: 96px; }
-    .downloads { display: grid; gap: 10px; }
-    .download { display: block; border-radius: 12px; padding: 16px 20px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; }
-    .download:hover { background: var(--accent-hover); }
-    .download small { display: block; font-weight: 400; margin-top: 4px; opacity: .88; }
-    .download.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
-    .download.secondary:hover { background: var(--card); }
-    .download[hidden] { display: none; }
-    .note { font-size: .93rem; color: var(--muted); }
-    footer { margin-top: 48px; color: var(--muted); font-size: .88rem; }
-    footer a { color: inherit; }
-    @media (max-width: 620px) { .pair { grid-template-columns: 1fr; } }
+    :root { color-scheme: light; }
+    body { max-width: 700px; margin: 0 auto; padding: 8px 16px 32px; background: #fff; color: #000; font-family: Arial, Helvetica, "Apple SD Gothic Neo", "Malgun Gothic", Gulim, sans-serif; }
+    img { max-width: 100%; height: auto; }
+    figure { margin: 8px 0; }
+    figure img { display: block; border: 1px solid #000; }
+    .brand img { width: 32px; height: 32px; vertical-align: middle; }
+    .languages { display: block; font-size: small; margin-top: 4px; }
+    .languages a[aria-current="true"] { font-weight: bold; }
+    section { margin-top: 56px; }
+    li:has(> a[hidden]) { display: none; }
+    footer { font-size: small; }
   </style>
 </head>
 <body>
-  <main>
-    <div class="brand"><img src="logo.svg" alt="">Gifiles
-      <nav class="languages" aria-label="Language"><a href="?lang=ko" data-language="ko">한국어</a><a href="?lang=en" data-language="en">English</a><a href="?lang=ja" data-language="ja">日本語</a><a href="?lang=zh" data-language="zh">中文</a></nav>
+  <center class="brand">
+    <img src="logo.svg" alt=""> <font size="5"><b>Gifiles</b></font>
+    <nav class="languages" aria-label="Language">[ <a href="?lang=ko" data-language="ko">한국어</a> | <a href="?lang=en" data-language="en">English</a> | <a href="?lang=ja" data-language="ja">日本語</a> | <a href="?lang=zh" data-language="zh">中文</a> ]</nav>
+  </center>
+  <hr>
+
+  <h1 align="center" data-t="title">크로스 플랫폼 파일관리도구</h1>
+  <p data-t="intro">macOS 파인더의 사용감을 다른 플랫폼에서도 쓰고 싶어 만든 유틸리티입니다. 자주 쓰는 기능 위주로 정리했고, 예전 MDIR 감성을 조금 끼얹었습니다. 터미널과 통합해 파일을 관리할 수 있습니다.</p>
+  <p align="center">&gt;&gt; <a href="#download" data-t="ctaDownload">다운로드</a> &lt;&lt;</p>
+
+  <figure><img src="screenshots/list.png" width="1600" height="976" alt="Gifiles 목록 보기" data-t-alt="listAlt"></figure>
+
+  <section aria-labelledby="f1">
+    <h2 id="f1">01. <span data-t="f1t">Mac Finder 사용성 기준</span></h2>
+    <p data-t="f1d">여러 파일 매니저를 써 봤지만, 그중 맥 파인더가 가장 심플하면서도 최적화된 사용성이라고 생각해 기준으로 삼았습니다. 목록·갤러리·컬럼 세 가지 보기와 ⌘1 · ⌘2 · ⌘3, Space 미리보기, Return 이름 바꾸기, ⌘↓ 열기까지 Finder 그대로입니다. 윈도우와 리눅스에서도 같은 키를 쓰고, ⌘ 자리에 Ctrl을 누르면 됩니다.</p>
+    <div>
+      <figure><img src="screenshots/columns.png" width="1600" height="976" loading="lazy" alt="컬럼 보기" data-t-alt="columnsAlt"></figure>
+      <figure><img src="screenshots/gallery.png" width="1600" height="976" loading="lazy" alt="갤러리 보기" data-t-alt="galleryAlt"></figure>
     </div>
+  </section>
 
-    <h1 data-t="title">크로스 플랫폼 파일관리<br>GiFiles</h1>
-    <p class="intro" data-t="intro">macOS 파인더의 사용감을 다른 플랫폼에서도 쓰고 싶어 만든 유틸리티입니다. 자주 쓰는 기능 위주로 정리했고, 예전 MDIR 감성을 조금 끼얹었습니다. 터미널과 통합해 파일을 관리할 수 있습니다.</p>
-    <a class="cta" href="#download" data-t="ctaDownload">다운로드</a>
+  <section aria-labelledby="f6">
+    <h2 id="f6">02. <span data-t="f6t">터미널 연동</span></h2>
+    <p data-t="f6d">맥에서 작업하다 보면 생각보다 터미널 작업이 많아지는데, 그때마다 따로 띄우기 번거로워서 지금 보고 있는 폴더와 바로 연동되는 터미널 패널을 아래에 붙였습니다. 폴더를 옮기면 터미널이 따라 cd 하고, 터미널에서 cd 하면 목록이 따라옵니다.</p>
+    <figure><img src="screenshots/terminal.png" width="1600" height="976" loading="lazy" alt="컬럼 보기와 터미널 패널" data-t-alt="terminalAlt"></figure>
+  </section>
 
-    <figure class="hero wide">
-      <img src="screenshots/list.png" width="1600" height="976" alt="Gifiles 목록 보기" data-t-alt="listAlt">
-    </figure>
+  <section aria-labelledby="f7">
+    <h2 id="f7">03. <span data-t="f7t">NCD 스타일 폴더 트리</span></h2>
+    <p data-t="f7d">옛 노턴 유틸리티의 NCD처럼 ` 키 하나로 드라이브의 모든 폴더를 파란 화면의 트리로 띄웁니다. 경로 글자를 차례로 치면(gifui → gifiles/src/ui) 바로 그 폴더로 커서가 가고, Enter로 이동합니다. 폴더 목록은 백그라운드에서 알아서 최신으로 유지됩니다.</p>
+    <figure><img src="screenshots/folder-tree.png" width="1600" height="976" loading="lazy" alt="창 전체를 덮은 파란 폴더 트리" data-t-alt="treeAlt"></figure>
+  </section>
 
-    <section class="feature" aria-labelledby="f1">
-      <span class="num">01</span>
-      <h2 id="f1" data-t="f1t">Mac Finder 사용성 기준</h2>
-      <p data-t="f1d">여러 파일 매니저를 써 봤지만, 그중 맥 파인더가 가장 심플하면서도 최적화된 사용성이라고 생각해 기준으로 삼았습니다. 목록·갤러리·컬럼 세 가지 보기와 ⌘1 · ⌘2 · ⌘3, Space 미리보기, Return 이름 바꾸기, ⌘↓ 열기까지 Finder 그대로입니다. 윈도우와 리눅스에서도 같은 키를 쓰고, ⌘ 자리에 Ctrl을 누르면 됩니다.</p>
-      <div class="pair wide">
-        <figure><img src="screenshots/columns.png" width="1600" height="976" loading="lazy" alt="컬럼 보기" data-t-alt="columnsAlt"></figure>
-        <figure><img src="screenshots/gallery.png" width="1600" height="976" loading="lazy" alt="갤러리 보기" data-t-alt="galleryAlt"></figure>
-      </div>
-    </section>
+  <section aria-labelledby="f2">
+    <h2 id="f2">04. <span data-t="f2t">확장자별 색상</span></h2>
+    <p data-t="f2d">Mdir처럼 확장자마다 파일 이름에 색을 입혀 실행 파일, 압축 파일, 문서, 코드를 한눈에 구분합니다. 색과 확장자 묶음은 설정에서 바꿀 수 있고, 다크 모드에 맞춘 색이 라이트 모드에서는 자동으로 진해집니다.</p>
+    <figure><img src="screenshots/settings-colors.png" width="1600" height="765" loading="lazy" alt="확장자별 색상 설정" data-t-alt="colorsAlt"></figure>
+  </section>
 
-    <section class="feature" aria-labelledby="f6">
-      <span class="num">02</span>
-      <h2 id="f6" data-t="f6t">터미널 연동</h2>
-      <p data-t="f6d">맥에서 작업하다 보면 생각보다 터미널 작업이 많아지는데, 그때마다 따로 띄우기 번거로워서 지금 보고 있는 폴더와 바로 연동되는 터미널 패널을 아래에 붙였습니다. 폴더를 옮기면 터미널이 따라 cd 하고, 터미널에서 cd 하면 목록이 따라옵니다.</p>
-      <figure class="wide"><img src="screenshots/terminal.png" width="1600" height="976" loading="lazy" alt="컬럼 보기와 터미널 패널" data-t-alt="terminalAlt"></figure>
-    </section>
+  <section aria-labelledby="f3">
+    <h2 id="f3">05. <span data-t="f3t">퀵 뷰 내장</span></h2>
+    <p data-t="f3d">Space를 누르면 이미지·영상·음악·PDF·코드를 바로 보고, 방향키로 다음 파일로 넘어갑니다. 오피스 문서처럼 직접 그리지 못하는 파일은 운영체제의 미리보기를 그대로 씁니다.</p>
+    <figure><img src="screenshots/quick-look.png" width="1600" height="976" loading="lazy" alt="퀵 뷰로 연 사진" data-t-alt="quickLookAlt"></figure>
+  </section>
 
-    <section class="feature" aria-labelledby="f7">
-      <span class="num">03</span>
-      <h2 id="f7" data-t="f7t">NCD 스타일 폴더 트리</h2>
-      <p data-t="f7d">옛 노턴 유틸리티의 NCD처럼 ` 키 하나로 드라이브의 모든 폴더를 파란 화면의 트리로 띄웁니다. 경로 글자를 차례로 치면(gifui → gifiles/src/ui) 바로 그 폴더로 커서가 가고, Enter로 이동합니다. 폴더 목록은 백그라운드에서 알아서 최신으로 유지됩니다.</p>
-      <figure class="wide"><img src="screenshots/folder-tree.png" width="1600" height="976" loading="lazy" alt="창 전체를 덮은 파란 폴더 트리" data-t-alt="treeAlt"></figure>
-    </section>
+  <section aria-labelledby="f4">
+    <h2 id="f4">06. <span data-t="f4t">AI 연동</span></h2>
+    <p data-t="f4d">Codex나 Claude CLI가 설치돼 있으면 선택한 파일을 바로 명령으로 넘길 수 있습니다. 이미지 변환이나 회전, 파일 이름 일괄 변경 같은 작업을 요청 한 줄로 한 번에 끝냅니다.</p>
+    <figure><img src="screenshots/prompt-window.png" width="1600" height="976" loading="lazy" alt="AI 요청 입력창" data-t-alt="aiAlt"></figure>
+  </section>
 
-    <section class="feature" aria-labelledby="f2">
-      <span class="num">04</span>
-      <h2 id="f2" data-t="f2t">확장자별 색상</h2>
-      <p data-t="f2d">Mdir처럼 확장자마다 파일 이름에 색을 입혀 실행 파일, 압축 파일, 문서, 코드를 한눈에 구분합니다. 색과 확장자 묶음은 설정에서 바꿀 수 있고, 다크 모드에 맞춘 색이 라이트 모드에서는 자동으로 진해집니다.</p>
-      <figure class="wide"><img src="screenshots/settings-colors.png" width="1600" height="765" loading="lazy" alt="확장자별 색상 설정" data-t-alt="colorsAlt"></figure>
-    </section>
+  <section aria-labelledby="f5">
+    <h2 id="f5">07. <span data-t="f5t">사용자 메뉴</span></h2>
+    <p data-t="f5d">자주 하는 반복 작업은 셸 스크립트나 명령어를 사용자 메뉴로 묶어 두면, 선택한 파일에 손쉽게 적용할 수 있습니다.</p>
+    <div>
+      <figure><img src="screenshots/context-menu-window.png" width="1600" height="976" loading="lazy" alt="선택한 항목들로 하위 메뉴" data-t-alt="menuAlt"></figure>
+      <figure><img src="screenshots/settings-selection.png" width="1600" height="765" loading="lazy" alt="선택 항목 메뉴 설정" data-t-alt="menuSettingsAlt"></figure>
+    </div>
+  </section>
 
-    <section class="feature" aria-labelledby="f3">
-      <span class="num">05</span>
-      <h2 id="f3" data-t="f3t">퀵 뷰 내장</h2>
-      <p data-t="f3d">Space를 누르면 이미지·영상·음악·PDF·코드를 바로 보고, 방향키로 다음 파일로 넘어갑니다. 오피스 문서처럼 직접 그리지 못하는 파일은 운영체제의 미리보기를 그대로 씁니다.</p>
-      <figure class="wide"><img src="screenshots/quick-look.png" width="1600" height="976" loading="lazy" alt="퀵 뷰로 연 사진" data-t-alt="quickLookAlt"></figure>
-    </section>
+  <section id="download" aria-labelledby="download-title">
+    <h2 id="download-title" data-t="downloadTitle">다운로드</h2>
+    <ul>
+      <li><a id="dl-primary" href="https://github.com/zidell/gifiles/releases/latest"><span data-t="dlLatest">최신 버전 받기</span>&nbsp;<small id="dl-primary-detail">GitHub Releases</small></a></li>
+      <li><a data-platform="mac" hidden><span>macOS</span>&nbsp;<small data-t="dlMac">Apple Silicon · Intel 공용 · 서명·공증된 앱 (zip)</small></a></li>
+      <li><a data-platform="windows" hidden><span>Windows</span>&nbsp;<small data-t="dlWindows">x64 · zip을 풀고 Gifiles.exe 실행</small></a></li>
+      <li><a data-platform="linux" hidden><span>Linux</span>&nbsp;<small data-t="dlLinux">x86_64 · AppImage (실행 권한을 주고 실행)</small></a></li>
+    </ul>
+    <p id="dl-version"></p>
+    <p data-t="dlNote">Windows 앱은 서명되지 않아 처음 실행할 때 경고가 뜰 수 있습니다(추가 정보 → 실행).</p>
+  </section>
 
-    <section class="feature" aria-labelledby="f4">
-      <span class="num">06</span>
-      <h2 id="f4" data-t="f4t">AI 연동</h2>
-      <p data-t="f4d">Codex나 Claude CLI가 설치돼 있으면 선택한 파일을 바로 명령으로 넘길 수 있습니다. 이미지 변환이나 회전, 파일 이름 일괄 변경 같은 작업을 요청 한 줄로 한 번에 끝냅니다.</p>
-      <figure class="wide"><img src="screenshots/prompt-window.png" width="1600" height="976" loading="lazy" alt="AI 요청 입력창" data-t-alt="aiAlt"></figure>
-    </section>
-
-    <section class="feature" aria-labelledby="f5">
-      <span class="num">07</span>
-      <h2 id="f5" data-t="f5t">사용자 메뉴</h2>
-      <p data-t="f5d">자주 하는 반복 작업은 셸 스크립트나 명령어를 사용자 메뉴로 묶어 두면, 선택한 파일에 손쉽게 적용할 수 있습니다.</p>
-      <div class="pair wide">
-        <figure><img src="screenshots/context-menu-window.png" width="1600" height="976" loading="lazy" alt="선택한 항목들로 하위 메뉴" data-t-alt="menuAlt"></figure>
-        <figure><img src="screenshots/settings-selection.png" width="1600" height="765" loading="lazy" alt="선택 항목 메뉴 설정" data-t-alt="menuSettingsAlt"></figure>
-      </div>
-    </section>
-
-    <section class="get" id="download" aria-labelledby="download-title">
-      <h2 id="download-title" data-t="downloadTitle">다운로드</h2>
-      <div class="downloads">
-        <a class="download" id="dl-primary" href="https://github.com/zidell/gifiles/releases/latest"><span data-t="dlLatest">최신 버전 받기</span><small id="dl-primary-detail">GitHub Releases</small></a>
-        <a class="download secondary" data-platform="mac" hidden><span>macOS</span><small data-t="dlMac">Apple Silicon · Intel 공용 · 서명·공증된 앱 (zip)</small></a>
-        <a class="download secondary" data-platform="windows" hidden><span>Windows</span><small data-t="dlWindows">x64 · zip을 풀고 Gifiles.exe 실행</small></a>
-        <a class="download secondary" data-platform="linux" hidden><span>Linux</span><small data-t="dlLinux">x86_64 · AppImage (실행 권한을 주고 실행)</small></a>
-      </div>
-      <p class="note" id="dl-version"></p>
-      <p class="note" data-t="dlNote">Windows 앱은 서명되지 않아 처음 실행할 때 경고가 뜰 수 있습니다(추가 정보 → 실행).</p>
-    </section>
-
-    <footer><a href="https://github.com/zidell/gifiles">GitHub</a> · <a href="https://github.com/zidell/gifiles/blob/main/LICENSE">MIT License</a></footer>
-  </main>
+  <hr>
+  <footer><a href="https://github.com/zidell/gifiles">GitHub</a> | <a href="https://github.com/zidell/gifiles/blob/main/LICENSE">MIT License</a></footer>
   <script>
     const copy = {
       en: {
-        title: 'Cross-platform file management<br>GiFiles',
+        title: 'Cross-platform file manager',
         intro: 'A utility made to have the feel of the macOS Finder on other platforms too. It focuses on the features you use most, adds a dash of the old MDIR spirit, and lets you manage files together with the terminal.',
         ctaDownload: 'Download', listAlt: 'Gifiles list view',
         f1t: 'Built on the Mac Finder\'s usability', f1d: 'I\'ve used many file managers, and the Mac Finder seemed the simplest and best-tuned of them all, so it is the reference. List, gallery and column views, ⌘1 · ⌘2 · ⌘3, Space to preview, Return to rename, ⌘↓ to open: all as in the Finder. Windows and Linux use the same keys, with Ctrl in place of ⌘.',
@@ -171,7 +134,7 @@
         primaryMac: 'Download for macOS', primaryWindows: 'Download for Windows', primaryLinux: 'Download for Linux'
       },
       ja: {
-        title: 'クロスプラットフォームのファイル管理<br>GiFiles',
+        title: 'クロスプラットフォームのファイル管理ツール',
         intro: 'macOS の Finder の使い心地をほかのプラットフォームでも使いたくて作ったユーティリティです。よく使う機能を中心にまとめ、昔の MDIR の雰囲気を少し加えました。ターミナルと統合してファイルを管理できます。',
         ctaDownload: 'ダウンロード', listAlt: 'Gifiles のリスト表示',
         f1t: 'Mac Finder の使い勝手が基準', f1d: 'いろいろなファイルマネージャーを使ってきましたが、中でも Mac の Finder がいちばんシンプルで使い勝手が最適化されていると思い、基準にしました。リスト・ギャラリー・カラムの 3 つの表示と ⌘1 · ⌘2 · ⌘3、Space でプレビュー、Return で名前変更、⌘↓ で開くまで Finder そのままです。Windows と Linux でも同じキーを使い、⌘ の代わりに Ctrl を押します。',
@@ -195,7 +158,7 @@
         primaryMac: 'macOS 版をダウンロード', primaryWindows: 'Windows 版をダウンロード', primaryLinux: 'Linux 版をダウンロード'
       },
       zh: {
-        title: '跨平台文件管理<br>GiFiles',
+        title: '跨平台文件管理工具',
         intro: '为了在其他平台上也能用上 macOS 访达的手感而做的工具。以常用功能为主，加了一点当年 MDIR 的味道，还能与终端整合来管理文件。',
         ctaDownload: '下载', listAlt: 'Gifiles 列表视图',
         f1t: '以 Mac 访达的易用性为准', f1d: '用过不少文件管理器，其中 Mac 访达最简洁、使用体验也最优化，所以以它为准。列表、图库、分栏三种视图，⌘1 · ⌘2 · ⌘3，Space 预览，Return 重命名，⌘↓ 打开，都与访达一致。Windows 和 Linux 使用同样的按键，用 Ctrl 代替 ⌘。',
@@ -233,7 +196,7 @@
     if (lang !== 'ko') {
       document.querySelectorAll('[data-t]').forEach((el) => { const v = copy[lang][el.dataset.t]; if (v) el.innerHTML = v; });
       document.querySelectorAll('[data-t-alt]').forEach((el) => { const v = copy[lang][el.dataset.tAlt]; if (v) el.alt = v; });
-      document.title = copy[lang].title.replace('<br>', ' ');
+      document.title = copy[lang].title + ' GiFiles';
     }
 
     const ua = navigator.userAgent;
