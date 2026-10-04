@@ -925,6 +925,33 @@ private slots:
         QCOMPARE(readText(Settings::configPath()), Settings::renderDefaults());
     }
 
+    // A save that failed is tried again later; an edit made outside meanwhile wins over that retry.
+    // (Windows CI: the replace fails while something still holds the file, and the retry used to write
+    // the app's values over the test's edit. Here a read-only folder makes the replace fail.)
+    void failedSaveRetryKeepsOutsideEdit()
+    {
+#ifdef Q_OS_WIN
+        QSKIP("a read-only folder doesn't stop creating files on Windows");
+#else
+        Settings *s = Settings::instance();
+        const QString dir = QFileInfo(Settings::configPath()).absolutePath();
+        const QFile::Permissions perms = QFile(dir).permissions();
+        QVERIFY(QFile(dir).setPermissions(QFile::ReadOwner | QFile::ExeOwner));
+        s->setValue(Settings::IconSize, 128); // QSaveFile can't create its temporary file: retried
+        editConfig(QStringLiteral("[view]\nstripes = false\n"));
+        QVERIFY(QFile(dir).setPermissions(perms));
+        QTRY_COMPARE_WITH_TIMEOUT(s->flag(Settings::Stripes), false, 5000);
+        QTest::qWait(1000); // every retry has had its turn
+        QCOMPARE(readText(Settings::configPath()), QStringLiteral("[view]\nstripes = false\n"));
+        QCOMPARE(s->flag(Settings::Stripes), false);
+        QCOMPARE(s->value(Settings::IconSize).toInt(), 96); // the file has no icon_size: the later edit wins
+        s->remove(Settings::Stripes);
+        s->setValue(Settings::IconSize, 100);
+        s->remove(Settings::IconSize);
+        QCOMPARE(readText(Settings::configPath()), Settings::renderDefaults());
+#endif
+    }
+
     // The same rule for [shortcuts] and [open_with]: a wrong value there keeps the user's previous keys/app.
     void reloadKeepsPreviousShortcutAndApp()
     {

@@ -10,6 +10,7 @@
 class QAbstractItemView;
 class QColumnView;
 class QFileSystemModel;
+class QFileSystemWatcher;
 class QListView;
 class QStackedWidget;
 class QTreeView;
@@ -82,6 +83,7 @@ private:
     void setPathInternal(const QString &path, bool pushHistory);
     void applyRoot();
     void checkRoot(); // the open folder's row went away (renamed, replaced): show it again, or its parent
+    void relistIfStale(); // the open folder changed but the model didn't follow: make it list and watch again
     void syncColumns();
     void trySelectPending();
     void openIndex(const QModelIndex &idx, bool inNewTab);
@@ -121,4 +123,6 @@ private:
     bool m_applyingPrefs = false;
     QTimer *m_prefsTimer = nullptr;
     QTimer *m_rootGone = nullptr; // the open folder stayed missing: go to its parent
+    QFileSystemWatcher *m_folderWatch = nullptr; // the open folder, besides the model's own watching
+    QTimer *m_staleCheck = nullptr;
 };

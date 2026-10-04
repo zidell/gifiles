@@ -799,8 +799,17 @@ void Settings::save()
     } else if (m_saveRetries < 10) {
         // Windows: replacing the file fails while another process (the indexer, a virus scanner,
         // our own watcher) still has it open. Try again shortly with what is current then.
+        // An edit made outside meanwhile is newer than ours: it wins, read it instead of writing over it.
         ++m_saveRetries;
-        QTimer::singleShot(100 * m_saveRetries, this, [this] { save(); });
+        QTimer::singleShot(100 * m_saveRetries, this, [this, known = m_written] {
+            QFile current(configPath());
+            if (current.open(QIODevice::ReadOnly) && current.readAll() != known) {
+                m_saveRetries = 0;
+                load(false);
+                return;
+            }
+            save();
+        });
     } else {
         qWarning("config.toml: cannot write %s: %s", qPrintable(path), qPrintable(f.errorString()));
         m_saveRetries = 0;

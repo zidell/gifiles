@@ -593,6 +593,23 @@ shortcuts in `../README.md`. Dates are 2026.
   so the new default applies.
 - Windows' `reloadKeepsPreviousValueOnError` failed once in CI (stripes still on after an external
   edit) and passed on rerun: the reload-timing area the previous commit added retries for.
+- Root cause (2026-10-04, after it and `selectionCommandsEmptyListKeepsBuiltins` failed again in
+  runs 37110289838 and 37116142172): the app's own `save()` failed to replace config.toml (Windows
+  holds it a moment, the same thing that made the smoke test's own `QSaveFile::commit` fail) and its
+  retry 100 ms later wrote the app's values over the edit made in between; the reload then saw its
+  own bytes and changed nothing. The retry now reads the file first and, if it changed from what the
+  app last wrote or read, loads it instead (the later edit wins). `failedSaveRetryKeepsOutsideEdit`
+  reproduces it on macOS/Linux with a read-only folder (failed before the fix with the CI's values).
+- The other recurring flake, `makeFixture` timing out (CI macOS run 37110289838: every fixture after one
+  point; locally `parity` in 2 of 3 runs), was the list no longer following the scratch folder at all
+  (the source model kept its old 10 rows; even a file created as a nudge never showed). Qt bug, read
+  in qtbase 6.11 `QFileInfoGatherer::fetchExtendedInformation`: a request already queued for the same
+  folder returns before `watchPaths`, while `QFileSystemModel::setRootPath` unwatches the old root at
+  once. Into a folder and straight back while the file-info thread is busy → the folder is never
+  watched again. `BrowserTab` now watches the open folder itself (`m_folderWatch`); a change after which
+  the model's names differ from the disk a second later re-roots the model (`relistIfStale`, logged as
+  "model stopped following"), which lists and watches it again. `folderKeepsFollowingChangesAfterQuickReturn`
+  (3000 files keep the thread busy) failed 3/3 before, passes 3/3 after; full suite passed twice.
 
 
 ## Folder tree, NCD style (2026-10-03)

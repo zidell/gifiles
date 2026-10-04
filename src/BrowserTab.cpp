@@ -2,6 +2,7 @@
 #include "FileOps.h"
 #include "FileProxy.h"
 #include "ItemDelegate.h"
+#include "Log.h"
 #include "OpenWith.h"
 #include "Preview.h"
 #include "Settings.h"
@@ -21,6 +22,7 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileSystemModel>
+#include <QFileSystemWatcher>
 #include <QHeaderView>
 #include <QKeyEvent>
 #include <QListView>
@@ -401,6 +403,13 @@ BrowserTab::BrowserTab(const QString &path, Mode mode, bool showHidden, QWidget 
     connect(m_proxy, &QAbstractItemModel::rowsRemoved, this, [this] { QTimer::singleShot(0, this, &BrowserTab::checkRoot); });
     connect(m_proxy, &QAbstractItemModel::rowsInserted, this, [this] { QTimer::singleShot(0, this, &BrowserTab::checkRoot); });
     connect(m_fs, &QFileSystemModel::directoryLoaded, this, [this] { QTimer::singleShot(0, this, &BrowserTab::checkRoot); });
+    // QFileSystemModel can stop watching the open folder (see relistIfStale): watch it ourselves too.
+    m_folderWatch = new QFileSystemWatcher(this);
+    m_staleCheck = new QTimer(this);
+    m_staleCheck->setSingleShot(true);
+    m_staleCheck->setInterval(1000);
+    connect(m_staleCheck, &QTimer::timeout, this, &BrowserTab::relistIfStale);
+    connect(m_folderWatch, &QFileSystemWatcher::directoryChanged, m_staleCheck, qOverload<>(&QTimer::start));
 
     m_mode = mode;
     m_stack->setCurrentIndex(mode);
@@ -526,6 +535,12 @@ void BrowserTab::setPathInternal(const QString &path, bool pushHistory)
     }
     m_path = path;
     m_fs->setRootPath(path);
+    if (changed) {
+        m_staleCheck->stop();
+        if (const QStringList watched = m_folderWatch->directories(); !watched.isEmpty())
+            m_folderWatch->removePaths(watched);
+        m_folderWatch->addPath(path);
+    }
     m_proxy->setSearchRoot(path);
     if (pushHistory && changed) {
         m_history = m_history.mid(0, m_histIndex + 1);
@@ -544,6 +559,29 @@ void BrowserTab::applyRoot()
     m_gallery->setRootIndex(root);
     m_list->scrollToTop();
     m_gallery->scrollToTop();
+}
+
+// Qt's file-info thread skips watching a folder it is asked to list while the same request is still
+// queued, and QFileSystemModel stops watching the previous root on every root change. So going into
+// a folder and straight back while that thread is busy leaves the folder unwatched: the list stops
+// following it for good. When the folder changed and the model differs from the disk a second
+// later, re-rooting makes the model list the folder (and watch it) again.
+void BrowserTab::relistIfStale()
+{
+    const QModelIndex root = m_fs->index(m_path);
+    if (!root.isValid() || m_fs->canFetchMore(root) || !QFileInfo(m_path).isDir())
+        return;
+    QStringList shown;
+    for (int r = 0; r < m_fs->rowCount(root); ++r)
+        shown << m_fs->fileName(m_fs->index(r, 0, root));
+    QStringList onDisk = QDir(m_path).entryList(m_fs->filter());
+    shown.sort();
+    onDisk.sort();
+    if (shown == onDisk)
+        return;
+    Log::write("browse", QStringLiteral("model stopped following %1: relisting").arg(m_path));
+    m_fs->setRootPath(QString());
+    m_fs->setRootPath(m_path);
 }
 
 void BrowserTab::checkRoot()

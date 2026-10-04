@@ -2715,6 +2715,31 @@ private slots:
         QCOMPARE(shownNames(), QStringList{QStringLiteral("x.txt")});
     }
 
+    // Into a folder and straight back while Qt's file-info thread is still busy: QFileSystemModel asks
+    // for the folder again, finds the first request still queued and skips watching it, so the list
+    // used to stop following the folder for good (CI: every later makeFixture timed out).
+    void folderKeepsFollowingChangesAfterQuickReturn()
+    {
+        const auto restore = qScopeGuard([this] {
+            tab()->navigate(m_tmp.path());
+            QDir(p("quick")).removeRecursively();
+        });
+        QVERIFY(makeFixture(QStringLiteral("quick")));
+        QVERIFY(QDir().mkpath(p("quick/big")));
+        QVERIFY(QDir().mkpath(p("quick/home/sub")));
+        for (int i = 0; i < 3000; ++i)
+            write(QStringLiteral("quick/big/f%1.txt").arg(i), "x");
+        tab()->setMode(BrowserTab::List, true);
+        tab()->navigate(p("quick/big")); // keeps the file-info thread busy for a while
+        tab()->navigate(p("quick/home"));
+        tab()->navigate(p("quick/home/sub"));
+        tab()->navigate(p("quick/home"));
+        QTRY_COMPARE(shownNames(), QStringList{QStringLiteral("sub")});
+        QTest::qWait(500);
+        write(QStringLiteral("quick/home/new.txt"), "x");
+        QTRY_COMPARE_WITH_TIMEOUT(shownNames(), (QStringList{QStringLiteral("sub"), QStringLiteral("new.txt")}), 5000);
+    }
+
     void sidebarFavoritesByMouseDropAndMenu()
     {
         // Favorites: a click opens one; files dropped between rows become favorites there; a dragged
