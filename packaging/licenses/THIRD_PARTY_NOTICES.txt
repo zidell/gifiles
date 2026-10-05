@@ -1,7 +1,8 @@
 Gifiles — third-party software
 ==============================
 
-Gifiles itself is under the MIT License (LICENSE). The builds published for
+Gifiles itself (Copyright (c) 2026 zidell) is under the GNU General Public
+License version 3 (LICENSE). The builds published for
 Windows (zip) and Linux (AppImage) also contain the libraries below, each
 under its own license. The license texts are in this folder.
 

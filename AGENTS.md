@@ -7,7 +7,7 @@ README.md describes features and shortcuts for users; this file is for whoever c
 What has been built so far, why things are the way they are, measurements and open items:
 `docs/history.md` — read it before starting new work.
 
-Git: public repo `github.com/zidell/gifiles` (MIT, `LICENSE`), branch `main`. GitHub Actions
+Git: public repo `github.com/zidell/gifiles` (GPLv3, `LICENSE`; MIT until 2026-10-05), branch `main`. GitHub Actions
 (`.github/workflows/build.yml`) builds and runs all tests on Windows (MSVC), Linux (Ubuntu 22.04)
 and macOS (universal) on every push; **every push to main that passes becomes release
 `v0.1.<run number>`** (Windows zip, Linux AppImage, signed and notarized macOS zip once its secrets
@@ -15,7 +15,7 @@ exist, signed `update.json`) and the installed apps update to it (see Automatic 
 push to main ships to users: push only what passes locally. Pushes touching only `*.md` / `docs/`
 don't build or release. The history is public now: new commits, no more rewriting. Check CI after
 pushing (`gh run watch`); the Windows test logs are the `smoke-windows` artifact. Issues,
-Discussions and Wiki are off: the README says requests aren't taken (fork under MIT).
+Discussions and Wiki are off: the README says requests aren't taken (fork under GPLv3).
 
 ## What the user wants (product principles)
 

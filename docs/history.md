@@ -454,7 +454,8 @@ shortcuts in `../README.md`. Dates are 2026.
   and private-key patterns, removed lines included), no Actions secrets or self-hosted runners, and
   `local/`, `logs/`, builds never committed. The author e-mail in commits and the Apple team id in
   old diffs stay (the user is fine with both; the team id is in any signed app anyway).
-- License: MIT (`LICENSE`). Qt is LGPLv3 and linked dynamically, which MIT code may do; what the
+- License: GPLv3 (`LICENSE`) since 2026-10-05, MIT before (the user didn't want a rebranded closed
+  copy sold; releases already out stay MIT). Qt is LGPLv3 and linked dynamically; what the
   LGPL asks of the shipped builds is met by `packaging/licenses/` (notice + LGPL-3.0/GPL-3.0 texts
   for Qt, LGPL-2.1 for the FFmpeg Qt Multimedia ships, libvterm's MIT text), copied next to the
   .exe, into the AppImage's share/doc and the bundle's Resources. The Qt modules used are all
