@@ -802,7 +802,7 @@ private slots:
         QVERIFY(s);
         QCOMPARE(QDir::cleanPath(QFileInfo(Settings::configPath()).absolutePath()), QDir::cleanPath(m_configDir));
         QTRY_VERIFY(QFileInfo::exists(Settings::configPath()));
-        QCOMPARE(readText(Settings::configPath()), Settings::renderDefaults());
+        QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults());
         QVERIFY(s->problems().isEmpty());
         // Defaults for known keys, nothing for unknown ones.
         QCOMPARE(s->value(Settings::IconSize).toInt(), 96);
@@ -846,7 +846,7 @@ private slots:
         QVERIFY(s->keys(QStringLiteral("open_with")).isEmpty());
         s->remove(Settings::IconSize);
         QCOMPARE(s->value(Settings::IconSize).toInt(), 96);
-        QCOMPARE(readText(Settings::configPath()), Settings::renderDefaults());
+        QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults());
     }
 
     // What the app writes, it reads back as the same values (values with every kind of quoting trouble).
@@ -865,6 +865,8 @@ private slots:
         s->setValue(Settings::SelectionCommands, commands);
         s->setValue(Settings::FolderColor, QStringLiteral("#ABCDEF"));
         s->setValue(QStringLiteral("shortcuts/열기"), QStringList{QStringLiteral("Ctrl+Shift+O")});
+        // On Windows a save can find the file still held (the watcher, a scanner) and land on a retry.
+        QTRY_VERIFY(readText(Settings::configPath()).contains(QStringLiteral("Ctrl+Shift+O")));
         const QString text = readText(Settings::configPath());
         QVERIFY2(Settings::check(text).isEmpty(), qPrintable(Settings::check(text).join(QLatin1Char('\n'))));
         toml::Document d;
@@ -884,7 +886,7 @@ private slots:
         for (const char *k : {Settings::TermShell, Settings::Favorites, Settings::SelectionCommands, Settings::FolderColor})
             s->remove(QLatin1String(k));
         s->remove(QStringLiteral("shortcuts/열기"));
-        QCOMPARE(readText(Settings::configPath()), Settings::renderDefaults());
+        QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults()); // a save may land on a retry (Windows)
     }
 
     // An edit made outside the app applies at once; a wrong value is reported and the old one kept.
@@ -932,7 +934,7 @@ private slots:
         // The app's next save writes the whole explained file again.
         s->setValue(Settings::IconSize, 100);
         s->remove(Settings::IconSize);
-        QCOMPARE(readText(Settings::configPath()), Settings::renderDefaults());
+        QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults()); // a save may land on a retry (Windows)
     }
 
     // A save that failed is tried again later; an edit made outside meanwhile wins over that retry.
@@ -958,7 +960,7 @@ private slots:
         s->remove(Settings::Stripes);
         s->setValue(Settings::IconSize, 100);
         s->remove(Settings::IconSize);
-        QCOMPARE(readText(Settings::configPath()), Settings::renderDefaults());
+        QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults()); // a save may land on a retry (Windows)
 #endif
     }
 
@@ -979,7 +981,7 @@ private slots:
         s->remove(key);
         s->remove(app);
         s->remove(Settings::IconSize);
-        QCOMPARE(readText(Settings::configPath()), Settings::renderDefaults());
+        QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults()); // a save may land on a retry (Windows)
         QCOMPARE(keys, QStringList{QStringLiteral("F3")});
         QCOMPARE(kept, QStringLiteral("/Apps/Edit.app"));
     }
