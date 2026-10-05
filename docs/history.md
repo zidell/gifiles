@@ -759,3 +759,10 @@ shortcuts in `../README.md`. Dates are 2026.
   click is two toggles), remembered in QSettings `sidebar/folded` (the user asked for folding; all sections got it, one folding alone looked odd); its rows open on
   click, take drops into the folder, and have 새로운 탭에서 열기 / 즐겨찾기에 추가 / 최근 폴더에서 제거 /
   최근 폴더 모두 지우기.
+- First CI run of the above: macOS failed the media resume tests that had always skipped before. Reproduced
+  with Qt 6.10.1 (what CI builds the published app with; the developer's Mac has Homebrew's 6.11): the
+  published Mac app didn't go on where it stopped. Two 6.10 differences: a file opened again reports
+  BufferedMedia before it is seekable (the position set then was dropped: now waits for seekable), and
+  video frames carry no time (-1), so the "frame where it stopped is up" check never fired and the picture
+  stayed hidden for the 1.5 s fallback (now the player's position stands in). Linux: a CI prompt's long path
+  wrapped a pasted line (test terminals are wider now).

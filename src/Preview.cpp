@@ -542,8 +542,11 @@ void PreviewWidget::ensureMedia()
         if (f.rotation() == QtVideo::Rotation::Clockwise90 || f.rotation() == QtVideo::Rotation::Clockwise270)
             s.transpose();
         setVideoNaturalSize(s);
-        if (m_seekTarget >= 0 && m_seekFloor < 0 && f.startTime() / 1000 >= m_seekTarget - 50)
-            endResume(true); // the frame where it stopped is up
+        // The frame where it stopped is up. Qt 6.10's macOS player gives frames no time (-1): then
+        // the player's position tells (else the picture stayed hidden until the 1.5 s fallback).
+        const qint64 at = f.startTime() >= 0 ? f.startTime() / 1000 : m_player->position();
+        if (m_seekTarget >= 0 && m_seekFloor < 0 && at >= m_seekTarget - 50)
+            endResume(true);
     });
     // The container's metadata usually gives the size before the first frame is decoded (and
     // while Quick Look is still hidden, waiting for it).
@@ -556,14 +559,23 @@ void PreviewWidget::ensureMedia()
             s.transpose();
         setVideoNaturalSize(s);
     });
-    connect(m_player, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus st) {
-        if ((st == QMediaPlayer::LoadedMedia || st == QMediaPlayer::BufferedMedia) && m_pendingSeek) {
+    // Going on where it stopped once the file can seek: Qt 6.10's macOS player reports a file opened
+    // again as BufferedMedia before it is seekable, and a position set then is dropped (it started
+    // over from 0 in the published app); LoadedMedia or seekableChanged follow.
+    auto resumeWhenSeekable = [this] {
+        const QMediaPlayer::MediaStatus st = m_player->mediaStatus();
+        if (m_pendingSeek && m_player->isSeekable() && (st == QMediaPlayer::LoadedMedia || st == QMediaPlayer::BufferedMedia)) {
             const qint64 target = m_pendingSeek;
             m_pendingSeek = 0;
             beginResume(target);
-        } else if (st == QMediaPlayer::EndOfMedia && m_player->source().toLocalFile() == m_resumePath) {
-            m_resumePath.clear(); // played to the end: next time from the start
         }
+    };
+    connect(m_player, &QMediaPlayer::seekableChanged, this, resumeWhenSeekable);
+    connect(m_player, &QMediaPlayer::mediaStatusChanged, this, [this, resumeWhenSeekable](QMediaPlayer::MediaStatus st) {
+        if (st == QMediaPlayer::EndOfMedia && m_player->source().toLocalFile() == m_resumePath)
+            m_resumePath.clear(); // played to the end: next time from the start
+        else
+            resumeWhenSeekable();
     });
     connect(m_play, &QToolButton::clicked, this, &PreviewWidget::togglePlay);
     connect(m_player, &QMediaPlayer::playbackStateChanged, this, [this](QMediaPlayer::PlaybackState s) {

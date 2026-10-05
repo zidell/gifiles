@@ -646,7 +646,7 @@ private slots:
         qint64 firstShown = -1;
         connect(video->videoSink(), &QVideoSink::videoFrameChanged, &pw, [&](const QVideoFrame &f) {
             if (firstShown < 0 && video->isVisible() && player->mediaStatus() != QMediaPlayer::LoadingMedia)
-                firstShown = f.startTime() / 1000;
+                firstShown = f.startTime() >= 0 ? f.startTime() / 1000 : player->position(); // Qt 6.10 (macOS): frames carry no time
         });
         pw.setPath(p("resume.mp4"));
         QTRY_VERIFY(player->position() > 2600); // goes on playing from there
@@ -697,7 +697,7 @@ private slots:
         // copying with the mouse, ⌘V, ⌘K, scrolling back, and window titles / folders the shell reports.
         useTestShell();
         TerminalWidget term;
-        term.resize(700, 300);
+        term.resize(1200, 300); // wide: CI prompts carry long paths, and a wrapped line is two lines
         term.show();
         QVERIFY(QTest::qWaitForWindowExposed(&term));
         term.start(m_tmp.path());
@@ -837,7 +837,7 @@ private slots:
     {
         useTestShell();
         TerminalWidget term;
-        term.resize(700, 300);
+        term.resize(1200, 300);
         term.show();
         QVERIFY(QTest::qWaitForWindowExposed(&term));
         term.start(m_tmp.path());
@@ -877,7 +877,7 @@ private slots:
     {
         useTestShell();
         TerminalWidget term;
-        term.resize(700, 300);
+        term.resize(1200, 300);
         term.show();
         QVERIFY(QTest::qWaitForWindowExposed(&term));
         term.start(m_tmp.path());
@@ -947,7 +947,7 @@ private slots:
     {
         useTestShell();
         TerminalWidget term;
-        term.resize(700, 300);
+        term.resize(1200, 300);
         term.show();
         QVERIFY(QTest::qWaitForWindowExposed(&term));
         term.start(m_tmp.path());
