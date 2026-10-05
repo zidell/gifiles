@@ -61,6 +61,7 @@ public:
     void reindex();   // ⌘R: scan again now, whatever the journal says
     bool isWatching() const { return m_stream != nullptr; } // FSEvents keeps the index up to date
     void noteVisit(const QString &path); // the browser showed this folder (ranking, macOS access)
+    QHash<QString, int> visits() const { return m_visits; } // the folders shown and how often (at most 1000)
     QHash<int, int> boost() const;       // visits per node of the current index
 
 signals:

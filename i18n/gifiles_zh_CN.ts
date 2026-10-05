@@ -796,6 +796,14 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>没有这一行时使用默认列表（主目录、桌面、文稿、下载等）。</translation>
     </message>
     <message>
+        <source>사이드바 &apos;최근 폴더&apos;에 보일 폴더 수. 0이면 숨깁니다.
+둘러보기만 한 폴더는 들어가지 않고, 무언가를 한 폴더만 들어갑니다: 항목을 복사·이동·만들기·이름 변경·삭제·압축 풀기 했거나,
+파일을 열었거나, &apos;선택한 항목들로…&apos; 명령이나 터미널 명령(cd, ls 같은 이동·보기 말고)을 실행한 폴더.</source>
+        <translation>侧边栏“最近的文件夹”中显示的文件夹数量。0 表示隐藏。
+仅浏览过的文件夹不会加入，只加入做过操作的文件夹：复制、移动、新建、重命名、删除或解压过项目，
+打开过文件，或运行过“对所选项目…”命令或终端命令（cd、ls 等移动或查看命令除外）的文件夹。</translation>
+    </message>
+    <message>
         <source>폴더 트리(파일 목록에서 ` 키)에 보일 폴더들. []이면 드라이브 전체 (macOS·Linux는 &quot;/&quot;, Windows는 모든 고정 드라이브).
 네트워크·FUSE 드라이브는 여기에 직접 적었을 때만 들어갑니다.</source>
         <translation>文件夹树(在文件列表中按 ` 键)中显示的文件夹。[] 表示整个磁盘 (macOS 和 Linux 为 &quot;/&quot;,Windows 为所有固定磁盘)。
@@ -1372,6 +1380,22 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>显示隐藏文件</translation>
     </message>
     <message>
+        <source>개</source>
+        <translation>个</translation>
+    </message>
+    <message>
+        <source>숨김</source>
+        <translation>隐藏</translation>
+    </message>
+    <message>
+        <source>최근 폴더:</source>
+        <translation>最近的文件夹：</translation>
+    </message>
+    <message>
+        <source>사이드바에 보일 개수. 둘러보기만 한 폴더가 아니라 파일을 복사·이동·만들기·삭제했거나, 파일을 열었거나, 명령을 실행한 폴더만 들어갑니다.</source>
+        <translation>侧边栏中显示的数量。只列出你实际操作过的文件夹——复制、移动、新建或删除过项目，打开过文件或运行过命令的文件夹——仅浏览过的不算。</translation>
+    </message>
+    <message>
         <source>테마:</source>
         <translation>主题：</translation>
     </message>
@@ -1876,12 +1900,32 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>影片</translation>
     </message>
     <message>
+        <source>클릭하면 접거나 펼칩니다</source>
+        <translation>点击折叠或展开</translation>
+    </message>
+    <message>
         <source>즐겨찾기</source>
         <translation>个人收藏</translation>
     </message>
     <message>
+        <source>최근 폴더</source>
+        <translation>最近的文件夹</translation>
+    </message>
+    <message>
         <source>위치</source>
         <translation>位置</translation>
+    </message>
+    <message>
+        <source>즐겨찾기에 추가</source>
+        <translation>添加到个人收藏</translation>
+    </message>
+    <message>
+        <source>최근 폴더에서 제거</source>
+        <translation>从最近的文件夹中移除</translation>
+    </message>
+    <message>
+        <source>최근 폴더 모두 지우기</source>
+        <translation>清除所有最近的文件夹</translation>
     </message>
     <message>
         <source>컴퓨터</source>

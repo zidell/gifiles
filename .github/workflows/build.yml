@@ -46,7 +46,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          foreach ($t in 'fileops', 'core', 'update') {
+          foreach ($t in 'widgets', 'fileops', 'core', 'update') {
             & ".\build\gifiles_unit_$t.exe" -o "unit-$t.txt,txt" -o -,txt
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
@@ -103,7 +103,7 @@ jobs:
       - name: Unit tests
         env:
           QT_QPA_PLATFORM: offscreen
-        run: ./build/gifiles_unit_fileops && ./build/gifiles_unit_core && ./build/gifiles_unit_update
+        run: ./build/gifiles_unit_widgets && ./build/gifiles_unit_fileops && ./build/gifiles_unit_core && ./build/gifiles_unit_update
       - name: Package (AppImage)
         run: |
           mkdir -p AppDir/usr/bin
@@ -159,7 +159,7 @@ jobs:
       - name: Unit tests
         env:
           QT_QPA_PLATFORM: offscreen
-        run: ./build/gifiles_unit_fileops && ./build/gifiles_unit_core && ./build/gifiles_unit_update
+        run: ./build/gifiles_unit_widgets && ./build/gifiles_unit_fileops && ./build/gifiles_unit_core && ./build/gifiles_unit_update
       - name: Package (signed and notarized)
         run: |
           if [ -z "$APPLE_CERTIFICATE" ] || [ -z "$APPLE_PASSWORD" ]; then

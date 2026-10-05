@@ -25,6 +25,7 @@ qt_add_library(gifiles_core STATIC
     src/Thumbnails.h src/Thumbnails.cpp
     src/Preview.h src/Preview.cpp
     src/Sidebar.h src/Sidebar.cpp
+    src/RecentFolders.h src/RecentFolders.cpp
     src/PathBar.h src/PathBar.cpp
     src/Util.h src/Util.cpp
     src/Theme.h src/Theme.cpp
@@ -144,22 +145,25 @@ if(APPLE AND GIFILES_SIGN_IDENTITY)
         VERBATIM)
 endif()
 
-# GUI smoke test: drives a real window with synthetic keys (run with QT_QPA_PLATFORM=offscreen).
+# Tests, all headless (tests/Headless.h puts them on Qt's offscreen platform): `ctest --test-dir build`.
+#   smoke         end to end: one real MainWindow driven with synthetic keys and mouse
+#   unit_widgets  one widget at a time (preview, terminal, sidebar, settings window, dialogs)
+#   unit_fileops  the file-operation engine and its undo
+#   unit_core     the core logic (TOML, settings, quoting, helpers, folder index) and the CLI options
+#   unit_update   automatic updates
 find_package(Qt6 QUIET COMPONENTS Test)
 if(Qt6Test_FOUND)
-    qt_add_executable(gifiles_smoke tests/smoke.cpp)
-    target_link_libraries(gifiles_smoke PRIVATE gifiles_core Qt6::Test)
-    qt_add_resources(gifiles_smoke "test_appicon" PREFIX "/" BASE packaging/icon FILES packaging/icon/gifiles.svg)
-    target_compile_definitions(gifiles_smoke PRIVATE GIFILES_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-    set_target_properties(gifiles_smoke PROPERTIES WIN32_EXECUTABLE FALSE) # console: test output on stdout
-
-    # Unit tests without a window: file operations; the core logic (TOML, settings, command
-    # quoting, helpers) plus the command-line options of the built app; automatic updates.
-    foreach(name fileops core update)
-        qt_add_executable(gifiles_unit_${name} tests/unit_${name}.cpp)
-        target_link_libraries(gifiles_unit_${name} PRIVATE gifiles_core Qt6::Test)
-        target_compile_definitions(gifiles_unit_${name} PRIVATE GIFILES_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-        set_target_properties(gifiles_unit_${name} PROPERTIES WIN32_EXECUTABLE FALSE)
+    enable_testing()
+    foreach(name smoke unit_widgets unit_fileops unit_core unit_update)
+        qt_add_executable(gifiles_${name} tests/${name}.cpp tests/Headless.h)
+        target_link_libraries(gifiles_${name} PRIVATE gifiles_core Qt6::Test)
+        target_compile_definitions(gifiles_${name} PRIVATE GIFILES_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+        set_target_properties(gifiles_${name} PROPERTIES WIN32_EXECUTABLE FALSE) # console: test output on stdout
+        add_test(NAME ${name} COMMAND gifiles_${name})
+        set_tests_properties(${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    endforeach()
+    foreach(name smoke unit_widgets)
+        qt_add_resources(gifiles_${name} "test_appicon" PREFIX "/" BASE packaging/icon FILES packaging/icon/gifiles.svg)
     endforeach()
     # The CLI tests run the real executable (inside the bundle on macOS).
     target_compile_definitions(gifiles_unit_core PRIVATE GIFILES_APP_EXE="$<TARGET_FILE:gifiles>")

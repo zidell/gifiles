@@ -6,9 +6,13 @@
 // Every test runs untranslated (Korean source text) with GIFILES_CONFIG_DIR in a temporary folder:
 // the user's own config.toml is never read or written.
 
+#include "Headless.h"
+
 #include "FileProxy.h"
 #include "FolderIndex.h"
 #include "FolderTree.h"
+#include "RecentFolders.h"
+#include "FileOps.h"
 #include "Settings.h"
 #include "Shortcuts.h"
 #include "TerminalWidget.h"
@@ -18,16 +22,20 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QDirIterator>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileSystemModel>
+#include <QImage>
 #include <QKeySequence>
 #include <QLocale>
 #include <QProcess>
 #include <QRandomGenerator>
+#include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QTranslator>
 #include <QtTest>
 
 #include <cmath>
@@ -248,6 +256,8 @@ private slots:
         QVERIFY(m_root.isValid());
         m_configDir = m_root.filePath(QStringLiteral("config"));
         qputenv("GIFILES_CONFIG_DIR", QFile::encodeName(m_configDir));
+        QCoreApplication::setOrganizationName(QStringLiteral("gifiles-unit-core")); // QSettings state of its own
+        QSettings().clear();
         QVERIFY(QFileInfo::exists(QStringLiteral(GIFILES_APP_EXE)));
     }
 
@@ -1085,7 +1095,117 @@ private slots:
         }
     }
 
+    // ---------------------------------------------------------------- Recent folders
+
+    // Only folders where something was done count, newest first; looking around doesn't.
+    void recentFoldersFromRecords()
+    {
+        RecentFolders *r = RecentFolders::instance();
+        r->clear();
+        QSignalSpy changed(r, &RecentFolders::changed);
+        const QString base = scratch(QStringLiteral("recent"));
+        auto d = [&](const QString &rel) {
+            QDir().mkpath(QDir(base).filePath(rel));
+            return QDir(base).filePath(rel);
+        };
+        const QString a = d(QStringLiteral("a")), b = d(QStringLiteral("b")), c = d(QStringLiteral("c")), e = d(QStringLiteral("e"));
+        // A move: from a into b. The destination is the newest.
+        r->noteRecord({QStringLiteral("이동"), {{Step::Move, a + QStringLiteral("/x"), b + QStringLiteral("/x")}}});
+        QCOMPARE(r->folders(), (QStringList{b, a}));
+        QVERIFY(!changed.isEmpty());
+        // A copy counts where it lands only (the source was just read).
+        r->noteRecord({QStringLiteral("복사"), {{Step::Copy, e + QStringLiteral("/y"), c + QStringLiteral("/y")}}});
+        QCOMPARE(r->folders(), (QStringList{c, b, a}));
+        // Trash: where the item was; a new folder, an extracted archive: where they were made.
+        r->noteRecord({QStringLiteral("휴지통으로 이동"), {{Step::Trash, a + QStringLiteral("/z"), QStringLiteral("/trash/z")}}});
+        QCOMPARE(r->folders().first(), a);
+        r->noteRecord({QStringLiteral("새로운 폴더"), {{Step::Mkdir, QString(), e + QStringLiteral("/new")}}});
+        QCOMPARE(r->folders().first(), e);
+        r->noteRecord({QStringLiteral("압축 풀기"), {{Step::Extract, b + QStringLiteral("/p.zip"), b + QStringLiteral("/p")}}});
+        QCOMPARE(r->folders(), (QStringList{b, e, a, c})); // moved to the top, never twice
+        // An empty record changes nothing.
+        changed.clear();
+        r->noteRecord({});
+        QVERIFY(changed.isEmpty());
+        // Paths are cleaned; files and missing folders aren't noted.
+        r->note(c + QStringLiteral("/./"));
+        QCOMPARE(r->folders().first(), c);
+        QVERIFY(writeText(QDir(base).filePath(QStringLiteral("file.txt")), QStringLiteral("x")));
+        r->note(QDir(base).filePath(QStringLiteral("file.txt")));
+        r->note(QDir(base).filePath(QStringLiteral("missing")));
+        QCOMPARE(r->folders().size(), 4);
+        // A folder deleted since is left out of what is shown.
+        QVERIFY(QDir(a).removeRecursively());
+        QCOMPARE(r->folders(), (QStringList{c, b, e}));
+        r->remove(b);
+        QCOMPARE(r->folders(), (QStringList{c, e}));
+        r->clear();
+        QVERIFY(r->folders().isEmpty());
+    }
+
+    void recentFoldersCountSetting()
+    {
+        RecentFolders *r = RecentFolders::instance();
+        r->clear();
+        const QString base = scratch(QStringLiteral("recent-count"));
+        QStringList made;
+        for (int i = 0; i < 12; ++i) {
+            made.prepend(QDir(base).filePath(QStringLiteral("f%1").arg(i)));
+            QDir().mkpath(made.first());
+            r->note(made.first());
+        }
+        QCOMPARE(Settings::instance()->value(Settings::RecentFoldersCount).toInt(), 8); // the default
+        QCOMPARE(r->folders(), made.mid(0, 8));
+        QSignalSpy changed(r, &RecentFolders::changed);
+        Settings::instance()->setValue(Settings::RecentFoldersCount, 3);
+        QVERIFY(!changed.isEmpty()); // the sidebar rebuilds
+        QCOMPARE(r->folders(), made.mid(0, 3));
+        Settings::instance()->setValue(Settings::RecentFoldersCount, 0); // none: the section goes away
+        QVERIFY(r->folders().isEmpty());
+        QVERIFY(!Settings::check(QStringLiteral("[sidebar]\nrecent_folders = -1\n")).isEmpty());
+        QVERIFY(!Settings::check(QStringLiteral("[sidebar]\nrecent_folders = 51\n")).isEmpty());
+        QVERIFY(Settings::check(QStringLiteral("[sidebar]\nrecent_folders = 0\n")).isEmpty());
+        Settings::instance()->remove(Settings::RecentFoldersCount);
+        // At most kKept are kept.
+        for (int i = 0; i < RecentFolders::kKept + 5; ++i) {
+            const QString f = QDir(base).filePath(QStringLiteral("g%1").arg(i));
+            QDir().mkpath(f);
+            r->note(f);
+        }
+        QCOMPARE(QSettings().value(QStringLiteral("recent/folders")).toStringList().size(), RecentFolders::kKept);
+        r->clear();
+    }
+
+    void recentFoldersTerminalCommands()
+    {
+        for (const char *nav : {"cd ..", "cd", "  ls -la", "ls|less", "pwd", "clear", "pushd /tmp", "popd", "Set-Location C:\\", "gci", "exit", ""})
+            QVERIFY2(RecentFolders::isNavigationCommand(QString::fromUtf8(nav)), nav);
+        for (const char *work : {"touch a", "git commit -m x", "make", "rm -rf build", "lsof -i", "cdk deploy", "vim notes.txt", "npm test"})
+            QVERIFY2(!RecentFolders::isNavigationCommand(QString::fromUtf8(work)), work);
+        RecentFolders *r = RecentFolders::instance();
+        r->clear();
+        const QString dir = scratch(QStringLiteral("recent-term"));
+        r->noteCommand(dir, QStringLiteral("ls"));
+        QVERIFY(r->folders().isEmpty());
+        r->noteCommand(dir, QStringLiteral("make"));
+        QCOMPARE(r->folders(), QStringList{dir});
+        r->clear();
+        r->noteCommand(dir, QString()); // a line from the shell's history: unknown, counts
+        QCOMPARE(r->folders(), QStringList{dir});
+        r->clear();
+    }
+
     // ---------------------------------------------------------------- Shortcuts
+
+    void shortcutDefaults()
+    {
+        const auto *sc = Shortcuts::instance();
+        // Finder's keys on every platform: Return renames, Command/Ctrl+Down opens.
+        QCOMPARE(sc->defaults(QStringLiteral("열기")), QList<QKeySequence>{QKeySequence(QStringLiteral("Ctrl+Down"))});
+        QCOMPARE(sc->defaults(QStringLiteral("이름 변경")), QList<QKeySequence>{QKeySequence(QStringLiteral("Return"))});
+        QCOMPARE(sc->defaults(QStringLiteral("상위 폴더")), QList<QKeySequence>{QKeySequence(QStringLiteral("Ctrl+Up"))});
+    }
+
 
     void shortcutIds()
     {
@@ -1119,6 +1239,55 @@ private slots:
     }
 
     // ---------------------------------------------------------------- Util
+
+    void revealCommand()
+    {
+        // Folders open as themselves; files open their folder with the file selected.
+        const QString base = scratch(QStringLiteral("reveal"));
+        auto p = [&](const QString &rel) { return QDir(base).filePath(rel); };
+        auto np = [&](const QString &rel) { return QDir::toNativeSeparators(p(rel)); };
+        Q_UNUSED(np);
+        QVERIFY(QDir().mkpath(p(QStringLiteral("Alpha"))));
+        QVERIFY(writeText(p(QStringLiteral("README.md")), QStringLiteral("x")));
+        const util::Command dir = util::revealCommand(p("Alpha"));
+        const util::Command file = util::revealCommand(p("README.md"));
+#if defined(Q_OS_MACOS)
+        QCOMPARE(dir.args, QStringList{p("Alpha")});
+        QCOMPARE(file.args, (QStringList{QStringLiteral("-R"), p("README.md")}));
+#elif defined(Q_OS_WIN)
+        QCOMPARE(dir.args, QStringList{np("Alpha")});
+        QCOMPARE(file.args, QStringList{QStringLiteral("/select,") + np("README.md")});
+#else
+        QVERIFY(dir.args.contains(QStringLiteral("org.freedesktop.FileManager1.ShowFolders")));
+        QVERIFY(file.args.contains(QStringLiteral("org.freedesktop.FileManager1.ShowItems")));
+        QVERIFY(file.args.contains(QStringLiteral("array:string:") + QUrl::fromLocalFile(p("README.md")).toString(QUrl::FullyEncoded)));
+#endif
+    }
+
+    void translationsLoad()
+    {
+        // Korean is the source text; the other languages come from the committed .qm files, which
+        // must cover every message (scripts/i18n.sh). Checked without installing them app-wide.
+        const QString dir = QStringLiteral(GIFILES_SOURCE_DIR "/i18n");
+        const QList<QPair<QString, QString>> open = {{QStringLiteral("en"), QStringLiteral("Open")},
+                                                     {QStringLiteral("ja"), QString()},
+                                                     {QStringLiteral("zh_CN"), QString()}};
+        for (const auto &[lang, expected] : open) {
+            QTranslator tr;
+            QVERIFY2(tr.load(QStringLiteral("gifiles_%1").arg(lang), dir), qPrintable(lang));
+            const QString t = tr.translate("Gifiles", "열기");
+            QVERIFY2(!t.isEmpty() && t != QStringLiteral("열기"), qPrintable(lang));
+            if (!expected.isEmpty())
+                QCOMPARE(t, expected);
+            QVERIFY(!tr.translate("Gifiles", "선택한 항목들로…").isEmpty());
+        }
+        for (const auto &[lang, expected] : open) {
+            QFile ts(dir + QStringLiteral("/gifiles_%1.ts").arg(lang));
+            QVERIFY(ts.open(QIODevice::ReadOnly));
+            QVERIFY2(!ts.readAll().contains("type=\"unfinished\""), qPrintable(QStringLiteral("untranslated messages in %1").arg(ts.fileName())));
+        }
+    }
+
 
     void humanSize()
     {
@@ -1458,6 +1627,47 @@ private slots:
         }
     }
 
+    void selectionCommandsQuoteEveryName()
+    {
+        // Spaces, quotes, $, `, Korean, a newline: each path stays one shell word, on one line.
+        const QString dir = QDir::cleanPath(scratch(QStringLiteral("quote-every-name")));
+        const QStringList paths = {dir + QStringLiteral("/a b.txt"), dir + QStringLiteral("/한글 '따옴표'.txt"),
+                                   dir + QStringLiteral("/x$y`z\n.txt")};
+        const QString out = TerminalWidget::expandCommand(QStringLiteral("cmd {names} | {dir} | {prompt} | {nope}"), paths,
+                                                          QStringLiteral("요청 \"{files}\""));
+        QVERIFY(!out.contains(QLatin1Char('\n')));
+#ifdef Q_OS_WIN
+        QCOMPARE(out, QStringLiteral("cmd \"a b.txt\", \"한글 'Tick'.txt\", \"x`$y``z`n.txt\" | \"%1\" | \"요청 `\"{files}`\"\" | {nope}")
+                          .arg(QDir::toNativeSeparators(dir)).replace(QStringLiteral("Tick"), QStringLiteral("따옴표")));
+#else
+        QCOMPARE(out, QStringLiteral("cmd $'a b.txt' $'한글 \\'따옴표\\'.txt' $'x$y`z\\n.txt' | $'%1' | $'요청 \"{files}\"' | {nope}").arg(dir));
+#endif
+    }
+
+    void terminalResizeKeepsCursorInRange()
+    {
+        // A wrapped line's final row contains the cursor when the whole line is
+        // too tall for the resized screen. libvterm 0.3.3 used to abort here.
+        VTerm *vt = vterm_new(3, 80);
+        VTermScreen *screen = vterm_obtain_screen(vt);
+        vterm_screen_enable_reflow(screen, true);
+        vterm_screen_reset(screen, 1);
+        const QByteArray text(200, 'x');
+        vterm_input_write(vt, text.constData(), size_t(text.size()));
+        vterm_set_size(vt, 2, 10);
+        const QByteArray next("\r\nOK");
+        vterm_input_write(vt, next.constData(), size_t(next.size()));
+        VTermPos cursor;
+        vterm_state_get_cursorpos(vterm_obtain_state(vt), &cursor);
+        VTermScreenCell cell;
+        const bool read = vterm_screen_get_cell(screen, VTermPos{cursor.row, 1}, &cell);
+        vterm_free(vt);
+        QVERIFY(cursor.row >= 0 && cursor.row < 2);
+        QCOMPARE(cursor.col, 2);
+        QVERIFY(read);
+        QCOMPARE(cell.chars[0], uint32_t('K'));
+    }
+
     void expandCommandPlaceholders()
     {
         const QString dir = scratch(QStringLiteral("expand"));
@@ -1778,6 +1988,76 @@ private slots:
     }
 
     // The folder tree's index (`): what a scan lists, leaves out and how it sorts.
+    // The real app starts headless on a folder, draws its views, terminal, settings window and folder
+    // tree (GIFILES_SNAPSHOT saves them) and quits cleanly — main()'s whole GUI path, with
+    // GIFILES_CONFIG_DIR keeping config.toml and the app's state (QSettings, folders.ini) in the scratch folder.
+    void appStartsDrawsAndQuits()
+    {
+        const QString base = scratch(QStringLiteral("launch"));
+        const QString files = QDir(base).filePath(QStringLiteral("files")), config = QDir(base).filePath(QStringLiteral("config")),
+                      shots = QDir(base).filePath(QStringLiteral("shots"));
+        QVERIFY(QDir().mkpath(files + QStringLiteral("/sub/deeper")));
+        QVERIFY(writeText(files + QStringLiteral("/notes.txt"), QStringLiteral("hello\n")));
+        QString toml = QStringLiteral("[folder_tree]\nroots = [\"%1\"]\n").arg(files); // never the whole drive
+#ifndef Q_OS_WIN
+        toml += QStringLiteral("[terminal]\nshell = \"/bin/sh\"\n"); // no user rc files
+#endif
+        QVERIFY(writeText(config + QStringLiteral("/config.toml"), toml));
+        QProcess p;
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        env.insert(QStringLiteral("GIFILES_CONFIG_DIR"), config);
+        env.insert(QStringLiteral("GIFILES_SNAPSHOT"), shots);
+        env.insert(QStringLiteral("QT_QPA_PLATFORM"), QStringLiteral("offscreen"));
+        p.setProcessEnvironment(env);
+        p.setProcessChannelMode(QProcess::MergedChannels);
+        p.start(QStringLiteral(GIFILES_APP_EXE), {files});
+        QVERIFY(p.waitForStarted());
+        if (!p.waitForFinished(120000)) {
+            p.kill();
+            p.waitForFinished();
+            QFAIL("the app didn't quit");
+        }
+        const QByteArray out = p.readAll();
+        QVERIFY2(p.exitStatus() == QProcess::NormalExit && p.exitCode() == 0, out.constData());
+        for (const char *name : {"list", "gallery", "columns", "list-rename", "terminal", "settings-shortcuts", "folder-tree"}) {
+            const QImage img(QDir(shots).filePath(QString::fromLatin1(name) + QStringLiteral(".png")));
+            QVERIFY2(!img.isNull() && img.width() > 400 && img.height() > 300, name);
+        }
+        // Its state went beside its config.toml, not to the user's own.
+        QDirIterator ini(config + QStringLiteral("/state"), {QStringLiteral("*.ini")}, QDir::Files, QDirIterator::Subdirectories);
+        QVERIFY(ini.hasNext());
+        // Run from this checkout, it keeps the debug log — beside its config, not in the checkout's logs/.
+        if (QFileInfo::exists(QStringLiteral(GIFILES_SOURCE_DIR "/CMakeLists.txt"))) {
+            const QStringList logs = QDir(config + QStringLiteral("/logs")).entryList({QStringLiteral("gifiles-*.log")});
+            QCOMPARE(logs.size(), 1);
+            QFile log(config + QStringLiteral("/logs/") + logs.first());
+            QVERIFY(log.open(QIODevice::ReadOnly));
+            const QByteArray text = log.readAll();
+            QVERIFY(text.contains("[app] start"));
+            QVERIFY(text.contains("[app] quit"));
+        }
+    }
+
+    // The folder tree ranks folders the browser showed often; past 1000 it keeps the most shown
+    // four fifths (equal counts too: a count threshold once dropped every folder shown just once).
+    void folderTreeVisitsAreTrimmedByRank()
+    {
+        FolderTree *t = FolderTree::instance();
+        const QString base = QStringLiteral("/visits-test");
+        for (int i = 0; i < 5; ++i)
+            for (int n = 0; n <= i; ++n)
+                t->noteVisit(base + QStringLiteral("/often%1").arg(i));
+        for (int i = 0; i < 1001 - 5; ++i) // the 1001st folder trims
+            t->noteVisit(base + QStringLiteral("/once%1").arg(i));
+        const QHash<QString, int> v = t->visits();
+        QCOMPARE(v.size(), 800);
+        for (int i = 0; i < 5; ++i)
+            QCOMPARE(v.value(base + QStringLiteral("/often%1").arg(i)), i + 1); // the most shown are kept
+        QCOMPARE(std::count_if(v.keyBegin(), v.keyEnd(), [&](const QString &k) { return k.contains(QStringLiteral("/once")); }), 795);
+        t->noteVisit(base + QStringLiteral("/latest"));
+        QCOMPARE(t->visits().value(base + QStringLiteral("/latest")), 1);
+    }
+
     void folderIndexScan()
     {
         const QString root = QDir::fromNativeSeparators(scratch(QStringLiteral("folder-index")));
@@ -1982,8 +2262,6 @@ private slots:
 
 int main(int argc, char *argv[])
 {
-    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM"))
-        qputenv("QT_QPA_PLATFORM", "offscreen");
     QApplication app(argc, argv);
     Unit unit;
     QTEST_SET_MAIN_SOURCE_PATH

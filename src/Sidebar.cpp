@@ -1,3 +1,4 @@
+#include "RecentFolders.h"
 #include "Settings.h"
 #include "Shortcuts.h"
 #include "Sidebar.h"
@@ -25,6 +26,8 @@
 namespace {
 constexpr int PathRole = Qt::UserRole + 1;
 constexpr int ActivePathRole = Qt::UserRole + 2;
+constexpr int SectionRole = Qt::UserRole + 3; // a section title's id: "favorites", "recent", "locations"
+const QString kFoldedKey = QStringLiteral("sidebar/folded"); // the folded sections (state, QSettings)
 
 } // namespace
 
@@ -104,7 +107,16 @@ public:
             f.setWeight(QFont::DemiBold);
             p->setFont(f);
             p->setPen(c.secondary);
-            p->drawText(r.adjusted(8, 0, -4, -4), Qt::AlignLeft | Qt::AlignBottom, idx.data().toString());
+            const QRect text = r.adjusted(8, 0, -4, -4);
+            p->drawText(text, Qt::AlignLeft | Qt::AlignBottom, idx.data().toString());
+            // Folds with one click: ⌄ open, › folded, at the row's right end as in Finder.
+            const auto *tree = qobject_cast<const QTreeView *>(parent());
+            const bool open = tree && tree->isExpanded(idx);
+            const int h = QFontMetrics(f).height();
+            const QRect chev(r.right() - 8 - 16, text.bottom() - h + (h - 16) / 2 + 1, 16, 16);
+            p->setOpacity(0.5); // quieter than the title
+            Theme::icon(open ? QStringLiteral("chevron-down") : QStringLiteral("chevron-right"), c.secondary, 16)
+                .paint(p, chev);
             p->restore();
             return;
         }
@@ -154,10 +166,33 @@ Sidebar::Sidebar(QWidget *parent) : QTreeWidget(parent)
             emit placeActivated(p);
     });
     connect(this, &QTreeWidget::itemClicked, this, [this](QTreeWidgetItem *it) {
+        if (!it->parent()) // a section title: one click folds or unfolds it
+            return it->setExpanded(!it->isExpanded());
         const QString p = it->data(0, PathRole).toString();
         if (!p.isEmpty())
             emit placeActivated(p);
     });
+    // A double click is two clicks (fold, unfold): its second press comes as the double click.
+    setExpandsOnDoubleClick(false);
+    connect(this, &QTreeWidget::itemDoubleClicked, this, [](QTreeWidgetItem *it) {
+        if (!it->parent())
+            it->setExpanded(!it->isExpanded());
+    });
+    // However it was folded (click, Return, ← / →), the next start shows it the same.
+    auto remember = [this](QTreeWidgetItem *it) {
+        if (it->parent())
+            return;
+        QStringList folded;
+        for (QTreeWidgetItem *s : sections())
+            if (!s->isExpanded())
+                folded << s->data(0, SectionRole).toString();
+        QSettings().setValue(kFoldedKey, folded);
+        viewport()->update(); // the chevron
+    };
+    connect(this, &QTreeWidget::itemExpanded, this, remember);
+    connect(this, &QTreeWidget::itemCollapsed, this, remember);
+    // Queued: a file operation's record can arrive while the sidebar is in the middle of something.
+    connect(RecentFolders::instance(), &RecentFolders::changed, this, &Sidebar::rebuild, Qt::QueuedConnection);
     auto *timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, &Sidebar::refreshVolumes);
     timer->start(4000);
@@ -194,19 +229,26 @@ void Sidebar::rebuild()
     QSignalBlocker block(this);
     const QString focusedPath = currentItem() ? currentItem()->data(0, PathRole).toString() : QString();
     clear();
-    m_favorites = m_locations = nullptr;
-    auto section = [this](const QString &title) {
+    m_favorites = m_recent = m_locations = nullptr;
+    auto section = [this](const QString &title, const char *id) {
         auto *s = new QTreeWidgetItem(this);
         s->setText(0, title);
+        s->setData(0, SectionRole, QString::fromLatin1(id));
+        s->setToolTip(0, Gifiles::tr("클릭하면 접거나 펼칩니다"));
         s->setFlags(Qt::ItemIsEnabled | Qt::ItemIsDropEnabled);
-        s->setExpanded(true);
         return s;
     };
-    m_favorites = section(Gifiles::tr("즐겨찾기"));
+    m_favorites = section(Gifiles::tr("즐겨찾기"), "favorites");
     for (const QString &p : favorites())
         if (QFileInfo::exists(p))
             addPlace(m_favorites, p);
-    m_locations = section(Gifiles::tr("위치"));
+    // Shown while sidebar.recent_folders > 0, the title alone until the first folder comes in.
+    if (Settings::instance()->value(Settings::RecentFoldersCount).toInt() > 0) {
+        m_recent = section(Gifiles::tr("최근 폴더"), "recent");
+        for (const QString &p : RecentFolders::instance()->folders())
+            addPlace(m_recent, p);
+    }
+    m_locations = section(Gifiles::tr("위치"), "locations");
     m_volumeRoots.clear();
     for (const QStorageInfo &si : QStorageInfo::mountedVolumes()) {
         if (!util::isUserVolume(si))
@@ -217,12 +259,23 @@ void Sidebar::rebuild()
         addPlace(m_locations, si.rootPath(), label);
         m_volumeRoots << si.rootPath();
     }
-    expandAll();
-    for (QTreeWidgetItem *section : {m_favorites, m_locations})
+    const QStringList folded = QSettings().value(kFoldedKey).toStringList();
+    for (QTreeWidgetItem *section : sections())
+        section->setExpanded(!folded.contains(section->data(0, SectionRole).toString()));
+    for (QTreeWidgetItem *section : sections())
         for (int i = 0; i < section->childCount(); ++i)
             if (!focusedPath.isEmpty() && section->child(i)->data(0, PathRole).toString() == focusedPath)
                 setCurrentItem(section->child(i), 0, QItemSelectionModel::NoUpdate);
     setCurrentPath(m_current);
+}
+
+QList<QTreeWidgetItem *> Sidebar::sections() const
+{
+    QList<QTreeWidgetItem *> out;
+    for (QTreeWidgetItem *s : {m_favorites, m_recent, m_locations})
+        if (s)
+            out << s;
+    return out;
 }
 
 void Sidebar::refreshVolumes()
@@ -243,7 +296,7 @@ void Sidebar::setCurrentPath(const QString &path)
     QSignalBlocker selectionBlock(selectionModel());
     clearSelection();
     bool matched = false;
-    for (QTreeWidgetItem *sec : {m_favorites, m_locations})
+    for (QTreeWidgetItem *sec : sections())
         for (int i = 0; i < sec->childCount(); ++i) {
             auto *item = sec->child(i);
             const bool active = !matched && QDir::cleanPath(item->data(0, PathRole).toString()) == clean;
@@ -257,7 +310,9 @@ void Sidebar::setCurrentPath(const QString &path)
 void Sidebar::keyPressEvent(QKeyEvent *e)
 {
     if (Shortcuts::instance()->matches(QStringLiteral("사이드바 항목 열기"), e)) {
-        if (QTreeWidgetItem *it = currentItem())
+        if (QTreeWidgetItem *it = currentItem(); it && !it->parent())
+            it->setExpanded(!it->isExpanded()); // a section title: Return folds / unfolds it
+        else if (it)
             emit itemActivated(it, 0);
         return;
     }
@@ -319,7 +374,7 @@ Sidebar::DropTarget Sidebar::dropTargetAt(const QPoint &pos, bool internal) cons
             t.lineY = visualItemRect(m_favorites->child(n - 1)).bottom() + 1;
     };
     QTreeWidgetItem *it = itemAt(pos);
-    if (!it || it == m_locations) { // empty space or the "위치" title: append
+    if (!it || it == m_locations || it == m_recent) { // empty space or a later title: append
         insertAt(m_favorites->childCount());
         return t;
     }
@@ -328,7 +383,7 @@ Sidebar::DropTarget Sidebar::dropTargetAt(const QPoint &pos, bool internal) cons
         return t;
     }
     const QString path = it->data(0, PathRole).toString();
-    if (it->parent() == m_locations) {
+    if (it->parent() == m_locations || (m_recent && it->parent() == m_recent)) {
         if (!internal) {
             t.kind = DropTarget::Into;
             t.intoPath = path;
@@ -449,7 +504,8 @@ void Sidebar::dropEvent(QDropEvent *e)
     if (t.kind == DropTarget::Into) {
         // Handled asynchronously by the window (conflict prompts must not run inside the drag loop).
         const Qt::DropAction action = e->proposedAction();
-        QTimer::singleShot(0, this, [this, urls, target = t.intoPath, action] { emit dropRequested(urls, target, action); });
+        const Qt::KeyboardModifiers mods = e->modifiers();
+        QTimer::singleShot(0, this, [this, urls, target = t.intoPath, action, mods] { emit dropRequested(urls, target, action, mods); });
         e->accept();
     }
 }
@@ -471,16 +527,25 @@ void Sidebar::paintEvent(QPaintEvent *e)
 void Sidebar::contextMenuEvent(QContextMenuEvent *e)
 {
     QTreeWidgetItem *it = itemAt(e->pos());
-    if (!it || it->parent() != m_favorites)
+    const bool favorite = it && it->parent() == m_favorites;
+    const bool recent = it && m_recent && it->parent() == m_recent;
+    if (!favorite && !recent)
         return;
     const QString path = it->data(0, PathRole).toString();
     QMenu menu(this);
     menu.addAction(Gifiles::tr("새로운 탭에서 열기"), this, [this, path] { emit openInNewTab(path); });
-    menu.addAction(Gifiles::tr("사이드바에서 제거"), this, [this, path] {
-        QStringList favs = favorites();
-        favs.removeAll(path);
-        setFavorites(favs);
-        rebuild();
-    });
+    if (favorite) {
+        menu.addAction(Gifiles::tr("사이드바에서 제거"), this, [this, path] {
+            QStringList favs = favorites();
+            favs.removeAll(path);
+            setFavorites(favs);
+            rebuild();
+        });
+    } else {
+        if (!shownFavorites().contains(path))
+            menu.addAction(Gifiles::tr("즐겨찾기에 추가"), this, [this, path] { insertFavorites({path}, int(shownFavorites().size())); });
+        menu.addAction(Gifiles::tr("최근 폴더에서 제거"), this, [path] { RecentFolders::instance()->remove(path); });
+        menu.addAction(Gifiles::tr("최근 폴더 모두 지우기"), this, [] { RecentFolders::instance()->clear(); });
+    }
     menu.exec(e->globalPos());
 }

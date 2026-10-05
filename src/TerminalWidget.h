@@ -55,6 +55,9 @@ public:
 signals:
     void cwdChanged(const QString &path);
     void titleChanged();
+    // Enter on a command line at the shell's prompt: what was typed, or "" when the line came back
+    // from the shell's history (↑, ⌃R) and the terminal can't know it.
+    void commandEntered(const QString &line);
     // Configurable terminal tab keys (Cmd on macOS, Ctrl on Windows/Linux).
     void newTabRequested();
     void closeRequested();
@@ -123,6 +126,7 @@ private:
     bool m_altScreen = false;
     int m_mouseMode = VTERM_PROP_MOUSE_NONE;
     QString m_title;
+    QByteArray m_titleBuf, m_oscBuf; // a title / OSC 7 can arrive in pieces (per terminal: tabs interleave)
     QString m_preedit;
     QColor m_fg, m_bg;
 

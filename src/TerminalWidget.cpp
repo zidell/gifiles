@@ -111,7 +111,7 @@ struct TerminalCallbacks {
         case VTERM_PROP_ALTSCREEN: t->m_altScreen = val->boolean; t->m_scrollOffset = 0; break;
         case VTERM_PROP_MOUSE: t->m_mouseMode = val->number; break;
         case VTERM_PROP_TITLE: {
-            static QByteArray buf;
+            QByteArray &buf = t->m_titleBuf;
             if (val->string.initial)
                 buf.clear();
             buf.append(val->string.str, int(val->string.len));
@@ -137,8 +137,8 @@ struct TerminalCallbacks {
         t->m_scrollback.append(TerminalWidget::Line(cells, cells + cols));
         if (t->m_scrollback.size() > kMaxScrollback)
             t->m_scrollback.removeFirst();
-        else if (t->m_scrollOffset > 0)
-            ++t->m_scrollOffset; // keep the history view still while output arrives
+        if (t->m_scrollOffset > 0) // keep the history view still while output arrives (a full history too)
+            t->m_scrollOffset = qMin(t->m_scrollOffset + 1, int(t->m_scrollback.size()));
         return 1;
     }
     static int popline(int cols, VTermScreenCell *cells, void *u)
@@ -165,9 +165,9 @@ struct TerminalCallbacks {
     // OSC 7 "file://host/path": shells (and our PowerShell prompt) announce their directory.
     static int osc(int command, VTermStringFragment frag, void *u)
     {
-        static QByteArray buf;
         if (command != 7)
             return 0;
+        QByteArray &buf = w(u)->m_oscBuf;
         if (frag.initial)
             buf.clear();
         buf.append(frag.str, int(frag.len));
@@ -655,10 +655,11 @@ bool TerminalWidget::handleShortcut(QKeyEvent *e, bool dryRun)
     if (action("터미널 붙여넣기", [&] { paste(QGuiApplication::clipboard()->text()); })
         || action("터미널 화면 지우기", [&] { m_scrollback.clear(); m_scrollOffset = 0; sendBytes("\x0c", true); })
         || action("터미널 입력줄 지우기", [&] { sendBytes("\x15", true); m_typed.clear(); m_lineRecalled = false; })
-        || action("터미널 줄 처음", [&] { sendBytes("\x01", true); })
-        || action("터미널 줄 끝", [&] { sendBytes("\x05", true); })
-        || action("터미널 이전 단어", [&] { sendBytes("\x1b" "b", true); })
-        || action("터미널 다음 단어", [&] { sendBytes("\x1b" "f", true); }))
+        // The cursor moves inside the line: m_typed no longer tells what is on it (see keyPressEvent).
+        || action("터미널 줄 처음", [&] { sendBytes("\x01", true); m_lineRecalled = true; })
+        || action("터미널 줄 끝", [&] { sendBytes("\x05", true); m_lineRecalled = true; })
+        || action("터미널 이전 단어", [&] { sendBytes("\x1b" "b", true); m_lineRecalled = true; })
+        || action("터미널 다음 단어", [&] { sendBytes("\x1b" "f", true); m_lineRecalled = true; }))
         return true;
     auto scroll = [&](int by) { m_scrollOffset = qBound(0, m_scrollOffset + by, int(m_scrollback.size())); update(); };
     return action("터미널 이전 페이지", [&] { scroll(m_rows - 1); })
@@ -751,8 +752,12 @@ void TerminalWidget::keyPressEvent(QKeyEvent *e)
     }
     if (key != VTERM_KEY_NONE) {
         if (key == VTERM_KEY_ENTER) {
+            const bool command = !isBusy() && (!m_typed.trimmed().isEmpty() || m_lineRecalled);
+            const QString line = m_typed;
             sendKey(key, mod);
             lineSubmitted();
+            if (command)
+                emit commandEntered(line);
             return;
         }
         onUserInput();
@@ -760,8 +765,11 @@ void TerminalWidget::keyPressEvent(QKeyEvent *e)
             m_typed.chop(1);
         if (key == VTERM_KEY_ESCAPE)
             m_typed.clear();
-        // History and completion fill the line without typing: until Enter or ⌃C the browser's cd waits.
-        if (key == VTERM_KEY_UP || key == VTERM_KEY_DOWN || key == VTERM_KEY_TAB)
+        // History and completion fill the line without typing, and once the cursor moves inside the
+        // line what is typed or erased no longer adds up to m_typed: until Enter or ⌃C the line is
+        // unknown and the browser's cd (which clears the line first) waits.
+        if (key == VTERM_KEY_UP || key == VTERM_KEY_DOWN || key == VTERM_KEY_TAB || key == VTERM_KEY_LEFT ||
+            key == VTERM_KEY_RIGHT || key == VTERM_KEY_HOME || key == VTERM_KEY_END || key == VTERM_KEY_DEL)
             m_lineRecalled = true;
         sendKey(e->key() == Qt::Key_Backtab ? VTERM_KEY_TAB : key,
                 e->key() == Qt::Key_Backtab ? VTermModifier(mod | VTERM_MOD_SHIFT) : mod);
@@ -782,7 +790,8 @@ void TerminalWidget::keyPressEvent(QKeyEvent *e)
             if (c == 'c' || c == 'u' || c == 'd' || c == 'g') {
                 m_typed.clear(); // the line is gone
                 m_lineRecalled = false;
-            } else if (c == 'r' || c == 'p' || c == 'n' || c == 'y') { // history search, previous/next, yank
+            } else if (c == 'r' || c == 'p' || c == 'n' || c == 'y' || // history search, previous/next, yank
+                       c == 'a' || c == 'e' || c == 'b' || c == 'f' || c == 't') { // the cursor moves: as above
                 m_lineRecalled = true;
             }
             vterm_keyboard_unichar(m_vt, c, VTermModifier(vm & ~VTERM_MOD_SHIFT));
@@ -1038,6 +1047,9 @@ void TerminalWidget::mouseReleaseEvent(QMouseEvent *e)
 
 void TerminalWidget::mouseDoubleClickEvent(QMouseEvent *e)
 {
+    // A program that takes the mouse gets the second click as a click (Qt sends no press for it).
+    if (m_mouseMode != VTERM_PROP_MOUSE_NONE && !(e->modifiers() & Qt::ShiftModifier) && m_scrollOffset == 0)
+        return mousePressEvent(e);
     // Select the word (run of non-space characters) under the pointer.
     const QPoint c = cellFromPos(e->position().toPoint());
     VTermScreenCell cell;

@@ -3,6 +3,8 @@
 // items that go to the real trash carry a per-run token in their names and are restored by undo
 // where the test allows, the rest is purged from the trash at the end (best effort, macOS/Linux).
 
+#include "Headless.h"
+
 #include "FileOps.h"
 #include "Util.h"
 

@@ -1,6 +1,7 @@
 #include "Settings.h"
 #include "Util.h"
 #include "OpenWith.h"
+#include "RecentFolders.h"
 #include "Theme.h"
 
 #include <QCheckBox>
@@ -46,11 +47,16 @@ QList<App> appsFor(const QString &file)
 
 bool openWith(const QStringList &files, const QString &appId)
 {
-    return platformOpen(files, appId);
+    if (!platformOpen(files, appId))
+        return false;
+    for (const QString &f : files) // opening a file to work on it makes its folder a recent one
+        RecentFolders::instance()->note(QFileInfo(f).absolutePath());
+    return true;
 }
 
 void open(const QString &file)
 {
+    RecentFolders::instance()->note(QFileInfo(file).absolutePath());
     const QString remembered = Settings::instance()->value(prefKey(file)).toString();
     if (!remembered.isEmpty() && openWith({file}, remembered))
         return;

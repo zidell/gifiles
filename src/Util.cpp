@@ -1,4 +1,7 @@
 #include "Util.h"
+#ifdef Q_OS_MACOS
+#include "MacWindow.h"
+#endif
 
 #include <cmath>
 
@@ -205,7 +208,7 @@ int naturalCompare(QStringView a, QStringView b)
 bool isPackage(const QFileInfo &fi)
 {
 #ifdef Q_OS_MACOS
-    return fi.isBundle();
+    return fi.isDir() && macIsPackage(fi.absoluteFilePath());
 #else
     Q_UNUSED(fi);
     return false;

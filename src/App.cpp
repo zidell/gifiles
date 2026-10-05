@@ -1,6 +1,7 @@
 #include "Settings.h"
 #include "Util.h"
 #include "App.h"
+#include "RecentFolders.h"
 #include "BrowserTab.h"
 #include "MainWindow.h"
 
@@ -149,6 +150,7 @@ void App::recordDone(const UndoRecord &rec)
 {
     if (rec.isEmpty())
         return;
+    RecentFolders::instance()->noteRecord(rec); // where something was just done
     m_undo << rec;
     if (m_undo.size() > 100)
         m_undo.removeFirst();

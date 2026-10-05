@@ -3,6 +3,7 @@
 #include "App.h"
 #include "PathBar.h"
 #include "Preview.h"
+#include "RecentFolders.h"
 #include "Sidebar.h"
 #include "OpenWith.h"
 #include "Permissions.h"
@@ -818,6 +819,10 @@ void MainWindow::createStatusBar()
     m_cancel->setObjectName(QStringLiteral("flat"));
     m_cancel->setToolTip(Gifiles::tr("중단"));
     m_cancel->hide();
+    connect(m_cancel, &QToolButton::clicked, this, [this] {
+        for (const auto &c : std::as_const(m_jobCancels))
+            c->store(true);
+    });
     m_iconSlider = new QSlider(Qt::Horizontal, m_statusStrip);
     m_iconSlider->setRange(32, 256);
     m_iconSlider->setValue(Settings::instance()->value(Settings::IconSize).toInt());
@@ -1020,6 +1025,7 @@ void MainWindow::runCommandNow(const QVariantMap &command, const QStringList &pa
     const QString line = TerminalWidget::expandCommand(command.value(QStringLiteral("command")).toString(), paths, prompt, dir);
     const bool terminal = command.value(QStringLiteral("terminal"), true).toBool();
     Log::write("command", QStringLiteral("%1 on %2 item(s), %3").arg(label).arg(paths.size()).arg(terminal ? "terminal" : "quiet"));
+    RecentFolders::instance()->note(paths.isEmpty() ? dir : QFileInfo(paths.first()).absolutePath());
     if (terminal)
         runInTerminal(line);
     else
@@ -1164,6 +1170,7 @@ TerminalWidget *MainWindow::addTerminal(const QString &cwd)
 {
     auto *t = new TerminalWidget(m_termStack);
     connect(t, &TerminalWidget::titleChanged, this, [this, t] { updateTerminalTab(t); });
+    connect(t, &TerminalWidget::commandEntered, this, [t](const QString &line) { RecentFolders::instance()->noteCommand(t->shellCwd(), line); });
     // The shell's own cd's move the browser too (the "terminal ↔ files" link); only the shown tab's.
     connect(t, &TerminalWidget::cwdChanged, this, [this, t](const QString &dir) {
         updateTerminalTab(t);
@@ -1468,14 +1475,14 @@ void MainWindow::redo()
     runJob(j);
 }
 
-void MainWindow::handleDrop(const QList<QUrl> &urls, const QString &targetDir, Qt::DropAction proposed)
+void MainWindow::handleDrop(const QList<QUrl> &urls, const QString &targetDir, Qt::DropAction proposed, Qt::KeyboardModifiers mods)
 {
+    Q_UNUSED(proposed);
     const QStringList srcs = localPaths(urls);
     if (srcs.isEmpty() || targetDir.isEmpty())
         return;
     // Finder rules: same volume moves, another volume copies; ⌥ forces copy, ⌘ forces move.
-    // (On Windows/Linux: Ctrl copies, Shift moves.)
-    const Qt::KeyboardModifiers mods = QGuiApplication::queryKeyboardModifiers();
+    // (On Windows/Linux: Ctrl copies, Shift moves.) The keys as they were at the drop.
     bool move;
 #ifdef Q_OS_MACOS
     if (mods & Qt::AltModifier)
@@ -1494,8 +1501,6 @@ void MainWindow::handleDrop(const QList<QUrl> &urls, const QString &targetDir, Q
         for (const QString &s : srcs)
             if (QStorageInfo(s).rootPath() != targetVol)
                 move = false;
-        if (proposed == Qt::CopyAction && !move)
-            move = false;
     }
     runTransfer(srcs, targetDir, move);
 }
@@ -1571,16 +1576,15 @@ void MainWindow::runJob(const Job &job, const QString &selectAfter)
     m_progress->show();
     m_cancel->show();
     m_statusLabel->setText(Gifiles::tr("%1 중…").arg(verb));
-    const auto cancel = job.cancel;
-    m_cancel->disconnect();
-    connect(m_cancel, &QToolButton::clicked, this, [cancel] { cancel->store(true); });
+    m_jobCancels << job.cancel;
     connect(watcher, &QFutureWatcher<OpResult>::progressRangeChanged, m_progress, &QProgressBar::setRange);
     connect(watcher, &QFutureWatcher<OpResult>::progressValueChanged, m_progress, &QProgressBar::setValue);
     connect(watcher, &QFutureWatcher<OpResult>::progressTextChanged, this, [this, verb](const QString &t) {
         m_statusLabel->setText(Gifiles::tr("%1 중… %2").arg(verb, t));
     });
-    connect(watcher, &QFutureWatcher<OpResult>::finished, this, [this, watcher, selectAfter] {
+    connect(watcher, &QFutureWatcher<OpResult>::finished, this, [this, watcher, selectAfter, cancel = job.cancel] {
         watcher->deleteLater();
+        m_jobCancels.removeOne(cancel);
         if (--m_runningJobs == 0) {
             m_progress->hide();
             m_cancel->hide();

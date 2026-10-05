@@ -32,6 +32,7 @@
 #include <QPainter>
 #include <QProcess>
 #include <QPushButton>
+#include <QSettings>
 #include <QTimer>
 #include <QToolButton>
 
@@ -43,6 +44,12 @@ void setNames()
     QCoreApplication::setOrganizationDomain(QStringLiteral("zidell.dev"));
     QCoreApplication::setApplicationName(QStringLiteral("Gifiles"));
     QCoreApplication::setApplicationVersion(QStringLiteral(GIFILES_VERSION));
+    // GIFILES_CONFIG_DIR moves the app's state there too (windows and tabs, recent folders, …), not
+    // only config.toml: a copy started with it (the tests' runs of the app) leaves the user's alone.
+    if (const QString dir = qEnvironmentVariable("GIFILES_CONFIG_DIR"); !dir.isEmpty()) {
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, dir + QStringLiteral("/state"));
+    }
 }
 
 // Text for --help and friends. A Windows GUI program has no console of its own: write to the
@@ -179,9 +186,11 @@ int main(int argc, char *argv[])
 #endif
     installTranslations();
     QApplication::setApplicationDisplayName(QStringLiteral("Gifiles"));
-    // Debug log while running from a checkout (the build machine): <source>/logs, gitignored.
+    // Debug log while running from a checkout (the build machine): <source>/logs, gitignored; a copy
+    // with its own GIFILES_CONFIG_DIR (the tests' runs) logs there instead, apart from the user's.
     if (const QString src = QStringLiteral(GIFILES_SOURCE_DIR); QFileInfo::exists(src + QStringLiteral("/CMakeLists.txt"))) {
-        Log::start(src + QStringLiteral("/logs"));
+        const QString own = qEnvironmentVariable("GIFILES_CONFIG_DIR");
+        Log::start((own.isEmpty() ? src : own) + QStringLiteral("/logs"));
         Log::write("app", QStringLiteral("start %1 | args: %2 | config: %3")
                               .arg(QCoreApplication::applicationFilePath(), QCoreApplication::arguments().mid(1).join(QLatin1Char(' ')),
                                    Settings::configPath()));
@@ -193,6 +202,10 @@ int main(int argc, char *argv[])
     Theme::instance()->install();
 #ifdef Q_OS_MACOS
     macFixAccessibilityHitTest();
+    // A development aid must not take the keyboard from the user: snapshots show the window
+    // inactive unless GIFILES_SNAPSHOT_FOREGROUND=1 (active-window colors).
+    if (qEnvironmentVariableIsSet("GIFILES_SNAPSHOT") && !qEnvironmentVariableIsSet("GIFILES_SNAPSHOT_FOREGROUND"))
+        macStayInBackground();
 #endif
 #ifdef GIFILES_UPDATES
     Updater::allowUpdates();

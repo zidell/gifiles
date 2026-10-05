@@ -796,6 +796,14 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>この行がない場合はデフォルトのリスト(ホーム、デスクトップ、書類、ダウンロードなど)を使います。</translation>
     </message>
     <message>
+        <source>사이드바 &apos;최근 폴더&apos;에 보일 폴더 수. 0이면 숨깁니다.
+둘러보기만 한 폴더는 들어가지 않고, 무언가를 한 폴더만 들어갑니다: 항목을 복사·이동·만들기·이름 변경·삭제·압축 풀기 했거나,
+파일을 열었거나, &apos;선택한 항목들로…&apos; 명령이나 터미널 명령(cd, ls 같은 이동·보기 말고)을 실행한 폴더.</source>
+        <translation>サイドバーの「最近のフォルダ」に表示するフォルダの数。0 で非表示。
+見ただけのフォルダは入らず、何かをしたフォルダだけが入ります: 項目をコピー・移動・作成・名前変更・削除・展開した、
+ファイルを開いた、「選択した項目で…」のコマンドやターミナルのコマンド（cd や ls のような移動・表示以外）を実行したフォルダ。</translation>
+    </message>
+    <message>
         <source>폴더 트리(파일 목록에서 ` 키)에 보일 폴더들. []이면 드라이브 전체 (macOS·Linux는 &quot;/&quot;, Windows는 모든 고정 드라이브).
 네트워크·FUSE 드라이브는 여기에 직접 적었을 때만 들어갑니다.</source>
         <translation>フォルダツリー(ファイル一覧で ` キー)に表示するフォルダ。[] ならドライブ全体 (macOS・Linux は &quot;/&quot;、Windows はすべての固定ドライブ)。
@@ -1372,6 +1380,22 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>不可視ファイルを表示</translation>
     </message>
     <message>
+        <source>개</source>
+        <translation>個</translation>
+    </message>
+    <message>
+        <source>숨김</source>
+        <translation>非表示</translation>
+    </message>
+    <message>
+        <source>최근 폴더:</source>
+        <translation>最近のフォルダ:</translation>
+    </message>
+    <message>
+        <source>사이드바에 보일 개수. 둘러보기만 한 폴더가 아니라 파일을 복사·이동·만들기·삭제했거나, 파일을 열었거나, 명령을 실행한 폴더만 들어갑니다.</source>
+        <translation>サイドバーに表示する数。見ただけのフォルダではなく、項目をコピー・移動・作成・削除したり、ファイルを開いたり、コマンドを実行したりしたフォルダだけが入ります。</translation>
+    </message>
+    <message>
         <source>테마:</source>
         <translation>テーマ:</translation>
     </message>
@@ -1876,12 +1900,32 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>ムービー</translation>
     </message>
     <message>
+        <source>클릭하면 접거나 펼칩니다</source>
+        <translation>クリックで折りたたむ/展開する</translation>
+    </message>
+    <message>
         <source>즐겨찾기</source>
         <translation>よく使う項目</translation>
     </message>
     <message>
+        <source>최근 폴더</source>
+        <translation>最近のフォルダ</translation>
+    </message>
+    <message>
         <source>위치</source>
         <translation>場所</translation>
+    </message>
+    <message>
+        <source>즐겨찾기에 추가</source>
+        <translation>よく使う項目に追加</translation>
+    </message>
+    <message>
+        <source>최근 폴더에서 제거</source>
+        <translation>最近のフォルダから削除</translation>
+    </message>
+    <message>
+        <source>최근 폴더 모두 지우기</source>
+        <translation>最近のフォルダをすべて消去</translation>
     </message>
     <message>
         <source>컴퓨터</source>

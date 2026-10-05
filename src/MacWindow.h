@@ -1,5 +1,6 @@
 #pragma once
 
+class QString;
 class QWidget;
 
 // macOS: hide the title text so the transparent title bar shows only the traffic lights
@@ -19,3 +20,13 @@ void macResetCursor();
 
 // macOS: the window's number in the window server (screencapture -l), for snapshots.
 long macWindowNumber(QWidget *window);
+
+// macOS: whether Finder shows this folder as one item (an app, a bundle, a document package), by
+// NSURLIsPackageKey. Not QFileInfo::isBundle(): that creates a CFBundle (reading the folder's
+// Info.plist), and CFBundles made on the GUI thread race with the ones Qt's file-info thread makes
+// for the same folders inside CoreFoundation's bundle cache (a crash in CFBundleGetIdentifier).
+bool macIsPackage(const QString &path);
+
+// macOS: run without taking the keyboard focus from the app in front (no Dock icon, can't be
+// activated; windows still show and render, as inactive ones). For GIFILES_SNAPSHOT runs, which show real windows while the user works elsewhere.
+void macStayInBackground();

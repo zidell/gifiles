@@ -31,6 +31,7 @@ const QHash<QString, QString> &glyphs()
         {"chevron-left", "<path d='M15 18l-6-6 6-6'/>"},
         {"keyboard", "<rect x='2.5' y='6' width='19' height='12' rx='2.5'/><path d='M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M7.5 14h9'/>"},
         {"chevron-right", "<path d='M9 18l6-6-6-6'/>"},
+        {"chevron-down", "<path d='M6 9l6 6 6-6'/>"},
         {"chevron-right-small", "<path d='M10 16l4-4-4-4'/>"},
         {"chevron-down-small", "<path d='M8 10l4 4 4-4'/>"},
         {"chevron-up-small", "<path d='M8 14l4-4 4 4'/>"},

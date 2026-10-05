@@ -43,7 +43,8 @@ public:
 
 signals:
     // Files were dropped onto targetDir; the window decides copy vs move and runs the job.
-    void dropRequested(const QList<QUrl> &urls, const QString &targetDir, Qt::DropAction action);
+    // mods: the keys held at the drop (it is handled later, when they may be up already).
+    void dropRequested(const QList<QUrl> &urls, const QString &targetDir, Qt::DropAction action, Qt::KeyboardModifiers mods);
 
 protected:
     bool lessThan(const QModelIndex &l, const QModelIndex &r) const override;

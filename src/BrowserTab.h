@@ -71,7 +71,8 @@ signals:
     void quickLookRequested();
     void openInNewTabRequested(const QString &path);
     void extractRequested(const QStringList &archives);
-    void dropRequested(const QList<QUrl> &urls, const QString &targetDir, Qt::DropAction action);
+    // mods: the keys held at the drop (it is handled later, when they may be up already).
+    void dropRequested(const QList<QUrl> &urls, const QString &targetDir, Qt::DropAction action, Qt::KeyboardModifiers mods);
     void renameRequested(const QString &path, const QString &newName);
     void contextMenuRequested(const QPoint &globalPos, bool onItem);
     void leftEdgeReached(); // ← in the list with nothing left to fold or climb: the sidebar's turn
@@ -91,9 +92,11 @@ private:
     QAbstractItemView *columnFor(const QModelIndex &parent) const;
     void selectIndexes(const QModelIndexList &idxs);
     void onCurrentChanged(const QModelIndex &current);
+    void adoptColumnSelection();
     void applyFolderPrefs();
     void saveFolderPrefs();
     bool listRight(bool recursive);
+    void unfoldAll(const QModelIndex &folder);
     bool listLeft(bool recursive);
 
     QFileSystemModel *m_fs;
@@ -117,6 +120,8 @@ private:
     QStringList m_justSelected;
     QElapsedTimer m_justSelectedAt;
     QString m_enterWhenLoaded; // column view: folder whose first item to select once it has loaded
+    QString m_unfoldUnder;     // list view, ⌘⌥→: folders read later inside this one unfold too
+    int m_unfoldBudget = 0;    // ... at most this many more (a huge tree mustn't load forever)
     bool m_pendingRename = false;
     bool m_syncingColumns = false;
     int m_iconSize = 96;

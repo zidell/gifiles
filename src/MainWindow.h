@@ -83,7 +83,7 @@ private:
     void undo();
     void redo();
     void rename(const QString &path, const QString &newName);
-    void handleDrop(const QList<QUrl> &urls, const QString &targetDir, Qt::DropAction proposed);
+    void handleDrop(const QList<QUrl> &urls, const QString &targetDir, Qt::DropAction proposed, Qt::KeyboardModifiers mods);
     void runTransfer(const QStringList &sources, const QString &destDir, bool move);
     void runJob(const Job &job, const QString &selectAfter = {});
     bool resolveConflicts(const QStringList &sources, const QString &destDir, QHash<QString, Conflict> *out);
@@ -154,6 +154,7 @@ private:
     QPointer<QWidget> m_quickLookTarget;
     QPointer<BrowserTab> m_connectedTab;
     int m_runningJobs = 0;
+    QList<std::shared_ptr<std::atomic<bool>>> m_jobCancels; // the running jobs' flags: 중단 stops them all
     // ⌘Z / ⇧⌘Z pressed while a job runs (true = undo): they wait for its undo record, or they
     // would undo the operation before it.
     QList<bool> m_deferredUndo;

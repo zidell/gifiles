@@ -59,3 +59,19 @@ void macFixAccessibilityHitTest()
         return; // Qt changed: QNSView no longer implements it, leave AppKit alone
     s_qtHitTest = method_setImplementation(m, reinterpret_cast<IMP>(gifilesHitTest));
 }
+
+bool macIsPackage(const QString &path)
+{
+    @autoreleasepool {
+        NSURL *url = [NSURL fileURLWithPath:path.toNSString()];
+        NSNumber *package = nil;
+        return [url getResourceValue:&package forKey:NSURLIsPackageKey error:nil] && package.boolValue;
+    }
+}
+
+void macStayInBackground()
+{
+    // After QApplication (Qt's Cocoa plugin makes the app a regular one). Accessory isn't enough:
+    // showing and activating windows still brought the app to the front.
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
+}

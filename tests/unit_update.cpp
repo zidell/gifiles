@@ -4,6 +4,8 @@
 //
 //   ./build/gifiles_unit_update
 
+#include "Headless.h"
+
 #include "Updater.h"
 
 #include <QCryptographicHash>

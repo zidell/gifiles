@@ -3,8 +3,9 @@
 #include <QTreeWidget>
 #include <QUrl>
 
-// Favorites and mounted volumes. Dropping files/folders between rows adds them as favorites at
-// that spot (or moves an existing favorite there); dropping onto a folder row moves/copies into it.
+// Favorites, recent folders (RecentFolders: where the user did something) and mounted volumes.
+// Dropping files/folders between favorites adds them as favorites at that spot (or moves an
+// existing favorite there); dropping onto a folder row moves/copies into it.
 class Sidebar : public QTreeWidget {
     Q_OBJECT
 public:
@@ -21,7 +22,8 @@ signals:
     void placeActivated(const QString &path);
     void rightPressed(); // → moves the keyboard to the file view
     void openInNewTab(const QString &path);
-    void dropRequested(const QList<QUrl> &urls, const QString &targetDir, Qt::DropAction action);
+    // mods: the keys held at the drop (it is handled later, when they may be up already).
+    void dropRequested(const QList<QUrl> &urls, const QString &targetDir, Qt::DropAction action, Qt::KeyboardModifiers mods);
 
 protected:
     void dragEnterEvent(QDragEnterEvent *e) override;
@@ -48,7 +50,10 @@ private:
     void refreshVolumes();
     QTreeWidgetItem *addPlace(QTreeWidgetItem *section, const QString &path, const QString &label = {});
 
+    QList<QTreeWidgetItem *> sections() const;
+
     QTreeWidgetItem *m_favorites = nullptr;
+    QTreeWidgetItem *m_recent = nullptr; // only while there are recent folders to show
     QTreeWidgetItem *m_locations = nullptr;
     QStringList m_volumeRoots;
     QString m_current;

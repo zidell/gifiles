@@ -1,7 +1,12 @@
-// End-to-end smoke test: opens a real MainWindow on a scratch folder and drives it with
-// synthetic key presses the way a user would. Screenshots go to $OUT (if set).
+// End-to-end tests: one real MainWindow on a scratch folder, driven with synthetic key presses
+// the way a user would. Headless like every suite (tests/Headless.h: Qt's offscreen platform, no
+// window on the screen, the keyboard never taken from the user). What needs no main window lives in
+// unit_widgets (single widgets) and unit_core / unit_fileops / unit_update (logic).
+// Screenshots go to $OUT (if set):
 //
-//   QT_QPA_PLATFORM=offscreen OUT=/tmp/shots ./build/gifiles_smoke
+//   OUT=/tmp/shots ./build/gifiles_smoke
+
+#include "Headless.h"
 
 #include "App.h"
 #include "BrowserTab.h"
@@ -11,6 +16,7 @@
 #include "ItemDelegate.h"
 #include "OpenWith.h"
 #include "PathBar.h"
+#include "RecentFolders.h"
 #include "Preview.h"
 #include "Pty.h"
 #include "Settings.h"
@@ -96,6 +102,7 @@ class Smoke : public QObject {
         else
             QTest::keyClicks(focus(), s);
     }
+
     void shot(const QString &name, QWidget *w = nullptr)
     {
         const QString out = qEnvironmentVariable("OUT");
@@ -105,6 +112,7 @@ class Smoke : public QObject {
         QTest::qWait(150);
         (w ? w : m_win)->grab().save(QDir(out).filePath(name + QStringLiteral(".png")));
     }
+
     // Presses ⌘↓ and, if it shows a menu (files are selected), returns its first item's text
     // after choosing it (accept) or closing the menu.
     // viaAction: run the 열기 action instead of pressing its key (Windows offscreen loses the
@@ -116,7 +124,7 @@ class Smoke : public QObject {
         // Windows offscreen: right after a dialog closed, one request isn't always enough.
         for (int i = 0; i < 5 && QApplication::activeWindow() != m_win; ++i) {
             m_win->activateWindow();
-            QTest::qWaitForWindowActive(m_win, 500);
+            (void)QTest::qWaitForWindowActive(m_win, 500);
         }
         if (QApplication::activeWindow() != m_win)
             return QStringLiteral("window not active");
@@ -307,22 +315,6 @@ private slots:
         QTRY_COMPARE(tab()->itemCount(), 9);
     }
 
-    void selectionHighlightUsesWindowsTone()
-    {
-#ifdef Q_OS_WIN
-        QVERIFY(Theme::colors().selection.value() < Theme::colors().accent.value());
-#elif defined(Q_OS_LINUX)
-        if (Theme::colors().dark) {
-            const QColor accent = Theme::colors().accent;
-            QCOMPARE(Theme::colors().selection, QColor(qRound(accent.red() * 0.68), qRound(accent.green() * 0.68), qRound(accent.blue() * 0.68), accent.alpha()));
-        } else {
-            QCOMPARE(Theme::colors().selection, Theme::colors().accent);
-        }
-#else
-        QCOMPARE(Theme::colors().selection, Theme::colors().accent);
-#endif
-    }
-
     // Every test starts from the scratch folder in list view with the file list focused.
     void init()
     {
@@ -337,14 +329,6 @@ private slots:
         tab()->focusView();
     }
 
-    void appIconResourceRenders()
-    {
-        const QIcon icon(QStringLiteral(":/gifiles.svg"));
-        QVERIFY(!icon.isNull());
-        for (int size : {16, 32, 64, 256})
-            QVERIFY(!icon.pixmap(size, size).isNull());
-    }
-
     void cleanup()
     {
         // Failed terminal tests must not leave a typed line, running program or open
@@ -354,30 +338,6 @@ private slots:
             emit bar->tabCloseRequested(bar->currentIndex());
         QTRY_VERIFY(m_win->findChildren<TerminalWidget *>().isEmpty());
         Settings::instance()->setValue(Settings::TermShell, QString());
-    }
-
-    void terminalResizeKeepsCursorInRange()
-    {
-        // A wrapped line's final row contains the cursor when the whole line is
-        // too tall for the resized screen. libvterm 0.3.3 used to abort here.
-        VTerm *vt = vterm_new(3, 80);
-        VTermScreen *screen = vterm_obtain_screen(vt);
-        vterm_screen_enable_reflow(screen, true);
-        vterm_screen_reset(screen, 1);
-        const QByteArray text(200, 'x');
-        vterm_input_write(vt, text.constData(), size_t(text.size()));
-        vterm_set_size(vt, 2, 10);
-        const QByteArray next("\r\nOK");
-        vterm_input_write(vt, next.constData(), size_t(next.size()));
-        VTermPos cursor;
-        vterm_state_get_cursorpos(vterm_obtain_state(vt), &cursor);
-        VTermScreenCell cell;
-        const bool read = vterm_screen_get_cell(screen, VTermPos{cursor.row, 1}, &cell);
-        vterm_free(vt);
-        QVERIFY(cursor.row >= 0 && cursor.row < 2);
-        QCOMPARE(cursor.col, 2);
-        QVERIFY(read);
-        QCOMPARE(cell.chars[0], uint32_t('K'));
     }
 
     void shortcutsAreUnique()
@@ -393,13 +353,9 @@ private slots:
         QVERIFY(seen.size() > 30);
     }
 
-    void platformRenameAndOpenDefaults()
+    void commandDownOpensFolder()
     {
-        const auto *sc = Shortcuts::instance();
-        // Finder's keys on every platform: Return renames, Command/Ctrl+Down opens.
-        QCOMPARE(sc->defaults(QStringLiteral("열기")), QList<QKeySequence>{QKeySequence(QStringLiteral("Ctrl+Down"))});
-        QCOMPARE(sc->defaults(QStringLiteral("이름 변경")), QList<QKeySequence>{QKeySequence(QStringLiteral("Return"))});
-        QCOMPARE(sc->defaults(QStringLiteral("상위 폴더")), QList<QKeySequence>{QKeySequence(QStringLiteral("Ctrl+Up"))});
+        // Finder's key on every platform (the defaults themselves: unit_core shortcutDefaults).
         tab()->selectPaths({p("Alpha")});
         QTRY_COMPARE(tab()->selectedPaths(), QStringList{p("Alpha")});
         key(Qt::Key_Down, Qt::ControlModifier);
@@ -602,34 +558,6 @@ private slots:
         QTRY_VERIFY(!QDir(p("항목이 포함된 새로운 폴더")).exists());
     }
 
-    void fileSelectionColorFollowsPlatformAndMode()
-    {
-        const QVariant original = Settings::instance()->value(Settings::ThemeMode);
-        const auto restore = qScopeGuard([original] { Settings::instance()->setValue(Settings::ThemeMode, original); });
-        Settings::instance()->setValue(Settings::ThemeMode, QStringLiteral("light"));
-        QTRY_VERIFY(!Theme::colors().dark);
-        const QColor accent = Theme::colors().accent;
-#ifdef Q_OS_WIN
-        QCOMPARE(Theme::colors().selection, accent.darker(135));
-#else
-        QCOMPARE(Theme::colors().selection, accent);
-#endif
-        Settings::instance()->setValue(Settings::ThemeMode, QStringLiteral("dark"));
-        QTRY_VERIFY(Theme::colors().dark);
-        QCOMPARE(Theme::colors().accent, accent);
-        QCOMPARE(Theme::colors().selText, QColor(Qt::white));
-#ifdef Q_OS_LINUX
-        const QColor selected = Theme::colors().selection;
-        QVERIFY(qAbs(selected.red() - accent.red() * 0.68) <= 0.5);
-        QVERIFY(qAbs(selected.green() - accent.green() * 0.68) <= 0.5);
-        QVERIFY(qAbs(selected.blue() - accent.blue() * 0.68) <= 0.5);
-#elif defined(Q_OS_WIN)
-        QCOMPARE(Theme::colors().selection, accent.darker(135));
-#else
-        QCOMPARE(Theme::colors().selection, accent);
-#endif
-    }
-
     void listSelectionHighlightsBothRowParities()
     {
         const QVariant original = Settings::instance()->value(Settings::ThemeMode);
@@ -750,22 +678,6 @@ private slots:
         // rather than letting the view treat Ctrl+Down as a scroll command.
         QTest::keyClick(tree->viewport(), Qt::Key_Down, Qt::ControlModifier);
         QTRY_COMPARE(tab()->path(), p("Beta"));
-    }
-
-    void sidebarFavoritesInsertAtPosition()
-    {
-        auto *sb = m_win->findChild<Sidebar *>();
-        QVERIFY(sb);
-        const QStringList before = Sidebar::favorites();
-        sb->insertFavorites({p("Alpha"), p("README.md")}, 1);
-        QStringList favs = Sidebar::favorites();
-        QCOMPARE(favs.mid(1, 2), (QStringList{p("Alpha"), p("README.md")}));
-        QCOMPARE(favs.size(), before.size() + 2);
-        sb->insertFavorites({p("Alpha")}, 0); // existing entry moves instead of duplicating
-        favs = Sidebar::favorites();
-        QCOMPARE(favs.first(), p("Alpha"));
-        QCOMPARE(favs.count(p("Alpha")), 1);
-        Sidebar::setFavorites(before);
     }
 
     void spaceAlwaysClosesQuickLook()
@@ -958,53 +870,13 @@ private slots:
         Settings::instance()->setValue(Settings::TermShell, QString());
     }
 
-    void revealInFileManager()
+    void revealActionIsInTheMenus()
     {
-        // Folders open as themselves; files open their folder with the file selected.
-        const util::Command dir = util::revealCommand(p("Alpha"));
-        const util::Command file = util::revealCommand(p("README.md"));
-#if defined(Q_OS_MACOS)
-        QCOMPARE(dir.args, QStringList{p("Alpha")});
-        QCOMPARE(file.args, (QStringList{QStringLiteral("-R"), p("README.md")}));
-#elif defined(Q_OS_WIN)
-        QCOMPARE(dir.args, QStringList{np("Alpha")});
-        QCOMPARE(file.args, QStringList{QStringLiteral("/select,") + np("README.md")});
-#else
-        QVERIFY(dir.args.contains(QStringLiteral("org.freedesktop.FileManager1.ShowFolders")));
-        QVERIFY(file.args.contains(QStringLiteral("org.freedesktop.FileManager1.ShowItems")));
-        QVERIFY(file.args.contains(QStringLiteral("array:string:") + QUrl::fromLocalFile(p("README.md")).toString(QUrl::FullyEncoded)));
-#endif
+        // The command lines themselves: unit_core revealCommand.
         bool found = false;
         for (QAction *a : m_win->actions())
             found = found || a->text() == util::revealActionText();
         QVERIFY(found);
-    }
-
-    void previewFontSizesPerKind()
-    {
-        // Documents (txt, md) use the UI font at the document size, other text the fixed-width font.
-        write(QStringLiteral("notes.md"), "# Notes\nsome prose\n");
-        write(QStringLiteral("main.py"), "print('hi')\n");
-        Settings::instance()->setValue(Settings::PreviewDocFontSize, 17);
-        Settings::instance()->setValue(Settings::PreviewTextFontSize, 11);
-        PreviewWidget pw(PreviewWidget::Pane);
-        pw.resize(400, 300);
-        auto *text = pw.findChild<QPlainTextEdit *>();
-        QVERIFY(text);
-        pw.setPath(p("notes.md"));
-        QCOMPARE(text->font().pointSize(), 17);
-        QCOMPARE(text->font().family(), QApplication::font().family());
-        QCOMPARE(text->lineWrapMode(), QPlainTextEdit::WidgetWidth);
-        Settings::instance()->setValue(Settings::PreviewDocFontSize, 19); // applies to what is shown
-        QCOMPARE(text->font().pointSize(), 19);
-        pw.setPath(p("main.py"));
-        QCOMPARE(text->font().pointSize(), 11);
-        QCOMPARE(text->font().family(), QFontDatabase::systemFont(QFontDatabase::FixedFont).family());
-        QCOMPARE(text->lineWrapMode(), QPlainTextEdit::NoWrap);
-        Settings::instance()->setValue(Settings::PreviewDocFontSize, 14);
-        Settings::instance()->setValue(Settings::PreviewTextFontSize, 12);
-        QFile::remove(p("notes.md"));
-        QFile::remove(p("main.py"));
     }
 
     void terminalTabsTakeOverWhileBusy()
@@ -1155,59 +1027,6 @@ private slots:
         QTest::qWait(500);
     }
 
-    void openWithListsApps()
-    {
-        const QList<OpenWith::App> apps = OpenWith::appsFor(p("README.md"));
-#ifdef Q_OS_MACOS
-        QVERIFY2(!apps.isEmpty(), "NSWorkspace returned no apps for .md");
-        QVERIFY(apps.first().isDefault);
-        QStringList names;
-        for (const auto &a : apps)
-            names << a.name;
-        qInfo().noquote() << "apps for .md:" << names.mid(0, 6).join(QStringLiteral(", "));
-        OpenWith::showDialog(m_win, {p("README.md")});
-        QDialog *dlg = nullptr;
-        QTRY_VERIFY((dlg = m_win->findChild<QDialog *>(QString(), Qt::FindDirectChildrenOnly)) && dlg->isVisible());
-        shot("10-open-with", dlg);
-        dlg->reject();
-#else
-        Q_UNUSED(apps);
-#endif
-    }
-
-    void terminalShowsKoreanNames()
-    {
-        // Apps started from Finder/Dock have no locale variables; reproduce that.
-        for (const char *v : {"LANG", "LC_ALL", "LC_CTYPE"})
-            qunsetenv(v);
-        write(QStringLiteral("한글파일.txt"), "x");
-        TerminalWidget term;
-        term.resize(900, 300);
-        term.show();
-        term.start(m_tmp.path()); // the user's real login shell
-        QTRY_VERIFY2_WITH_TIMEOUT(term.isRunning(), qPrintable(term.screenText()), 5000);
-        QTest::qWait(1500); // shell startup files
-        term.setFocus();
-#ifdef Q_OS_WIN
-        QTest::keyClicks(&term, "Get-ChildItem -Name"); // one name per line; the default table wraps them
-#else
-        QTest::keyClicks(&term, "ls");
-#endif
-        QTest::keyClick(&term, Qt::Key_Return);
-        QTest::qWait(1000);
-        const QString screen = term.screenText().normalized(QString::NormalizationForm_C);
-        QVERIFY2(screen.contains(QStringLiteral("한글파일.txt")), qPrintable(screen));
-        QVERIFY(screen.contains(QStringLiteral("감마")));
-
-        // Korean typed through an input method reaches the shell intact.
-        QTest::keyClicks(&term, "echo ");
-        QInputMethodEvent ime;
-        ime.setCommitString(QStringLiteral("가나다"));
-        QApplication::sendEvent(&term, &ime);
-        QTest::keyClick(&term, Qt::Key_Return);
-        QTRY_VERIFY(term.screenText().normalized(QString::NormalizationForm_C).count(QStringLiteral("가나다")) >= 2);
-    }
-
     void quickLookShowsNaturalSizeAndResizes()
     {
         QDir().mkpath(p(QStringLiteral("zoom")));
@@ -1340,120 +1159,6 @@ private slots:
         QDir(p(QStringLiteral("arch"))).removeRecursively();
     }
 
-    void fileNamesColoredByExtension()
-    {
-        Settings *st = Settings::instance();
-        st->remove(Settings::FileColors);
-        st->remove(Settings::FolderColor);
-        auto color = [](const char *name) { return Theme::fileColor(QString::fromLatin1(name)); };
-        auto shown = [](const char *hex) { return Theme::colors().dark ? QColor(hex) : Theme::lightModeColor(QColor(hex)); };
-        // Built-in groups: one color per group, different groups differ.
-        QCOMPARE(color("a.png"), color("b.jpg"));
-        QCOMPARE(color("a.cpp"), color("a.h"));
-        QCOMPARE(color("a.zip"), color("a.tar.gz"));
-        QCOMPARE(color("a.zip"), color("a.iso")); // disk images are containers
-        QCOMPARE(color("a.exe"), color("a.apk")); // installers go with the programs
-        QCOMPARE(color("a.exe"), color("a.dmg"));
-        QCOMPARE(color("a.sql"), color("a.py"));
-        QVERIFY(color("a.png") != color("a.mp3"));
-        QVERIFY(color("a.png") != color("a.mp4")); // pictures and video: two greens
-        QVERIFY(color("a.exe") != color("a.bat"));
-        QCOMPARE(color("x.JPG"), color("y.jpg"));
-        QVERIFY(!color("Makefile").isValid()); // no extension: plain
-        QVERIFY(!color("a.qqq").isValid());    // not listed: plain
-        QVERIFY(!Theme::folderColor().isValid()); // folders: the normal text color unless set
-
-        // config.toml decides: the first group naming an extension wins, the dot and case don't matter.
-        st->setValue(Settings::FileColors, QVariantList{
-            QVariantMap{{QStringLiteral("extensions"), QStringLiteral("qqq, .ZIP")}, {QStringLiteral("color"), QStringLiteral("#123456")}},
-            QVariantMap{{QStringLiteral("extensions"), QStringLiteral("zip")}, {QStringLiteral("color"), QStringLiteral("#FF0000")}}});
-        QCOMPARE(color("a.qqq"), shown("#123456"));
-        QCOMPARE(color("a.zip"), shown("#123456"));
-        QVERIFY(!color("a.png").isValid());
-        st->setValue(Settings::FolderColor, QStringLiteral("#00FF00"));
-        QCOMPARE(Theme::folderColor(), shown("#00FF00"));
-        // Light mode: the same hue, darker and stronger.
-        const QColor light = Theme::lightModeColor(QColor(0xDC, 0x88, 0xDC));
-        QVERIFY(light.lightness() < 110);
-        QVERIFY(qAbs(light.hslHue() - QColor(0xDC, 0x88, 0xDC).hslHue()) <= 2);
-        // ...and every hue the same weight on white: yellow no lighter than blue (HSL scaling left it pale).
-        auto luma = [](const QColor &c) { return 0.2126 * c.redF() + 0.7152 * c.greenF() + 0.0722 * c.blueF(); };
-        QVERIFY(qAbs(luma(Theme::lightModeColor(QColor(0xF8, 0xDF, 0x44))) - luma(Theme::lightModeColor(QColor(0x3E, 0x5F, 0xEA)))) < 0.06);
-        // A wrong value is reported.
-        QVERIFY(!Settings::check(QStringLiteral("[file_colors]\ngroups = [ { extensions = \"a\", color = \"red\" } ]\n")).isEmpty());
-        QVERIFY(!Settings::check(QStringLiteral("[file_colors]\nfolder = \"#12345\"\n")).isEmpty());
-        QVERIFY(Settings::check(QStringLiteral("[file_colors]\nfolder = \"#123456\"\ngroups = []\n")).isEmpty());
-        QVERIFY(Settings::check(QStringLiteral("[file_colors]\nfolder = \"\"\n")).isEmpty());
-        QVERIFY(Settings::check(QStringLiteral("[appearance]\nnative_title_bar = true\n")).isEmpty()); // removed option: ignored
-
-        // The 색상 page: one row per group; a new row is saved once it has extensions.
-        st->remove(Settings::FileColors);
-        // Unchanged colors are written commented out, so later default colors still reach this file.
-        QVERIFY(st->render().contains(QStringLiteral("\n# groups = [\n")));
-        QVERIFY(Settings::check(st->render()).isEmpty());
-        SettingsDialog::showSingleton(m_win, Gifiles::tr("모양 및 색상"));
-        QPointer<QWidget> dlg;
-        for (QWidget *w : QApplication::topLevelWidgets())
-            if (qobject_cast<SettingsDialog *>(w) && w->isVisible())
-                dlg = w;
-        QVERIFY(dlg);
-        auto *body = dlg->findChild<QWidget *>(QStringLiteral("colorRows"));
-        QVERIFY(body);
-        // 초기화 sits small above the colors: at the bottom center it was taken for the OK button.
-        auto *colorsReset = dlg->findChild<QPushButton *>(QStringLiteral("colorsReset"));
-        QVERIFY(colorsReset && colorsReset->isVisible());
-        QVERIFY(colorsReset->mapTo(dlg, QPoint()).y() < body->mapTo(dlg, QPoint()).y());
-        auto rows = [body] { return body->findChildren<QWidget *>(QStringLiteral("colorRow"), Qt::FindDirectChildrenOnly); };
-        QCOMPARE(rows().size(), Settings::defaultFileColors().size());
-        dlg->findChild<QPushButton *>(QStringLiteral("colorAdd"))->click();
-        QCOMPARE(rows().size(), Settings::defaultFileColors().size() + 1);
-        QCOMPARE(st->value(Settings::FileColors).toList().size(), Settings::defaultFileColors().size()); // empty: not yet
-        QWidget *row = rows().last();
-        auto *ext = row->findChild<QLineEdit *>(QStringLiteral("colorExt"));
-        auto *hex = row->findChild<QLineEdit *>(QStringLiteral("colorHex"));
-        hex->setText(QStringLiteral("abcdef"));
-        emit hex->editingFinished();
-        QCOMPARE(hex->text(), QStringLiteral("#ABCDEF"));
-        ext->setText(QStringLiteral("qqq"));
-        emit ext->editingFinished();
-        QCOMPARE(st->value(Settings::FileColors).toList().last().toMap().value(QStringLiteral("color")).toString(), QStringLiteral("#ABCDEF"));
-        QCOMPARE(color("a.qqq"), shown("#ABCDEF"));
-        row->findChild<QPushButton *>(QStringLiteral("colorRemove"))->click();
-        QVERIFY(!color("a.qqq").isValid());
-        QCOMPARE(rows().size(), Settings::defaultFileColors().size());
-        // The picker previews each color in the lists at once; 취소 puts the stored one back, 확인 keeps it.
-        {
-            QWidget *first = rows().first();
-            const QColor before = color("a.exe");
-            first->findChild<QPushButton *>(QStringLiteral("colorSwatch"))->click();
-            QColorDialog *picker = nullptr;
-            QTRY_VERIFY((picker = dlg->window()->findChild<QColorDialog *>(QStringLiteral("colorPicker"))) != nullptr);
-            picker->setCurrentColor(QColor(0x12, 0x34, 0x56));
-            QCOMPARE(color("a.exe"), shown("#123456"));
-            picker->reject();
-            QCOMPARE(color("a.exe"), before);
-            first->findChild<QPushButton *>(QStringLiteral("colorSwatch"))->click();
-            QTRY_VERIFY((picker = dlg->window()->findChild<QColorDialog *>(QStringLiteral("colorPicker"))) != nullptr);
-            picker->setCurrentColor(QColor(0x65, 0x43, 0x21));
-            picker->accept();
-            QCOMPARE(first->findChild<QLineEdit *>(QStringLiteral("colorHex"))->text(), QStringLiteral("#654321"));
-            QCOMPARE(color("a.exe"), shown("#654321"));
-            st->remove(Settings::FileColors);
-        }
-        auto *folder = dlg->findChild<QLineEdit *>(QStringLiteral("folderColorHex"));
-        QCOMPARE(folder->text(), QStringLiteral("#00FF00"));
-        st->remove(Settings::FolderColor); // config.toml changed elsewhere: the page follows
-        QCOMPARE(folder->text(), QString());
-        folder->setText(QStringLiteral("#cd6a51"));
-        emit folder->editingFinished();
-        QCOMPARE(st->value(Settings::FolderColor).toString(), QStringLiteral("#CD6A51"));
-        folder->clear(); // empty: back to the text color
-        emit folder->editingFinished();
-        QVERIFY(!Theme::folderColor().isValid());
-        dlg->close();
-        st->remove(Settings::FileColors);
-    }
-
     void namesBoldAndUppercaseOptions()
     {
         // 모양 → 파일 이름: 굵게 보기, 항상 대문자로 표시 (both off by default; shown only, real names stay).
@@ -1511,52 +1216,12 @@ private slots:
         st->remove(Settings::FileColorSelection);
     }
 
-    void shortcutsCanBeRebound()
+    void reboundKeyWorksInTheWindow()
     {
+        // The capture window and the rebinding rules: unit_widgets shortcutsCanBeRebound.
         Shortcuts *sc = Shortcuts::instance();
-        SettingsDialog::showSingleton(m_win);
-        QPointer<QWidget> dlg;
-        for (QWidget *w : QApplication::topLevelWidgets())
-            if (qobject_cast<SettingsDialog *>(w) && w->isVisible())
-                dlg = w;
-        QVERIFY(dlg);
-        auto *rebind = dlg->findChild<QPushButton *>(QStringLiteral("rebind:열기"));
-        QVERIFY(rebind);
-        // 재지정 opens a small window that shows the key pressed; Return and Esc are keys too
-        // (they can be shortcuts): only 확인 / 취소 close it.
-        auto capture = [&] {
-            rebind->click();
-            QDialog *cap = nullptr;
-            for (int i = 0; i < 100 && !cap; ++i, QTest::qWait(10))
-                for (QWidget *w : QApplication::topLevelWidgets())
-                    if (w->objectName() == QLatin1String("keyCapture") && w->isVisible())
-                        cap = qobject_cast<QDialog *>(w);
-            return QPointer<QDialog>(cap);
-        };
-        QPointer<QDialog> cap = capture();
-        QVERIFY(cap);
-        QTest::keyClick(cap, Qt::Key_Escape);
-        QVERIFY(cap && cap->isVisible());
-        QCOMPARE(cap->findChild<QLabel *>(QStringLiteral("keyCaptureText"))->text(), QKeySequence(Qt::Key_Escape).toString(QKeySequence::NativeText));
-        QTest::keyClick(cap, Qt::Key_D, Qt::ControlModifier); // ⌘D belongs to 복제: said so, in red
-        QVERIFY(cap->findChild<QLabel *>(QStringLiteral("warning"))->text().contains(QStringLiteral("복제")));
-        cap->findChild<QPushButton *>(QStringLiteral("keyCaptureCancel"))->click();
-        QTRY_VERIFY(!cap);
-        QCOMPARE(sc->keys(QStringLiteral("열기")), sc->defaults(QStringLiteral("열기"))); // unchanged
-        QCOMPARE(sc->keys(QStringLiteral("복제")).size(), 1);
-        cap = capture();
-        QVERIFY(cap);
-        QTest::keyClick(cap, Qt::Key_J, Qt::ControlModifier);
-        QTest::keyClick(cap, Qt::Key_Return); // replaces ⌘J in the box, …
-        QTest::keyClick(cap, Qt::Key_J, Qt::ControlModifier); // … and the last key pressed counts
-        QVERIFY(cap->isVisible());
-        cap->findChild<QPushButton *>(QStringLiteral("keyCaptureOk"))->click();
-        QTRY_VERIFY(!cap);
-        QCOMPARE(sc->keys(QStringLiteral("열기")), QList<QKeySequence>{QKeySequence(QStringLiteral("Ctrl+J"))});
-        QVERIFY(sc->isCustom(QStringLiteral("열기")));
-        dlg->close();
-        QTRY_VERIFY(!dlg); // gone, and the main window active again (a late activation closes popups)
-        QTest::qWait(100);
+        const auto restore = qScopeGuard([sc] { sc->reset(QStringLiteral("열기")); });
+        sc->assign(QStringLiteral("열기"), QKeySequence(QStringLiteral("Ctrl+J")));
         // Saved in config.toml, active in the window: the new key opens, the old one no longer does.
         auto saved = [] {
             QFile cfg(Settings::configPath());
@@ -1571,21 +1236,12 @@ private slots:
         key(Qt::Key_J, Qt::ControlModifier);
         QTRY_COMPARE(tab()->path(), p("Alpha"));
         tab()->navigate(m_tmp.path());
-        // A key taken by another action moves over; resetting gives the built-in keys back.
-        QCOMPARE(sc->assign(QStringLiteral("열기"), QKeySequence(QStringLiteral("Ctrl+D"))), QStringList{QStringLiteral("복제")});
-        QVERIFY(sc->keys(QStringLiteral("복제")).isEmpty());
-        sc->reset(QStringLiteral("복제"));
-        QCOMPARE(sc->keys(QStringLiteral("복제")), QList<QKeySequence>{QKeySequence(QStringLiteral("Ctrl+D"))});
-        QVERIFY(sc->keys(QStringLiteral("열기")).isEmpty()); // ⌘D went back to 복제
-        sc->reset(QStringLiteral("열기"));
-        QCOMPARE(sc->keys(QStringLiteral("열기")), sc->defaults(QStringLiteral("열기"))); // ⌘↓, ⌘O
-        QVERIFY(!sc->isCustom(QStringLiteral("열기")));
-        // The page's 전부 제거 / 초기화 act on every shortcut.
-        sc->clearAll();
-        QVERIFY(sc->keys(QStringLiteral("열기")).isEmpty() && sc->keys(QStringLiteral("복제")).isEmpty());
-        sc->resetAll();
-        QCOMPARE(sc->keys(QStringLiteral("열기")), sc->defaults(QStringLiteral("열기")));
-        QVERIFY(!sc->isCustom(QStringLiteral("복제")));
+        tab()->focusView();
+        tab()->selectPaths({p("Alpha")});
+        QTRY_COMPARE(tab()->selectedPaths().size(), 1);
+        key(Qt::Key_Down, Qt::ControlModifier); // ⌘↓ was replaced: nothing opens
+        QTest::qWait(200);
+        QCOMPARE(tab()->path(), m_tmp.path());
     }
 
     void openKeyOnSeveralItemsShowsMenu()
@@ -1638,23 +1294,6 @@ private slots:
         QTRY_VERIFY(Settings::instance()->problems().isEmpty());
     }
 
-    void selectionCommandsQuoteEveryName()
-    {
-        // Spaces, quotes, $, `, Korean, a newline: each path stays one shell word, on one line.
-        const QString dir = QDir::cleanPath(m_tmp.path());
-        const QStringList paths = {dir + QStringLiteral("/a b.txt"), dir + QStringLiteral("/한글 '따옴표'.txt"),
-                                   dir + QStringLiteral("/x$y`z\n.txt")};
-        const QString out = TerminalWidget::expandCommand(QStringLiteral("cmd {names} | {dir} | {prompt} | {nope}"), paths,
-                                                          QStringLiteral("요청 \"{files}\""));
-        QVERIFY(!out.contains(QLatin1Char('\n')));
-#ifdef Q_OS_WIN
-        QCOMPARE(out, QStringLiteral("cmd \"a b.txt\", \"한글 'Tick'.txt\", \"x`$y``z`n.txt\" | \"%1\" | \"요청 `\"{files}`\"\" | {nope}")
-                          .arg(QDir::toNativeSeparators(dir)).replace(QStringLiteral("Tick"), QStringLiteral("따옴표")));
-#else
-        QCOMPARE(out, QStringLiteral("cmd $'a b.txt' $'한글 \\'따옴표\\'.txt' $'x$y`z\\n.txt' | $'%1' | $'요청 \"{files}\"' | {nope}").arg(dir));
-#endif
-    }
-
     void selectionCommandRunsInTerminal()
     {
 #if defined(Q_OS_MACOS)
@@ -1696,45 +1335,6 @@ private slots:
         tab()->navigate(m_tmp.path());
     }
 
-    void selectionMenuKeepsBuiltins()
-    {
-        // The three built-in commands can be changed but not removed: one left out of the file
-        // comes back; a key letter and terminal = false survive the round trip.
-        Settings *s = Settings::instance();
-        QVariantMap mine{{QStringLiteral("label"), QStringLiteral("내 스크립트")}, {QStringLiteral("key"), QStringLiteral("R")},
-                         {QStringLiteral("terminal"), false}, {QStringLiteral("command"), QStringLiteral("echo {files}")}};
-        s->setValue(Settings::SelectionCommands, QVariantList{mine});
-        const QVariantList all = s->value(Settings::SelectionCommands).toList();
-        QCOMPARE(all.size(), 4);
-        QCOMPARE(all.first().toMap().value(QStringLiteral("label")).toString(), QStringLiteral("내 스크립트"));
-        QVERIFY(!s->selectionCommand(QStringLiteral("ai")).isEmpty());
-        QFile cfg(Settings::configPath());
-        QVERIFY(cfg.open(QIODevice::ReadOnly));
-        const QString text = QString::fromUtf8(cfg.readAll());
-        QVERIFY(text.contains(QStringLiteral("{ label = \"내 스크립트\", key = \"R\", terminal = false, command = \"echo {files}\" }")));
-        QVERIFY(Settings::check(text).isEmpty());
-        QVERIFY(!Settings::check(QStringLiteral("[selection_menu]\ncommands = [ { label = \"a\", key = \"ab\", command = \"x\" } ]\n")).isEmpty());
-        QVERIFY(!Settings::check(QStringLiteral("[selection_menu]\ncommands = [ { id = \"nope\", label = \"a\", command = \"x\" } ]\n")).isEmpty());
-        QVERIFY(Settings::check(QStringLiteral("[ai]\ntool = \"claude\"\n")).isEmpty()); // the old AI settings are dropped quietly
-        // In the settings window a built-in one can't be deleted.
-        SettingsDialog::showSingleton(m_win, QStringLiteral("선택 항목 메뉴"));
-        QPointer<QWidget> dlg;
-        for (QWidget *w : QApplication::topLevelWidgets())
-            if (qobject_cast<SettingsDialog *>(w) && w->isVisible())
-                dlg = w;
-        QVERIFY(dlg);
-        auto *list = dlg->findChild<QListWidget *>(QStringLiteral("commandList"));
-        auto *remove = dlg->findChild<QPushButton *>(QStringLiteral("commandRemove"));
-        QVERIFY(list && remove);
-        list->setCurrentRow(0);
-        QVERIFY(remove->isEnabled());
-        list->setCurrentRow(1);
-        QVERIFY(!remove->isEnabled());
-        dlg->close();
-        QTRY_VERIFY(!dlg);
-        s->remove(Settings::SelectionCommands);
-    }
-
     void openInNewTabOnlyForFolders()
     {
         // Files have no tab to open in: the item is offered only when a folder is selected.
@@ -1757,26 +1357,6 @@ private slots:
         QVERIFY(tab()->hasSelectedFolder());
         QVERIFY(offered());
         QFile::remove(p("tabonly.txt"));
-    }
-
-    void renamedShortcutIdsKeepTheirKeys()
-    {
-        // 훑어보기 became 퀵 뷰어: a key saved under the old name still applies to the new one.
-        const QStringList renamedProblems = Settings::check(QStringLiteral("[shortcuts]\n\"훑어보기\" = [\"F9\"]\n\"컨텍스트 메뉴 새 탭에서 열기\" = [\"T\"]\n"));
-        QVERIFY2(renamedProblems.isEmpty(), qPrintable(renamedProblems.join(QLatin1Char('|'))));
-        QVERIFY(!Settings::check(QStringLiteral("[shortcuts]\n\"없는 항목\" = [\"F9\"]\n")).isEmpty());
-        const QString path = Settings::configPath();
-        // From the settings in memory, not the file: a save can still be pending there (Windows).
-        const QString original = Settings::instance()->render();
-        QVERIFY(original.contains(QStringLiteral("[shortcuts]")));
-        auto writeConfig = [&](const QString &text) {
-            QVERIFY(replaceFile(path, text.toUtf8())); // like an editor: replace the file
-        };
-        writeConfig(QString(original).replace(QStringLiteral("[shortcuts]"), QStringLiteral("[shortcuts]\n\"훑어보기\" = [\"F9\"]")));
-        QTRY_COMPARE(Shortcuts::instance()->keys(QStringLiteral("퀵 뷰어")), QList<QKeySequence>{QKeySequence(QStringLiteral("F9"))});
-        QVERIFY(Settings::instance()->problems().isEmpty());
-        writeConfig(original);
-        QTRY_VERIFY(!Shortcuts::instance()->isCustom(QStringLiteral("퀵 뷰어")));
     }
 
     void contextMenuLetters()
@@ -1883,55 +1463,6 @@ private slots:
         QVERIFY(QTest::qWaitForWindowActive(m_win));
     }
 
-    void officeDocumentsUseTheSystemPreview()
-    {
-        // Word/Excel/… go to the system's preview (Quick Look, a preview handler, LibreOffice on
-        // Linux); without one (the offscreen platform) an info card, never the zip's bytes as text.
-        QVERIFY(SystemPreview::isOfficeDocument(QStringLiteral("a/보고서.DOCX")));
-        QVERIFY(SystemPreview::isOfficeDocument(QStringLiteral("b.xlsx")));
-        QVERIFY(SystemPreview::isOfficeDocument(QStringLiteral("c.pages")));
-        QVERIFY(!SystemPreview::isOfficeDocument(QStringLiteral("d.txt")));
-        QVERIFY(!SystemPreview::available()); // tests run offscreen
-        write(QStringLiteral("report.docx"), QByteArray("PK\x03\x04", 4) + QByteArray(64, '\0'));
-        PreviewWidget pw(PreviewWidget::Pane);
-        pw.setPath(p("report.docx"));
-        auto *stack = pw.findChild<QStackedWidget *>();
-        QVERIFY(stack && !qobject_cast<QPlainTextEdit *>(stack->currentWidget()));
-        QFile::remove(p("report.docx"));
-    }
-
-    void previewShutdownStopsProcessCallbacks()
-    {
-        auto *pw = new PreviewWidget(PreviewWidget::Pane);
-        auto *proc = new QProcess(pw);
-        int callbacks = 0;
-        connect(proc, &QProcess::finished, pw, [&callbacks] { ++callbacks; });
-        proc->start(QCoreApplication::applicationFilePath(), {QStringLiteral("-help")});
-        QVERIFY(proc->waitForStarted());
-        delete pw; // conversion shutdown must not call into partially destroyed child widgets
-        QCOMPARE(callbacks, 0);
-    }
-
-    void mediaBarsJumpWhereClicked()
-    {
-        // A click on a bar's groove moves it there at once (not a page step); the volume is kept.
-        write(QStringLiteral("tone.mp3"), QByteArray(256, '\0'));
-        PreviewWidget pw(PreviewWidget::QuickLook);
-        pw.resize(600, 300);
-        pw.setPath(p("tone.mp3"));
-        pw.show();
-        QVERIFY(QTest::qWaitForWindowExposed(&pw));
-        auto *volume = pw.findChild<QSlider *>(QStringLiteral("volume"));
-        QVERIFY(volume);
-        volume->setValue(90);
-        QTest::mouseClick(volume, Qt::LeftButton, {}, QPoint(volume->width() / 4, volume->height() / 2));
-        QVERIFY2(volume->value() < 45, qPrintable(QString::number(volume->value())));
-        QCOMPARE(Settings::instance()->value(Settings::MediaVolume).toInt(), volume->value());
-        Settings::instance()->remove(Settings::MediaVolume);
-        pw.close();
-        QFile::remove(p("tone.mp3"));
-    }
-
     void quickLookReopensMedia()
     {
         // Closing stops the player and drops its source; opening the same file again must load it again.
@@ -1952,97 +1483,6 @@ private slots:
             tab()->focusView();
         }
         QFile::remove(p("again.mp3"));
-    }
-
-    void mediaResumesWhereItStopped()
-    {
-        // 10 s of silence (8 kHz, 8-bit mono WAV).
-        const int rate = 8000, len = rate * 10;
-        QByteArray wav;
-        QDataStream ds(&wav, QIODevice::WriteOnly);
-        ds.setByteOrder(QDataStream::LittleEndian);
-        ds.writeRawData("RIFF", 4);
-        ds << quint32(36 + len);
-        ds.writeRawData("WAVEfmt ", 8);
-        ds << quint32(16) << quint16(1) << quint16(1) << quint32(rate) << quint32(rate) << quint16(1) << quint16(8);
-        ds.writeRawData("data", 4);
-        ds << quint32(len);
-        wav.append(QByteArray(len, char(0x80)));
-        write(QStringLiteral("quiet.wav"), wav);
-        write(QStringLiteral("other.txt"), "x");
-
-        PreviewWidget pw(PreviewWidget::Pane); // no autoplay
-        pw.resize(500, 300);
-        pw.show();
-        auto loaded = [&](QMediaPlayer *pl) {
-            for (int i = 0; i < 100 && pl->mediaStatus() != QMediaPlayer::LoadedMedia && pl->mediaStatus() != QMediaPlayer::BufferedMedia; ++i)
-                QTest::qWait(50);
-            return pl->mediaStatus() == QMediaPlayer::LoadedMedia || pl->mediaStatus() == QMediaPlayer::BufferedMedia;
-        };
-        pw.setPath(p("quiet.wav"));
-        auto *player = pw.findChild<QMediaPlayer *>();
-        QVERIFY(player);
-        if (!loaded(player))
-            QSKIP("the media backend didn't load the file (macOS offscreen: AVFoundation needs the Cocoa run loop)");
-        player->setPosition(4000);
-        QTRY_VERIFY(player->position() >= 3500);
-        pw.setPath(p("other.txt"));
-        pw.setPath(p("quiet.wav")); // back: goes on from 4 s
-        QVERIFY(loaded(player));
-        QTRY_VERIFY2(player->position() >= 3500, qPrintable(QString::number(player->position())));
-        pw.setPath(p("other.txt"));
-        pw.forgetPlaybackOutside(p("감마")); // the browser went to another folder
-        pw.setPath(p("quiet.wav"));
-        QVERIFY(loaded(player));
-        QTest::qWait(200);
-        QCOMPARE(player->position(), 0);
-        // Played to the end: next time from the start.
-        player->setPosition(9600);
-        player->play();
-        QTRY_COMPARE_WITH_TIMEOUT(player->mediaStatus(), QMediaPlayer::EndOfMedia, 5000);
-        pw.setPath(p("other.txt"));
-        pw.setPath(p("quiet.wav"));
-        QVERIFY(loaded(player));
-        QTest::qWait(200);
-        QCOMPARE(player->position(), 0);
-        pw.setPath(QString());
-        QFile::remove(p("quiet.wav"));
-        QFile::remove(p("other.txt"));
-    }
-
-    void videoResumesAtTheExactSpot()
-    {
-        // A fresh file seeks in whole seconds on macOS; going on must still start where it stopped.
-        QFile::copy(QStringLiteral(GIFILES_SOURCE_DIR "/tests/data/resume.mp4"), p("resume.mp4"));
-        write(QStringLiteral("other.txt"), "x");
-        PreviewWidget pw(PreviewWidget::QuickLook); // autoplay
-        pw.resize(400, 300);
-        pw.show();
-        pw.setPath(p("resume.mp4"));
-        auto *player = pw.findChild<QMediaPlayer *>();
-        auto *video = pw.findChild<QVideoWidget *>();
-        QVERIFY(player && video);
-        for (int i = 0; i < 100 && player->position() < 1500; ++i)
-            QTest::qWait(30);
-        if (player->position() < 1500)
-            QSKIP("the media backend didn't play the file (macOS offscreen: AVFoundation needs the Cocoa run loop)");
-        player->pause();
-        player->setPosition(2450);
-        QTRY_VERIFY(qAbs(player->position() - 2450) < 40);
-        pw.setPath(p("other.txt"));
-        qint64 firstShown = -1;
-        connect(video->videoSink(), &QVideoSink::videoFrameChanged, &pw, [&](const QVideoFrame &f) {
-            if (firstShown < 0 && video->isVisible() && player->mediaStatus() != QMediaPlayer::LoadingMedia)
-                firstShown = f.startTime() / 1000;
-        });
-        pw.setPath(p("resume.mp4"));
-        QTRY_VERIFY(player->position() > 2600); // goes on playing from there
-#ifdef Q_OS_MACOS
-        QVERIFY2(firstShown >= 2400 && firstShown < 2600, qPrintable(QString::number(firstShown)));
-#endif
-        pw.setPath(QString());
-        QFile::remove(p("resume.mp4"));
-        QFile::remove(p("other.txt"));
     }
 
     void quickLookRemembersDraggedSize()
@@ -2070,7 +1510,7 @@ private slots:
         QTRY_COMPARE(tab()->itemCount(), 4);
         auto open = [&](const QString &name) -> QuickLookWindow * {
             m_win->activateWindow();
-            QTest::qWaitForWindowActive(m_win);
+            (void)QTest::qWaitForWindowActive(m_win);
             tab()->focusView();
             tab()->selectPaths({p(QStringLiteral("drag/") + name)});
             if (tab()->selectedPaths().size() != 1)
@@ -2260,48 +1700,6 @@ private slots:
         QCOMPARE(rowColor(second).rgba(), Theme::colors().selection.rgba());
     }
 
-    void menuShortcutTextHasHalfOpacity()
-    {
-        class Menu : public Theme::ShortcutMenu {
-        public:
-            using QMenu::initStyleOption;
-        } menu;
-        QAction *action = menu.addAction(QStringLiteral("Label"));
-        action->setShortcut(QKeySequence(QStringLiteral("Ctrl+K")));
-        menu.ensurePolished();
-        menu.resize(menu.sizeHint());
-        for (bool selected : {false, true}) {
-            menu.setActiveAction(selected ? action : nullptr);
-            QStyleOptionMenuItem item;
-            menu.initStyleOption(&item, action);
-            const QRect row = menu.actionGeometry(action);
-            auto render = [&](bool shortcut) {
-                QImage result(row.size(), QImage::Format_ARGB32_Premultiplied);
-                result.fill(Theme::colors().menuBg);
-                QPainter painter(&result);
-                painter.setFont(menu.font());
-                QStyleOptionMenuItem option(item);
-                option.rect = QRect(QPoint(), row.size());
-                if (!shortcut)
-                    option.text = option.text.left(option.text.indexOf(QLatin1Char('\t')) + 1);
-                menu.style()->drawControl(QStyle::CE_MenuItem, &option, &painter, &menu);
-                return result;
-            };
-            const QImage full = render(true), bare = render(false);
-            const QImage actual = menu.grab(row).toImage();
-            int shortcutPixels = 0;
-            for (int y = 0; y < full.height(); ++y)
-                for (int x = 0; x < full.width(); ++x) {
-                    const QRgb a = full.pixel(x, y), b = bare.pixel(x, y);
-                    const QRgb expected = qRgba((qRed(a) + qRed(b)) / 2, (qGreen(a) + qGreen(b)) / 2,
-                                                (qBlue(a) + qBlue(b)) / 2, (qAlpha(a) + qAlpha(b)) / 2);
-                    QCOMPARE(actual.pixel(x, y), expected);
-                    shortcutPixels += a != b;
-                }
-            QVERIFY(shortcutPixels > 20);
-        }
-    }
-
     void firstDownSelectsFirstItem()
     {
         auto *search = m_win->findChild<QLineEdit *>(QStringLiteral("search"));
@@ -2429,30 +1827,6 @@ private slots:
         QTRY_COMPARE(v->font().pointSize(), base);
         QCOMPARE(Settings::instance()->value(Settings::FontSize).toInt(), 0);
         QCOMPARE(v->sizeHintForRow(0), rowBefore);
-    }
-
-    void translationsLoad()
-    {
-        // Korean is the source text; the other languages come from the committed .qm files, which
-        // must cover every message (scripts/i18n.sh). Checked without installing them app-wide.
-        const QString dir = QStringLiteral(GIFILES_SOURCE_DIR "/i18n");
-        const QList<QPair<QString, QString>> open = {{QStringLiteral("en"), QStringLiteral("Open")},
-                                                     {QStringLiteral("ja"), QString()},
-                                                     {QStringLiteral("zh_CN"), QString()}};
-        for (const auto &[lang, expected] : open) {
-            QTranslator tr;
-            QVERIFY2(tr.load(QStringLiteral("gifiles_%1").arg(lang), dir), qPrintable(lang));
-            const QString t = tr.translate("Gifiles", "열기");
-            QVERIFY2(!t.isEmpty() && t != QStringLiteral("열기"), qPrintable(lang));
-            if (!expected.isEmpty())
-                QCOMPARE(t, expected);
-            QVERIFY(!tr.translate("Gifiles", "선택한 항목들로…").isEmpty());
-        }
-        for (const auto &[lang, expected] : open) {
-            QFile ts(dir + QStringLiteral("/gifiles_%1.ts").arg(lang));
-            QVERIFY(ts.open(QIODevice::ReadOnly));
-            QVERIFY2(!ts.readAll().contains("type=\"unfinished\""), qPrintable(QStringLiteral("untranslated messages in %1").arg(ts.fileName())));
-        }
     }
 
     void terminalAddButtonOnlyWhenOpen()
@@ -2819,7 +2193,7 @@ private slots:
             QCOMPARE(drag(rowOf(A).topLeft() + QPoint(40, rowOf(A).height() / 2 - 2), &md), Qt::MoveAction);
             QTRY_COMPARE(shown(), native({B, A, C}));
             // ... but not onto a volume.
-            QTreeWidgetItem *volume = sb->topLevelItem(1)->child(0);
+            QTreeWidgetItem *volume = sb->topLevelItem(sb->topLevelItemCount() - 1)->child(0); // "위치" is the last section
             QVERIFY(volume);
             QCOMPARE(drag(sb->visualItemRect(volume).center(), &md), Qt::IgnoreAction);
             QCOMPARE(shown(), native({B, A, C}));
@@ -2903,13 +2277,13 @@ private slots:
         key(Qt::Key_Return);
         QTRY_COMPARE(tab()->path(), p("Beta"));
         // Down again reaches the volumes ("위치"); Return opens the first one at its root.
-        QTreeWidgetItem *volume = sb->topLevelItem(1)->child(0);
+        QTreeWidgetItem *volume = sb->topLevelItem(sb->topLevelItemCount() - 1)->child(0); // "위치" is the last section
         QVERIFY(volume);
         const QString root = QDir::fromNativeSeparators(volume->toolTip(0));
         QVERIFY(QFileInfo(root).isDir());
         sb->setFocus();
         QTRY_VERIFY(sb->hasFocus());
-        for (int i = 0; i < 3 && sb->currentItem() != volume; ++i)
+        for (int i = 0; i < 80 && sb->currentItem() != volume; ++i) // past any recent folders
             key(Qt::Key_Down);
         QCOMPARE(sb->currentItem(), volume);
         key(Qt::Key_Return);
@@ -3294,257 +2668,6 @@ private slots:
         QCOMPARE(pane->path(), p("photo.png"));
     }
 
-    void terminalKeysSelectionAndScrollback()
-    {
-        // The terminal's own keys: editing the line, ⌃C, exit and restart with Return, selecting and
-        // copying with the mouse, ⌘V, ⌘K, scrolling back, and window titles / folders the shell reports.
-        useTestShell();
-        TerminalWidget term;
-        term.resize(700, 300);
-        term.show();
-        QVERIFY(QTest::qWaitForWindowExposed(&term));
-        term.start(m_tmp.path());
-        QTRY_VERIFY2_WITH_TIMEOUT(term.isReady(), qPrintable(term.screenText()), 15000);
-        term.activateWindow();
-        term.setFocus();
-        QTRY_VERIFY(term.hasFocus());
-        auto *pty = term.findChild<Pty *>();
-        QVERIFY(pty);
-        auto lines = [&] { return term.screenText().split(QLatin1Char('\n')); };
-        auto hasLine = [&](const QString &l) { return lines().contains(l); };
-
-        // Backspace edits the line; Return runs it.
-        QTest::keyClicks(&term, "echo abcX");
-        QTest::keyClick(&term, Qt::Key_Backspace);
-        QTest::keyClick(&term, Qt::Key_Return);
-        QTRY_VERIFY2(hasLine(QStringLiteral("abc")), qPrintable(term.screenText()));
-
-#ifndef Q_OS_WIN
-        // A half-typed line holds back the browser's cd; erased again, the cd goes through.
-        QTest::keyClicks(&term, "ab");
-        term.followFolder(p("Alpha"));
-        QTest::qWait(900); // two polls
-        QVERIFY(!term.isAt(p("Alpha")));
-        QTest::keyClick(&term, Qt::Key_Backspace);
-        QTest::keyClick(&term, Qt::Key_Backspace);
-        QTRY_VERIFY2(term.isAt(p("Alpha")), qPrintable(term.screenText()));
-
-        // A command taken back from the history is a line too: the cd must wait for it.
-        QTRY_VERIFY(!term.isBusy());
-        QTest::keyClick(&term, Qt::Key_Up);
-        QTest::qWait(300); // the shell puts "echo abc" back on the line
-        term.followFolder(p("Beta"));
-        QTest::qWait(900);
-        QVERIFY2(!term.isAt(p("Beta")), "a line recalled with ↑ must not be replaced by the browser's cd");
-        QTest::keyClick(&term, Qt::Key_C, kTerminalMods); // ⌃C: drop the line, then the cd goes through
-        QTRY_VERIFY(term.isAt(p("Beta")));
-
-        // ⌃C interrupts a running program.
-        QTest::keyClicks(&term, "sleep 30");
-        QTest::keyClick(&term, Qt::Key_Return);
-        QTRY_VERIFY(term.isBusy());
-        QTest::keyClick(&term, Qt::Key_C, kTerminalMods);
-        QTRY_VERIFY(!term.isBusy());
-#endif
-
-#ifndef Q_OS_WIN // ConPTY repaints the screen from its own buffer: text fed in below wouldn't stay
-        // Titles and folders reported by programs (OSC 2 / OSC 7).
-        QSignalSpy titled(&term, &TerminalWidget::titleChanged);
-        pty->dataReceived(QByteArray("\x1b]2;My Title\x07"));
-        QCOMPARE(term.tabTitle(), QStringLiteral("My Title"));
-        QVERIFY(!titled.isEmpty());
-        QSignalSpy moved(&term, &TerminalWidget::cwdChanged);
-        pty->dataReceived("\x1b]7;" + QUrl::fromLocalFile(p("감마")).toEncoded() + "\x07");
-        QCOMPARE(term.shellCwd(), p("감마"));
-        QCOMPARE(moved.size(), 1);
-        pty->dataReceived(QByteArray("\x1b]2;\x07"));
-        QCOMPARE(term.tabTitle(), QStringLiteral("감마")); // no title: the folder's name
-
-        // ⌘K clears the screen and the history.
-        QTest::keyClick(&term, Qt::Key_K, Qt::ControlModifier);
-        QTRY_VERIFY(!hasLine(QStringLiteral("abc")));
-        QTest::qWait(300); // the shell redraws its prompt
-
-        // Selecting with the mouse and ⌘C copy (Ctrl+C copies too, but only with a selection).
-        pty->dataReceived(QByteArray("\x1b[2J\x1b[HCOPYME rest-of-line\r\n"));
-        QTest::mouseDClick(&term, Qt::LeftButton, {}, QPoint(3, 3));
-        QTest::keyClick(&term, Qt::Key_C, Qt::ControlModifier);
-        QTRY_COMPARE(QGuiApplication::clipboard()->text(), QStringLiteral("COPYME"));
-        QTest::mousePress(&term, Qt::LeftButton, {}, QPoint(3, 3));
-        QTest::mouseMove(&term, QPoint(term.width() - 4, 3));
-        QTest::mouseRelease(&term, Qt::LeftButton, {}, QPoint(term.width() - 4, 3));
-        QTest::keyClick(&term, Qt::Key_C, Qt::ControlModifier);
-        QTRY_COMPARE(QGuiApplication::clipboard()->text().trimmed(), QStringLiteral("COPYME rest-of-line"));
-
-        // Scrolling back: the wheel shows earlier lines (a double-click there selects from them).
-        QByteArray many;
-        for (int i = 1; i <= 120; ++i)
-            many += QStringLiteral("L%1\r\n").arg(i, 3, 10, QLatin1Char('0')).toLatin1();
-        pty->dataReceived(many);
-        QWheelEvent up(QPointF(50, 50), term.mapToGlobal(QPointF(50, 50)), QPoint(), QPoint(0, 120 * 100), Qt::NoButton,
-                       Qt::NoModifier, Qt::NoScrollPhase, false);
-        auto wordAtTop = [&] {
-            QGuiApplication::clipboard()->setText(QStringLiteral("-"));
-            QTest::mouseDClick(&term, Qt::LeftButton, {}, QPoint(3, 3));
-            QTest::keyClick(&term, Qt::Key_C, Qt::ControlModifier);
-            return QGuiApplication::clipboard()->text();
-        };
-        QApplication::sendEvent(&term, &up);
-        QCOMPARE(wordAtTop(), QStringLiteral("COPYME")); // the top of the history
-        QTest::keyClick(&term, Qt::Key_PageDown, Qt::ShiftModifier); // a page further down
-        const QString paged = wordAtTop();
-        QVERIFY2(paged.startsWith(QLatin1Char('L')) && paged.mid(1).toInt() > 1, qPrintable(paged));
-        QTest::keyClick(&term, Qt::Key_PageUp, Qt::ShiftModifier);
-        QCOMPARE(wordAtTop(), QStringLiteral("COPYME"));
-        QTest::keyClick(&term, Qt::Key_K, Qt::ControlModifier); // the history goes too
-        QTest::qWait(300);
-        QApplication::sendEvent(&term, &up);
-        QVERIFY(!wordAtTop().startsWith(QLatin1Char('L')));
-        QVERIFY(wordAtTop() != QStringLiteral("COPYME"));
-
-        // ⌘V pastes; Ctrl+Backspace (⌘⌫) clears the half-typed line; dropped text is typed in.
-        QGuiApplication::clipboard()->setText(QStringLiteral("echo pasted_ok"));
-        QTest::keyClick(&term, Qt::Key_V, Qt::ControlModifier);
-        QTRY_VERIFY(term.screenText().contains(QStringLiteral("echo pasted_ok")));
-        QTest::keyClick(&term, Qt::Key_Backspace, Qt::ControlModifier);
-        QTRY_VERIFY(!term.screenText().contains(QStringLiteral("echo pasted_ok")));
-        QMimeData text;
-        text.setText(QStringLiteral("echo dropped_ok"));
-        QDragEnterEvent enter(QPoint(20, 20), Qt::CopyAction, &text, Qt::LeftButton, {});
-        QApplication::sendEvent(&term, &enter);
-        QVERIFY(enter.isAccepted());
-        QDropEvent drop(QPointF(20, 20), Qt::CopyAction, &text, Qt::LeftButton, {});
-        QApplication::sendEvent(&term, &drop);
-        QVERIFY(drop.isAccepted());
-        QTRY_VERIFY2(term.screenText().contains(QStringLiteral("echo dropped_ok")), qPrintable(term.screenText()));
-        QTest::keyClick(&term, Qt::Key_Return);
-        QTRY_VERIFY2(hasLine(QStringLiteral("dropped_ok")), qPrintable(term.screenText()));
-
-        // The shell exits: a note, and Return starts a new one in the same folder.
-        QTest::keyClicks(&term, "exit");
-        QTest::keyClick(&term, Qt::Key_Return);
-        QTRY_VERIFY(!term.isRunning());
-        QTRY_VERIFY(term.screenText().contains(QStringLiteral("프로세스가 종료됨")));
-        QTest::keyClicks(&term, "x"); // ignored while nothing runs
-        QTest::keyClick(&term, Qt::Key_Return);
-        QTRY_VERIFY(term.isRunning());
-        QTRY_VERIFY_WITH_TIMEOUT(term.isReady(), 15000);
-#endif
-        Settings::instance()->setValue(Settings::TermShell, QString());
-    }
-
-    void previewShowsEveryKindOrSaysWhy()
-    {
-        // Empty files, broken pictures and PDFs say so; a PDF, an animated GIF and a folder are shown;
-        // a long text is cut with a note; a zoomed picture can be dragged around.
-        QVERIFY(makeFixture(QStringLiteral("kinds")));
-        const auto restore = qScopeGuard([this] { QDir(p("kinds")).removeRecursively(); });
-        write(QStringLiteral("kinds/empty.txt"), QByteArray());
-        write(QStringLiteral("kinds/broken.png"), QByteArray("\x89PNG\r\n\x1a\nnot really", 18));
-        write(QStringLiteral("kinds/broken.pdf"), QByteArray("not a pdf at all"));
-        write(QStringLiteral("kinds/long.txt"), QByteArray(600 * 1024, 'a'));
-        {
-            QPdfWriter pdf(p("kinds/doc.pdf"));
-            QPainter painter(&pdf);
-            painter.drawText(100, 100, QStringLiteral("hello pdf"));
-        }
-        // Two 1×1 frames.
-        const QByteArray frame = QByteArray::fromHex("21f904000a0000002c0000000001000100000202440100");
-        write(QStringLiteral("kinds/anim.gif"),
-              QByteArray::fromHex("47494638396101000100800000000000ffffff") + frame + frame + QByteArray("\x3b", 1));
-        QImage big(2400, 1800, QImage::Format_RGB32);
-        big.fill(Qt::darkYellow);
-        QVERIFY(big.save(p("kinds/big.png")));
-
-        PreviewWidget pw(PreviewWidget::QuickLook);
-        pw.resize(500, 400);
-        pw.show();
-        QVERIFY(QTest::qWaitForWindowExposed(&pw));
-        auto *stack = pw.findChild<QStackedWidget *>();
-        QVERIFY(stack);
-        pw.setPath(p("kinds/empty.txt"));
-        QTRY_VERIFY(showsText(&pw, Gifiles::tr("빈 파일")));
-        pw.setPath(p("kinds/broken.png"));
-        QTRY_VERIFY(showsText(&pw, Gifiles::tr("이미지를 열 수 없습니다")));
-        pw.setPath(p("kinds/long.txt"));
-        auto *text = pw.findChild<QPlainTextEdit *>();
-        QTRY_VERIFY(text && text->isVisible());
-        QVERIFY(text->toPlainText().endsWith(Gifiles::tr("\n\n— 처음 %1만 표시 —").arg(util::humanSize(512 * 1024))));
-        pw.setPath(p("kinds"));
-        QTRY_VERIFY(showsText(&pw, Gifiles::tr("%1개 항목").arg(QDir(p("kinds")).entryList(QDir::AllEntries | QDir::NoDotAndDotDot).size())));
-#ifdef HAVE_QTPDF
-        pw.setPath(p("kinds/broken.pdf"));
-        QTRY_VERIFY(showsText(&pw, Gifiles::tr("PDF를 열 수 없습니다")));
-        pw.setPath(p("kinds/doc.pdf"));
-        QTRY_VERIFY(stack->currentWidget() && stack->currentWidget()->inherits("QPdfView"));
-#endif
-        pw.setPath(p("kinds/anim.gif"));
-        ZoomArea *area = pw.findChild<ZoomArea *>();
-        QVERIFY(area);
-        QTRY_COMPARE(stack->currentWidget(), static_cast<QWidget *>(area));
-        auto *image = qobject_cast<QLabel *>(area->widget());
-        QVERIFY(image);
-        QTRY_VERIFY(image->movie()); // played, not a still
-        QCOMPARE(area->naturalSize(), QSize(1, 1));
-
-        pw.setPath(p("kinds/big.png"));
-        QTRY_COMPARE(area->naturalSize(), big.size());
-        QTRY_VERIFY(!image->pixmap().isNull());
-        QTest::mouseClick(area->widget(), Qt::LeftButton, {}, area->widget()->rect().center()); // 100%
-        QTRY_VERIFY(area->isActualSize());
-        const QPoint start = area->viewport()->rect().center();
-        const int h0 = area->horizontalScrollBar()->value(), v0 = area->verticalScrollBar()->value();
-        QTest::mousePress(area->viewport(), Qt::LeftButton, {}, start);
-        QTest::mouseMove(area->viewport(), start - QPoint(30, 20));
-        QTest::mouseMove(area->viewport(), start - QPoint(80, 60));
-        QTest::mouseRelease(area->viewport(), Qt::LeftButton, {}, start - QPoint(80, 60));
-        QTRY_COMPARE(area->horizontalScrollBar()->value(), h0 + 80); // the picture follows the hand
-        QCOMPARE(area->verticalScrollBar()->value(), v0 + 60);
-        QVERIFY(area->isActualSize()); // a drag is not a click: still 100%
-        pw.setPath(QString());
-    }
-
-    void openWithRemembersTheChosenApp()
-    {
-        // "항상 이 앱으로 열기": the remembered app comes first in 다음으로 열기, even if the system
-        // doesn't list it, and is preselected with the switch on.
-        write(QStringLiteral("doc.qqq"), "x");
-        QVERIFY(QDir().mkpath(p("Fake Editor.app")));
-        const QString key = QStringLiteral("open_with/qqq");
-        const auto restore = qScopeGuard([this, key] {
-            Settings::instance()->remove(key);
-            QFile::remove(p("doc.qqq"));
-            QDir(p("Fake Editor.app")).removeRecursively();
-        });
-        QVERIFY(!OpenWith::hasRememberedApp(p("doc.qqq")));
-        Settings::instance()->setValue(key, p("Fake Editor.app"));
-        QVERIFY(OpenWith::hasRememberedApp(p("doc.qqq")));
-        QVERIFY(OpenWith::hasRememberedApp(p("other.QQQ"))); // per extension, any case
-        const QList<OpenWith::App> apps = OpenWith::appsFor(p("doc.qqq"));
-        QVERIFY(!apps.isEmpty());
-        QCOMPARE(apps.first().id, p("Fake Editor.app"));
-        QCOMPARE(apps.first().name, QStringLiteral("Fake Editor"));
-#ifndef Q_OS_WIN // Windows shows its own dialog
-        OpenWith::showDialog(m_win, {p("doc.qqq")});
-        QPointer<QDialog> dlg;
-        auto shownDialog = [this] {
-            for (QDialog *d : m_win->findChildren<QDialog *>(QString(), Qt::FindDirectChildrenOnly))
-                if (d->isVisible() && d->windowTitle() == Gifiles::tr("다음으로 열기"))
-                    return d;
-            return static_cast<QDialog *>(nullptr);
-        };
-        QTRY_VERIFY((dlg = shownDialog()));
-        auto *list = dlg->findChild<QListWidget *>();
-        QVERIFY(list && list->currentItem());
-        QCOMPARE(list->currentItem()->data(Qt::UserRole).toString(), p("Fake Editor.app"));
-        auto *always = dlg->findChild<QCheckBox *>();
-        QVERIFY(always && always->isChecked() && always->text().contains(QStringLiteral(".qqq")));
-        buttonNamed(dlg, Gifiles::tr("취소"))->click(); // nothing opens, nothing changes
-        QTRY_VERIFY(!dlg);
-        QVERIFY(OpenWith::hasRememberedApp(p("doc.qqq")));
-#endif
-    }
-
     // ` opens the NCD-style folder tree over the file views: typing jumps to the best match,
     // Tab / ⇧Tab to the next ones, arrows walk the tree, Return goes there; Esc or ` closes.
     void folderTreeJumpsToTypedFolder()
@@ -3736,6 +2859,509 @@ private slots:
         tab()->navigate(m_tmp.path());
         QTRY_COMPARE(tab()->path(), m_tmp.path());
         QDir(p(QStringLiteral("tree"))).removeRecursively();
+    }
+
+    // The sidebar's "최근 폴더": browsing a folder doesn't put it there, working in it does — a new
+    // folder made, a command run in the terminal there (cd and ls are only looking).
+    void recentFoldersFollowWorkNotBrowsing()
+    {
+        useTestShell();
+        auto *sb = m_win->findChild<Sidebar *>();
+        QVERIFY(sb);
+        RecentFolders::instance()->clear();
+        const auto restore = qScopeGuard([this] {
+            RecentFolders::instance()->clear();
+            tab()->navigate(m_tmp.path());
+            QDir(p("recent")).removeRecursively();
+        });
+        QVERIFY(makeFixture(QStringLiteral("recent")));
+        for (const char *d : {"recent/looked", "recent/worked", "recent/typed"})
+            QVERIFY(QDir().mkpath(p(QString::fromLatin1(d))));
+        auto shown = [sb] {
+            QStringList out;
+            for (int i = 0; i < sb->topLevelItemCount(); ++i)
+                if (sb->topLevelItem(i)->text(0) == QStringLiteral("최근 폴더"))
+                    for (int j = 0; j < sb->topLevelItem(i)->childCount(); ++j)
+                        out << QDir::fromNativeSeparators(sb->topLevelItem(i)->child(j)->toolTip(0));
+            return out;
+        };
+        tab()->navigate(p("recent/looked"));
+        QTRY_COMPARE(tab()->path(), p("recent/looked"));
+        tab()->navigate(p("recent/worked"));
+        QTRY_COMPARE(tab()->path(), p("recent/worked"));
+        tab()->focusView();
+        key(Qt::Key_N, Qt::ControlModifier | Qt::ShiftModifier); // 새로운 폴더
+        QTRY_VERIFY(QDir(p("recent/worked/무제 폴더")).exists());
+        QTRY_VERIFY(qobject_cast<QLineEdit *>(focus()));
+        key(Qt::Key_Escape);
+        QTRY_COMPARE(shown(), QStringList{p("recent/worked")});
+
+        // The terminal: cd and ls don't count, a command that does something does.
+        tab()->navigate(p("recent/typed"));
+        key(Qt::Key_QuoteLeft, kTerminalMods);
+        TerminalWidget *term = nullptr;
+        QTRY_VERIFY((term = m_win->findChild<TerminalWidget *>()) && term->isVisible());
+        QTRY_VERIFY2_WITH_TIMEOUT(term->isReady(), qPrintable(term->screenText()), 15000);
+        QTRY_COMPARE(QFileInfo(term->shellCwd()).canonicalFilePath(), QFileInfo(p("recent/typed")).canonicalFilePath());
+        term->setFocus();
+#ifdef Q_OS_WIN
+        QTest::keyClicks(term, "Get-ChildItem");
+#else
+        QTest::keyClicks(term, "ls");
+#endif
+        QTest::keyClick(term, Qt::Key_Return);
+        QTest::qWait(500);
+        QCOMPARE(shown(), QStringList{p("recent/worked")});
+#ifdef Q_OS_WIN
+        QTest::keyClicks(term, "Set-Content -Path made.txt -Value x");
+#else
+        QTest::keyClicks(term, "touch made.txt");
+#endif
+        QTest::keyClick(term, Qt::Key_Return);
+        QTRY_VERIFY(QFile::exists(p("recent/typed/made.txt")));
+        auto canon = [](const QStringList &l) {
+            QStringList out;
+            for (const QString &x : l)
+                out << QFileInfo(x).canonicalFilePath();
+            return out;
+        };
+        QTRY_COMPARE(canon(shown()), canon({p("recent/typed"), p("recent/worked")}));
+        QVERIFY(!shown().contains(p("recent/looked")));
+        key(Qt::Key_QuoteLeft, kTerminalMods); // fold again
+
+        // A click on one opens it.
+        tab()->navigate(m_tmp.path());
+        QTreeWidgetItem *row = nullptr;
+        for (int i = 0; i < sb->topLevelItemCount(); ++i)
+            if (sb->topLevelItem(i)->text(0) == QStringLiteral("최근 폴더"))
+                row = sb->topLevelItem(i)->child(1);
+        QVERIFY(row);
+        QTest::mouseClick(sb->viewport(), Qt::LeftButton, {}, sb->visualItemRect(row).center());
+        QTRY_COMPARE(tab()->path(), p("recent/worked"));
+    }
+
+    // The folder tree by mouse: a double click goes into the folder, a click in the drive list picks
+    // the drive; and a Korean name is found while it is still being composed (no Enter needed).
+    void folderTreeMouseAndComposition()
+    {
+        for (const char *d : {"mtree/가나다/깊은곳", "mtree/other", "mtree2/x"})
+            QVERIFY(QDir().mkpath(p(QString::fromUtf8(d))));
+        Settings::instance()->setValue(Settings::FolderTreeRoots, QStringList{p(QStringLiteral("mtree"))});
+        const auto restore = qScopeGuard([this] {
+            FolderTree::instance()->setDrive(QString());
+            Settings::instance()->remove(Settings::FolderTreeRoots);
+            tab()->navigate(m_tmp.path());
+            QDir(p(QStringLiteral("mtree"))).removeRecursively();
+            QDir(p(QStringLiteral("mtree2"))).removeRecursively();
+        });
+        auto norm = [](const QString &path) { return QDir::cleanPath(QDir::fromNativeSeparators(path)).normalized(QString::NormalizationForm_C); };
+        tab()->navigate(p(QStringLiteral("mtree")));
+        QTRY_COMPARE(tab()->path(), p(QStringLiteral("mtree")));
+        tab()->focusView();
+        QTest::keyClick(focus(), '`');
+        auto *panel = m_win->findChild<FolderTreePanel *>();
+        QTRY_VERIFY(panel && panel->isVisible());
+        QTRY_VERIFY(FolderTree::instance()->index() && !FolderTree::instance()->isScanning());
+        QTRY_COMPARE(panel->view()->model()->rowCount(), 4);
+
+        // Composing 깊 (not committed yet) already jumps there.
+        QInputMethodEvent composing(QStringLiteral("깊"), {});
+        QApplication::sendEvent(panel->queryEdit(), &composing);
+        QCOMPARE(norm(panel->currentPath()), norm(p(QStringLiteral("mtree/가나다/깊은곳"))));
+        QInputMethodEvent commit;
+        commit.setCommitString(QStringLiteral("깊"));
+        QApplication::sendEvent(panel->queryEdit(), &commit);
+        QCOMPARE(panel->queryEdit()->text(), QStringLiteral("깊"));
+
+        // A double click on a row goes there.
+        QListView *view = panel->view();
+        QModelIndex other;
+        for (int r = 0; r < view->model()->rowCount(); ++r)
+            if (view->model()->index(r, 0).data().toString() == QStringLiteral("other"))
+                other = view->model()->index(r, 0);
+        QVERIFY(other.isValid());
+        view->scrollTo(other);
+        const QPoint at = view->visualRect(other).center();
+        QTest::mouseClick(view->viewport(), Qt::LeftButton, {}, at);
+        QTest::mouseDClick(view->viewport(), Qt::LeftButton, {}, at);
+        QTRY_VERIFY(!panel->isVisible());
+        QTRY_COMPARE(norm(tab()->path()), norm(p(QStringLiteral("mtree/other"))));
+
+        // ⌘D, then a click on another drive (a folder here) picks it.
+        QTRY_VERIFY(tab()->isAncestorOf(QApplication::focusWidget()));
+        QTest::keyClick(focus(), '`');
+        QTRY_VERIFY(panel->isVisible());
+        QTest::keyClick(panel->queryEdit(), Qt::Key_D, Qt::ControlModifier);
+        QVERIFY(panel->drivesBox()->isVisible());
+        QListWidget *drives = panel->driveList();
+        QTest::keyClick(panel->queryEdit(), Qt::Key_End);
+        QCOMPARE(drives->currentRow(), drives->count() - 1);
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Home);
+        QCOMPARE(drives->currentRow(), 0);
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Up); // wraps to the last
+        QCOMPARE(drives->currentRow(), drives->count() - 1);
+        auto *item = new QListWidgetItem(QStringLiteral("mtree2"), drives); // as a mounted drive would be listed
+        item->setData(Qt::UserRole, p(QStringLiteral("mtree2")));
+        QTest::mouseClick(drives->viewport(), Qt::LeftButton, {}, drives->visualItemRect(item).center());
+        QVERIFY(!panel->drivesBox()->isVisible());
+        QCOMPARE(norm(FolderTree::instance()->drive()), norm(p(QStringLiteral("mtree2"))));
+        QTRY_VERIFY(FolderTree::instance()->index() && !FolderTree::instance()->isScanning());
+        QTRY_COMPARE(panel->view()->model()->rowCount(), 2);
+        QTest::keyClick(panel->queryEdit(), Qt::Key_Escape);
+    }
+
+    // A "선택한 항목들로…" command run quietly (terminal = false) that fails says so, with what it printed;
+    // one that can't even start (a shell that doesn't exist) too. Nothing is selected then.
+    void quietCommandFailureIsReported()
+    {
+        QVariantMap failing{{QStringLiteral("label"), QStringLiteral("실패하는 명령")}, {QStringLiteral("terminal"), false},
+#ifdef Q_OS_WIN
+                            {QStringLiteral("command"), QStringLiteral("Write-Output 'went wrong'; exit 3")}};
+#else
+                            {QStringLiteral("command"), QStringLiteral("echo went wrong; exit 3")}};
+#endif
+        tab()->selectPaths({p("README.md")});
+        QTRY_COMPARE(tab()->selectedPaths().size(), 1);
+        QPointer<QMessageBox> box;
+        auto shown = [&] {
+            for (QWidget *w : QApplication::topLevelWidgets())
+                if (auto *b = qobject_cast<QMessageBox *>(w); b && b->isVisible())
+                    return QPointer<QMessageBox>(b);
+            for (QMessageBox *b : m_win->findChildren<QMessageBox *>())
+                if (b->isVisible())
+                    return QPointer<QMessageBox>(b);
+            return QPointer<QMessageBox>();
+        };
+        m_win->runSelectionCommand(failing, tab()->selectedPaths());
+        QTRY_VERIFY_WITH_TIMEOUT((box = shown()), 20000);
+        QVERIFY2(box->text().contains(QStringLiteral("3")), qPrintable(box->text()));
+        QVERIFY(box->informativeText().contains(QStringLiteral("went wrong")));
+        QCOMPARE(box->detailedText(), TerminalWidget::expandCommand(failing.value(QStringLiteral("command")).toString(), tab()->selectedPaths(), QString(), tab()->path()));
+        box->close();
+        QTRY_VERIFY(!box);
+#ifndef Q_OS_WIN
+        Settings::instance()->setValue(Settings::TermShell, QStringLiteral("/no/such/shell"));
+        const auto restore = qScopeGuard([] { Settings::instance()->setValue(Settings::TermShell, QString()); });
+        m_win->runSelectionCommand(failing, tab()->selectedPaths());
+        QTRY_VERIFY_WITH_TIMEOUT((box = shown()), 20000);
+        QVERIFY2(box->text().contains(QStringLiteral("/no/such/shell")), qPrintable(box->text()));
+        box->close();
+        QTRY_VERIFY(!box);
+#endif
+        m_win->activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(m_win));
+    }
+
+    // Dropping with a modifier: Finder's ⌥ copies and ⌘ moves (Windows/Linux: Ctrl copies, Shift moves).
+    void dropModifiersForceCopyOrMove()
+    {
+        const auto restore = qScopeGuard([this] {
+            tab()->navigate(m_tmp.path());
+            QDir(p("mods")).removeRecursively();
+        });
+        QVERIFY(makeFixture(QStringLiteral("mods")));
+        QVERIFY(QDir().mkpath(p("mods/into")));
+        write(QStringLiteral("mods/a.txt"), "a");
+        tab()->navigate(p("mods"));
+        tab()->setMode(BrowserTab::List, true);
+        QTRY_COMPARE(tab()->itemCount(), 2);
+        auto *tree = qobject_cast<QTreeView *>(tab()->view());
+        auto *proxy = static_cast<FileProxy *>(tree->model());
+        auto dropWith = [&](Qt::Key modKey, Qt::KeyboardModifiers mods) {
+            QTest::keyPress(tree->viewport(), modKey, mods); // what the system reports while dragging
+            QMimeData md;
+            md.setUrls({QUrl::fromLocalFile(p("mods/a.txt"))});
+            const QPoint at = tree->visualRect(proxy->indexForPath(p("mods/into"))).center();
+            QDragEnterEvent enter(at, Qt::CopyAction | Qt::MoveAction, &md, Qt::LeftButton, mods);
+            QApplication::sendEvent(tree->viewport(), &enter);
+            QDragMoveEvent move(at, Qt::CopyAction | Qt::MoveAction, &md, Qt::LeftButton, mods);
+            QApplication::sendEvent(tree->viewport(), &move);
+            QDropEvent drop(QPointF(at), Qt::CopyAction | Qt::MoveAction, &md, Qt::LeftButton, mods);
+            QApplication::sendEvent(tree->viewport(), &drop);
+            QTest::keyRelease(tree->viewport(), modKey, Qt::NoModifier);
+        };
+#ifdef Q_OS_MACOS
+        dropWith(Qt::Key_Alt, Qt::AltModifier); // ⌥: copy, the original stays
+#else
+        dropWith(Qt::Key_Control, Qt::ControlModifier);
+#endif
+        QTRY_VERIFY(QFile::exists(p("mods/into/a.txt")));
+        QVERIFY(QFile::exists(p("mods/a.txt")));
+        QTRY_VERIFY(App::instance()->canUndo());
+        QVERIFY(QFile::remove(p("mods/into/a.txt")));
+        QTest::qWait(300);
+#ifdef Q_OS_MACOS
+        dropWith(Qt::Key_Control, Qt::ControlModifier); // ⌘ (Qt's Control): move
+#else
+        dropWith(Qt::Key_Shift, Qt::ShiftModifier);
+#endif
+        QTRY_VERIFY(QFile::exists(p("mods/into/a.txt")));
+        QTRY_VERIFY(!QFile::exists(p("mods/a.txt")));
+        QTRY_COMPARE(QGuiApplication::queryKeyboardModifiers(), Qt::NoModifier);
+    }
+
+    // 중단 in the status bar stops every running job (two copies at once here; it used to stop only the
+    // last one started), and nothing is left half-copied.
+    void cancelStopsEveryRunningJob()
+    {
+        const auto restore = qScopeGuard([this] {
+            tab()->navigate(m_tmp.path());
+            QDir(p("jobs")).removeRecursively();
+        });
+        QVERIFY(makeFixture(QStringLiteral("jobs")));
+        for (const char *d : {"jobs/big", "jobs/one", "jobs/two"})
+            QVERIFY(QDir().mkpath(p(QString::fromLatin1(d))));
+        for (int i = 0; i < 4000; ++i)
+            write(QStringLiteral("jobs/big/f%1.txt").arg(i), QByteArray(64, 'x'));
+        tab()->navigate(p("jobs"));
+        tab()->setMode(BrowserTab::List, true);
+        QTRY_COMPARE(tab()->itemCount(), 3);
+        QToolButton *cancel = nullptr;
+        for (QToolButton *b : m_win->findChildren<QToolButton *>())
+            if (b->toolTip() == Gifiles::tr("중단"))
+                cancel = b;
+        QVERIFY(cancel && !cancel->isVisible());
+        tab()->selectPaths({p("jobs/big")});
+        QTRY_COMPARE(tab()->selectedPaths().size(), 1);
+        tab()->focusView();
+        key(Qt::Key_C, Qt::ControlModifier);
+        for (const char *into : {"jobs/one", "jobs/two"}) {
+            tab()->navigate(p(QString::fromLatin1(into)));
+            QTRY_COMPARE(tab()->path(), p(QString::fromLatin1(into)));
+            tab()->focusView();
+            key(Qt::Key_V, Qt::ControlModifier);
+        }
+        QTRY_VERIFY(cancel->isVisible());
+        cancel->click();
+        QTRY_VERIFY_WITH_TIMEOUT(!cancel->isVisible(), 20000); // both jobs are over
+        // A folder copy stopped half-way is taken away again: neither copy is left incomplete.
+        QTRY_VERIFY(!QDir(p("jobs/one/big")).exists());
+        QTRY_VERIFY(!QDir(p("jobs/two/big")).exists());
+        QCOMPARE(QDir(p("jobs/big")).entryList(QDir::Files).size(), 4000); // the source is whole
+    }
+
+    // List keys and mouse beyond the basics: ⌘⌥→ unfolds a folder with everything inside it (folders
+    // not read yet too), ⌘⌥← folds it all again (⌥← / ⌥→ alone move between the panes); ⌘A selects all; a double click enters a folder; a right
+    // click selects the item under it (on empty space: nothing); after ⌘⌫ the next item is selected
+    // (the one above when the last went).
+    void listUnfoldsSelectsAndRightClicks()
+    {
+        const auto restore = qScopeGuard([this] {
+            tab()->navigate(m_tmp.path());
+            QDir(p("deep")).removeRecursively();
+        });
+        QVERIFY(makeFixture(QStringLiteral("deep")));
+        QVERIFY(QDir().mkpath(p("deep/a/b/c/d")));
+        write(QStringLiteral("deep/a/b/c/d/leaf.txt"), "x");
+        write(QStringLiteral("deep/x.txt"), "x");
+        write(QStringLiteral("deep/y.txt"), "y");
+        tab()->navigate(p("deep"));
+        tab()->setMode(BrowserTab::List, true);
+        QTRY_COMPARE(tab()->itemCount(), 3);
+        auto *tree = qobject_cast<QTreeView *>(tab()->view());
+        auto *proxy = static_cast<FileProxy *>(tree->model());
+        auto expanded = [&](const char *rel) {
+            const QModelIndex i = proxy->indexForPath(p(QString::fromLatin1(rel)));
+            return i.isValid() && tree->isExpanded(i);
+        };
+        tab()->selectPaths({p("deep/a")});
+        QTRY_COMPARE(tab()->selectedPaths(), QStringList{p("deep/a")});
+        tab()->focusView();
+        key(Qt::Key_Right, Qt::ControlModifier | Qt::AltModifier);
+        QTRY_VERIFY(expanded("deep/a"));
+        QTRY_VERIFY2(expanded("deep/a/b") && expanded("deep/a/b/c") && expanded("deep/a/b/c/d"), "⌘⌥→ unfolds every level");
+        QTRY_VERIFY(proxy->indexForPath(p("deep/a/b/c/d/leaf.txt")).isValid());
+        key(Qt::Key_Left, Qt::ControlModifier | Qt::AltModifier);
+        QTRY_VERIFY(!expanded("deep/a"));
+        key(Qt::Key_Right); // plain → afterwards: one level only, the inner ones closed too
+        QTRY_VERIFY(expanded("deep/a"));
+        QVERIFY(!expanded("deep/a/b"));
+        key(Qt::Key_Left);
+        QTRY_VERIFY(!expanded("deep/a"));
+
+        // ⌘A
+        key(Qt::Key_A, Qt::ControlModifier);
+        QTRY_COMPARE(tab()->selectedPaths().size(), 3);
+
+        // Right click: on an item outside the selection it selects that one; on empty space, nothing.
+        auto rightClick = [&](const QPoint &at) {
+            onNextPopup([](QWidget *w) { w->close(); });
+            QContextMenuEvent e(QContextMenuEvent::Mouse, at, tree->viewport()->mapToGlobal(at));
+            QApplication::sendEvent(tree->viewport(), &e);
+            QTest::qWait(100);
+        };
+        tab()->selectPaths({p("deep/x.txt")});
+        QTRY_COMPARE(tab()->selectedPaths().size(), 1);
+        rightClick(tree->visualRect(proxy->indexForPath(p("deep/y.txt"))).center());
+        QTRY_COMPARE(tab()->selectedPaths(), QStringList{p("deep/y.txt")});
+        rightClick(QPoint(20, tree->viewport()->height() - 5));
+        QTRY_VERIFY(tab()->selectedPaths().isEmpty());
+
+        // ⌘⌫ on the last item selects the one above. (Offscreen, a closed menu leaves no active window.)
+        m_win->activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(m_win));
+        tab()->selectPaths({p("deep/y.txt")});
+        QTRY_COMPARE(tab()->selectedPaths().size(), 1);
+        tab()->focusView();
+        key(Qt::Key_Backspace, Qt::ControlModifier);
+        QTRY_VERIFY(!QFile::exists(p("deep/y.txt")));
+        QTRY_COMPARE(tab()->selectedPaths(), QStringList{p("deep/x.txt")});
+        QTRY_VERIFY(App::instance()->canUndo());
+        key(Qt::Key_Z, Qt::ControlModifier); // back from the trash
+        QTRY_VERIFY(QFile::exists(p("deep/y.txt")));
+
+        // A double click enters a folder.
+        const QRect a = tree->visualRect(proxy->indexForPath(p("deep/a")));
+        const QPoint onName(a.left() + tree->iconSize().width() + 8, a.center().y());
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, {}, onName); // as the system sends it: a click, then the double click
+        QMouseEvent dbl(QEvent::MouseButtonDblClick, QPointF(onName), tree->viewport()->mapToGlobal(QPointF(onName)), Qt::LeftButton,
+                        Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(tree->viewport(), &dbl);
+        QTest::mouseRelease(tree->viewport(), Qt::LeftButton, {}, onName);
+        QTRY_COMPARE(tab()->path(), p("deep/a"));
+    }
+
+    // Column view: the column the keyboard went into extends its selection (⇧↓, ⌘A) and so does the
+    // mouse (⇧-click, ⌘-click) — what is shown selected is what the tab acts on; Return renames there.
+    void columnsSelectAndRename()
+    {
+        const auto restore = qScopeGuard([this] {
+            tab()->setMode(BrowserTab::List, true);
+            tab()->navigate(m_tmp.path());
+            QDir(p("cols")).removeRecursively();
+        });
+        QVERIFY(makeFixture(QStringLiteral("cols")));
+        QVERIFY(QDir().mkpath(p("cols/inner")));
+        for (const char *f : {"one.txt", "two.txt", "three.txt"})
+            write(QStringLiteral("cols/inner/") + QLatin1String(f), "x");
+        const QString one = p("cols/inner/one.txt"), two = p("cols/inner/two.txt"), three = p("cols/inner/three.txt");
+        tab()->navigate(p("cols"));
+        tab()->setMode(BrowserTab::Columns, true);
+        tab()->selectPaths({p("cols/inner")});
+        QTRY_COMPARE(tab()->path(), p("cols/inner"));
+        tab()->focusView();
+        key(Qt::Key_Right); // into its column, once it is read
+        QTRY_COMPARE(tab()->selectedPaths(), QStringList{one});
+        QCoreApplication::processEvents(); // as between two real key presses
+        key(Qt::Key_Down, Qt::ShiftModifier);
+        QTRY_COMPARE(tab()->selectedPaths(), (QStringList{one, three})); // by name: one, three, two
+        key(Qt::Key_A, Qt::ControlModifier);
+        QTRY_COMPARE(tab()->selectedPaths(), (QStringList{one, three, two}));
+
+        auto *col = qobject_cast<QListView *>(focus());
+        QVERIFY(col);
+        auto *proxy = static_cast<FileProxy *>(col->model());
+        auto at = [&](const QString &path) { return col->visualRect(proxy->indexForPath(path)).center(); };
+        QTest::mouseClick(col->viewport(), Qt::LeftButton, {}, at(one));
+        QTRY_COMPARE(tab()->selectedPaths(), QStringList{one});
+        QTest::mouseClick(col->viewport(), Qt::LeftButton, Qt::ShiftModifier, at(two));
+        QTRY_COMPARE(tab()->selectedPaths(), (QStringList{one, three, two}));
+        QTest::mouseClick(col->viewport(), Qt::LeftButton, Qt::ControlModifier, at(three)); // ⌘-click: out again
+        QTRY_COMPARE(tab()->selectedPaths(), (QStringList{one, two}));
+
+        tab()->selectPaths({one});
+        QTRY_COMPARE(tab()->selectedPaths(), QStringList{one});
+        tab()->focusView();
+        key(Qt::Key_Return);
+        QTRY_VERIFY(qobject_cast<QLineEdit *>(focus()));
+        auto *le = qobject_cast<QLineEdit *>(focus());
+        QTRY_COMPARE(le->selectedText(), QStringLiteral("one"));
+        type("uno");
+        key(Qt::Key_Return);
+        QTRY_VERIFY(QFile::exists(p("cols/inner/uno.txt")));
+        QVERIFY(!QFile::exists(one));
+    }
+
+    // Gallery tiles: a long name takes two lines (the second shortened in the middle); painting a folder
+    // of such names and selected tiles in item colors works in both themes.
+    void galleryLongNamesTakeTwoLines()
+    {
+        const QVariant theme = Settings::instance()->value(Settings::ThemeMode);
+        const auto restore = qScopeGuard([this, theme] {
+            Settings::instance()->setValue(Settings::ThemeMode, theme);
+            Settings::instance()->remove(Settings::FileColorSelection);
+            tab()->setMode(BrowserTab::List, true);
+            tab()->navigate(m_tmp.path());
+            QDir(p("tiles")).removeRecursively();
+        });
+        QVERIFY(makeFixture(QStringLiteral("tiles")));
+        write(QStringLiteral("tiles/a rather long file name that cannot fit on one line of a tile.txt"), "x");
+        write(QStringLiteral("tiles/한글로 된 아주 긴 파일 이름이 두 줄로 나뉘어 보이는지 확인하는 문서.md"), "x");
+        write(QStringLiteral("tiles/short.zip"), "x");
+        tab()->navigate(p("tiles"));
+        tab()->setMode(BrowserTab::Gallery, true);
+        QTRY_COMPARE(tab()->itemCount(), 3);
+        Settings::instance()->setValue(Settings::FileColorSelection, true);
+        for (const char *mode : {"light", "dark"}) {
+            Settings::instance()->setValue(Settings::ThemeMode, QString::fromLatin1(mode));
+            key(Qt::Key_A, Qt::ControlModifier);
+            QTRY_COMPARE(tab()->selectedPaths().size(), 3);
+            const QImage img = tab()->view()->viewport()->grab().toImage();
+            QVERIFY(!img.isNull());
+            shot(QStringLiteral("gallery-long-names-%1").arg(QLatin1String(mode)));
+        }
+    }
+
+    // Terminal tabs dragged into another order keep each tab with its shell; a click on a tab of the
+    // folded terminal unfolds it on that tab. The status bar's slider sizes the gallery's icons;
+    // 업데이트 확인… says why a build by hand doesn't update.
+    void terminalTabOrderIconSliderAndUpdateCheck()
+    {
+        useTestShell();
+        auto *bar = m_win->findChild<QTabBar *>(QStringLiteral("termTabs"));
+        auto *stack = m_win->findChild<QStackedWidget *>(QStringLiteral("termStack"));
+        QVERIFY(bar && stack);
+        tab()->navigate(p("Alpha"));
+        key(Qt::Key_QuoteLeft, kTerminalMods);
+        QTRY_COMPARE(bar->count(), 1);
+        auto *first = qobject_cast<TerminalWidget *>(stack->widget(0));
+        QTRY_VERIFY(first && first->isReady());
+        first->setFocus();
+        key(Qt::Key_T, Qt::ControlModifier); // a second tab
+        QTRY_COMPARE(bar->count(), 2);
+        auto *second = qobject_cast<TerminalWidget *>(stack->widget(1));
+        QVERIFY(second && second != first);
+        bar->moveTab(1, 0); // as a drag of the tab does
+        QCOMPARE(stack->widget(0), static_cast<QWidget *>(second));
+        QCOMPARE(stack->widget(1), static_cast<QWidget *>(first));
+        QCOMPARE(stack->currentWidget(), stack->widget(bar->currentIndex()));
+        key(Qt::Key_QuoteLeft, kTerminalMods); // fold
+        QTRY_VERIFY(!first->isVisible() && !second->isVisible());
+        auto *shown = qobject_cast<TerminalWidget *>(stack->widget(bar->currentIndex()));
+        QTest::mouseClick(bar, Qt::LeftButton, {}, bar->tabRect(bar->currentIndex()).center());
+        QTRY_VERIFY(shown->isVisible());
+        QTRY_VERIFY(shown->hasFocus());
+        key(Qt::Key_QuoteLeft, kTerminalMods);
+        QTRY_VERIFY(!shown->isVisible());
+        tab()->navigate(m_tmp.path());
+
+        // The icon size slider (gallery): this folder's size, and the default for new tabs.
+        QSlider *slider = nullptr;
+        for (QSlider *sl : m_win->findChildren<QSlider *>())
+            if (sl->toolTip() == Gifiles::tr("아이콘 크기"))
+                slider = sl;
+        QVERIFY(slider);
+        const QVariant before = Settings::instance()->value(Settings::IconSize);
+        const auto restore = qScopeGuard([before] { Settings::instance()->setValue(Settings::IconSize, before); });
+        tab()->setMode(BrowserTab::Gallery, true);
+        slider->setValue(150);
+        QCOMPARE(Settings::instance()->value(Settings::IconSize).toInt(), 150);
+        QCOMPARE(tab()->view()->iconSize().width(), 150);
+        tab()->setMode(BrowserTab::List, true);
+
+        // 업데이트 확인…: off in a build by hand, and it says why.
+        QString said;
+        onNextPopup([&](QWidget *w) {
+            if (auto *box = qobject_cast<QMessageBox *>(w)) {
+                said = box->text();
+                box->accept();
+            }
+        });
+        m_win->findChild<QAction *>(QStringLiteral("업데이트 확인…"))->trigger();
+        QTRY_VERIFY(!said.isEmpty());
+        QVERIFY2(said.contains(QStringLiteral("Gifiles")) && said.count(QLatin1Char('\n')) >= 2, qPrintable(said));
+        m_win->activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(m_win));
     }
 
     void tabsAndWindows()

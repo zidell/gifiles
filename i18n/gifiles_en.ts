@@ -797,6 +797,14 @@ Shell scripts work too. Example:
         <translation>Without this line the default list (Home, Desktop, Documents, Downloads, etc.) is used.</translation>
     </message>
     <message>
+        <source>사이드바 &apos;최근 폴더&apos;에 보일 폴더 수. 0이면 숨깁니다.
+둘러보기만 한 폴더는 들어가지 않고, 무언가를 한 폴더만 들어갑니다: 항목을 복사·이동·만들기·이름 변경·삭제·압축 풀기 했거나,
+파일을 열었거나, &apos;선택한 항목들로…&apos; 명령이나 터미널 명령(cd, ls 같은 이동·보기 말고)을 실행한 폴더.</source>
+        <translation>How many folders the sidebar&apos;s &quot;Recent Folders&quot; shows. 0 hides it.
+Folders you only browsed aren&apos;t added, only folders where you did something: copied, moved, created, renamed, deleted or extracted items,
+opened a file, or ran a &quot;With Selected Items…&quot; command or a terminal command (other than moving or looking around, like cd or ls).</translation>
+    </message>
+    <message>
         <source>폴더 트리(파일 목록에서 ` 키)에 보일 폴더들. []이면 드라이브 전체 (macOS·Linux는 &quot;/&quot;, Windows는 모든 고정 드라이브).
 네트워크·FUSE 드라이브는 여기에 직접 적었을 때만 들어갑니다.</source>
         <translation>Folders shown in the folder tree (the ` key in the file list). [] means the whole drive (&quot;/&quot; on macOS and Linux, every fixed drive on Windows).
@@ -1373,6 +1381,22 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>Show Hidden Files</translation>
     </message>
     <message>
+        <source>개</source>
+        <translation> folders</translation>
+    </message>
+    <message>
+        <source>숨김</source>
+        <translation>Hidden</translation>
+    </message>
+    <message>
+        <source>최근 폴더:</source>
+        <translation>Recent folders:</translation>
+    </message>
+    <message>
+        <source>사이드바에 보일 개수. 둘러보기만 한 폴더가 아니라 파일을 복사·이동·만들기·삭제했거나, 파일을 열었거나, 명령을 실행한 폴더만 들어갑니다.</source>
+        <translation>How many show in the sidebar. Only folders you worked in are listed — where you copied, moved, created or deleted items, opened a file or ran a command — not ones you only browsed.</translation>
+    </message>
+    <message>
         <source>테마:</source>
         <translation>Theme:</translation>
     </message>
@@ -1877,12 +1901,32 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>Movies</translation>
     </message>
     <message>
+        <source>클릭하면 접거나 펼칩니다</source>
+        <translation>Click to collapse or expand</translation>
+    </message>
+    <message>
         <source>즐겨찾기</source>
         <translation>Favorites</translation>
     </message>
     <message>
+        <source>최근 폴더</source>
+        <translation>Recent Folders</translation>
+    </message>
+    <message>
         <source>위치</source>
         <translation>Locations</translation>
+    </message>
+    <message>
+        <source>즐겨찾기에 추가</source>
+        <translation>Add to Favorites</translation>
+    </message>
+    <message>
+        <source>최근 폴더에서 제거</source>
+        <translation>Remove from Recent Folders</translation>
+    </message>
+    <message>
+        <source>최근 폴더 모두 지우기</source>
+        <translation>Clear Recent Folders</translation>
     </message>
     <message>
         <source>컴퓨터</source>

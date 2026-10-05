@@ -177,7 +177,10 @@ protected:
 // Per-folder view settings live in their own file, keyed by the folder's real path.
 QSettings &folderStore()
 {
-    static QSettings store(QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + QStringLiteral("/folders.ini"),
+    // Beside config.toml when GIFILES_CONFIG_DIR is set (tests, a second copy), like the rest of the state.
+    const QString dir = qEnvironmentVariable("GIFILES_CONFIG_DIR");
+    static QSettings store((dir.isEmpty() ? QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) : dir) +
+                               QStringLiteral("/folders.ini"),
                            QSettings::IniFormat);
     return store;
 }
@@ -189,6 +192,8 @@ QString folderKey(const QString &path)
         canon = QDir::cleanPath(path);
     return QString::fromLatin1(QCryptographicHash::hash(canon.toUtf8(), QCryptographicHash::Sha1).toHex());
 }
+
+constexpr int kUnfoldMax = 500; // folders ⌘⌥→ unfolds at most
 
 constexpr QDir::Filters kBaseFilter = QDir::AllEntries | QDir::NoDotAndDotDot | QDir::AllDirs | QDir::System;
 
@@ -394,6 +399,13 @@ BrowserTab::BrowserTab(const QString &path, Mode mode, bool showHidden, QWidget 
             });
     });
     connect(m_proxy, &QAbstractItemModel::rowsInserted, this, [this] { emit selectionChanged(); });
+    connect(m_proxy, &QAbstractItemModel::rowsInserted, this, [this](const QModelIndex &parent, int first, int last) {
+        if (m_unfoldUnder.isEmpty() || m_mode != List || !m_list->isExpanded(parent)
+            || !util::isInside(m_proxy->filePath(parent), m_unfoldUnder))
+            return;
+        for (int r = first; r <= last; ++r)
+            unfoldAll(m_proxy->index(r, 0, parent));
+    });
     connect(m_proxy, &QAbstractItemModel::rowsRemoved, this, [this] { emit selectionChanged(); });
     // Without its root row the list would show the whole disk from "/".
     m_rootGone = new QTimer(this);
@@ -420,6 +432,7 @@ BrowserTab::BrowserTab(const QString &path, Mode mode, bool showHidden, QWidget 
 void BrowserTab::attachView(QAbstractItemView *v)
 {
     v->installEventFilter(this);
+    v->viewport()->installEventFilter(this); // mouse releases (column view ⇧/⌘-clicks, eventFilter)
     v->setMouseTracking(true);
     v->viewport()->setAttribute(Qt::WA_Hover);
     v->setIconSize(QSize(18, 18));
@@ -528,6 +541,8 @@ void BrowserTab::navigate(const QString &rawPath, bool pushHistory, const QStrin
 void BrowserTab::setPathInternal(const QString &path, bool pushHistory)
 {
     const bool changed = path != m_path;
+    if (changed)
+        m_unfoldUnder.clear();
     if (changed && m_prefsTimer && m_prefsTimer->isActive()) {
         // A view change still waiting to be saved belongs to the folder we are leaving.
         m_prefsTimer->stop();
@@ -650,8 +665,41 @@ void BrowserTab::onCurrentChanged(const QModelIndex &current)
             setPathInternal(dir, false);
         if (!fi.isDir() || util::isPackage(fi))
             m_columnPreview->setPath(p);
+        QTimer::singleShot(0, this, &BrowserTab::adoptColumnSelection); // after QColumnView's own (queued) handling
     }
     emit currentItemChanged(p);
+}
+
+// QColumnView keeps one selection model per column and hands the view's own (the one the tab reads:
+// selectedPaths, the status line, every file operation) to the column holding the current item —
+// but only on its own mouse handling. Moved there by keyboard, the column kept a private model:
+// ⇧↓ and ⌘A there changed what showed on screen and not what ⌘C or ⌘⌫ would act on.
+void BrowserTab::adoptColumnSelection()
+{
+    if (m_mode != Columns)
+        return;
+    QItemSelectionModel *shared = m_columns->selectionModel();
+    QAbstractItemView *active = columnFor(m_columns->currentIndex().parent());
+    if (!active || active->selectionModel() == shared)
+        return;
+    for (QAbstractItemView *v : m_columns->viewport()->findChildren<QAbstractItemView *>()) {
+        if (v == active || v->selectionModel() != shared)
+            continue;
+        // The column that had it keeps showing the way on: the folder open to its right.
+        auto *own = new QItemSelectionModel(m_proxy, v);
+        for (QModelIndex i = m_columns->currentIndex(); i.isValid(); i = i.parent())
+            if (i.parent() == v->rootIndex()) {
+                own->setCurrentIndex(i, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+                break;
+            }
+        v->setSelectionModel(own);
+        v->setFocusPolicy(Qt::NoFocus);
+    }
+    QItemSelectionModel *old = active->selectionModel();
+    active->setSelectionModel(shared);
+    active->setFocusPolicy(Qt::StrongFocus);
+    if (old && old != shared && old->parent() != m_columns)
+        old->deleteLater();
 }
 
 void BrowserTab::goBack()
@@ -977,7 +1025,9 @@ bool BrowserTab::listRight(bool recursive)
     if (!m_proxy->isDir(cur) || util::isPackage(QFileInfo(m_proxy->filePath(cur))))
         return true;
     if (recursive) {
-        m_list->expandRecursively(cur);
+        m_unfoldUnder = m_proxy->filePath(cur);
+        m_unfoldBudget = kUnfoldMax;
+        unfoldAll(cur);
         return true;
     }
     if (!m_list->isExpanded(cur)) {
@@ -989,6 +1039,20 @@ bool BrowserTab::listRight(bool recursive)
     return true;
 }
 
+// Expands a folder and every folder inside it that is read already; the ones read later follow from
+// rowsInserted (QFileSystemModel reads a folder's contents only once it is expanded).
+void BrowserTab::unfoldAll(const QModelIndex &folder)
+{
+    if (m_unfoldBudget <= 0 || !m_proxy->isDir(folder) || util::isPackage(QFileInfo(m_proxy->filePath(folder))))
+        return;
+    --m_unfoldBudget;
+    m_list->expand(folder);
+    if (m_proxy->canFetchMore(folder))
+        m_proxy->fetchMore(folder);
+    for (int r = 0; r < m_proxy->rowCount(folder); ++r)
+        unfoldAll(m_proxy->index(r, 0, folder));
+}
+
 bool BrowserTab::listLeft(bool recursive)
 {
     const QModelIndex cur = m_list->currentIndex().siblingAtColumn(0);
@@ -997,6 +1061,7 @@ bool BrowserTab::listLeft(bool recursive)
         return true;
     }
     if (m_list->isExpanded(cur)) {
+        m_unfoldUnder.clear(); // folded by hand: what is read later stays folded
         if (recursive) {
             std::function<void(const QModelIndex &)> collapseAll = [&](const QModelIndex &i) {
                 for (int r = 0; r < m_proxy->rowCount(i); ++r)
@@ -1023,6 +1088,20 @@ bool BrowserTab::eventFilter(QObject *obj, QEvent *ev)
     if (!widget || !isAncestorOf(widget))
         return false;
     auto *v = qobject_cast<QAbstractItemView *>(obj);
+    // Column view, ⇧-click / ⌘-click: the press extends or toggles the selection, then QColumnView's
+    // own click handling (on the release) sets the clicked item as the "current selection" and drops
+    // the rest. Put back what the press made once it is done.
+    if (ev->type() == QEvent::MouseButtonRelease && m_mode == Columns && widget->parentWidget()
+        && qobject_cast<QAbstractItemView *>(widget->parentWidget())
+        && widget->parentWidget()->parentWidget() == m_columns->viewport()
+        && (static_cast<QMouseEvent *>(ev)->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier))) {
+        const QItemSelection made = m_columns->selectionModel()->selection();
+        QTimer::singleShot(0, this, [this, made] {
+            if (m_mode == Columns && !made.isEmpty())
+                m_columns->selectionModel()->select(made, QItemSelectionModel::ClearAndSelect);
+        });
+        return false;
+    }
     if (ev->type() == QEvent::ShortcutOverride) {
         auto *ke = static_cast<QKeyEvent *>(ev);
         if (v && QApplication::focusWidget() == v) {

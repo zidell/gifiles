@@ -1,4 +1,5 @@
 #include "Settings.h"
+#include "RecentFolders.h"
 #include "FolderTree.h"
 #include "App.h"
 #include "Log.h"
@@ -198,6 +199,11 @@ const QList<Item> &items()
         {Settings::Favorites, Type::StringList, QVariant(),
          Gifiles::tr("사이드바 '즐겨찾기'에 보일 폴더 경로들 (순서대로)."),
          Gifiles::tr("이 줄이 없으면 기본 목록(홈, 데스크탑, 문서, 다운로드 등)을 씁니다.")},
+        {Settings::RecentFoldersCount, Type::Int, 8,
+         Gifiles::tr("사이드바 '최근 폴더'에 보일 폴더 수. 0이면 숨깁니다.\n"
+                     "둘러보기만 한 폴더는 들어가지 않고, 무언가를 한 폴더만 들어갑니다: 항목을 복사·이동·만들기·이름 변경·삭제·압축 풀기 했거나,\n"
+                     "파일을 열었거나, '선택한 항목들로…' 명령이나 터미널 명령(cd, ls 같은 이동·보기 말고)을 실행한 폴더."),
+         {}, 0, 50},
 
         {Settings::FolderTreeRoots, Type::StringList, QVariant(),
          Gifiles::tr("폴더 트리(파일 목록에서 ` 키)에 보일 폴더들. []이면 드라이브 전체 (macOS·Linux는 \"/\", Windows는 모든 고정 드라이브).\n"
@@ -1721,6 +1727,17 @@ SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent, Qt::Window)
     connect(hidden, &QCheckBox::toggled, this, [](bool on) { App::instance()->setShowHidden(on); });
     connect(App::instance(), &App::showHiddenChanged, hidden, &QCheckBox::setChecked);
     f->addRow(QString(), hidden);
+    auto *recent = new QSpinBox(view);
+    recent->setObjectName(QStringLiteral("recentFolders"));
+    recent->setRange(0, RecentFolders::kKept);
+    recent->setSuffix(Gifiles::tr("개"));
+    recent->setSpecialValueText(Gifiles::tr("숨김"));
+    follow(recent, Settings::RecentFoldersCount,
+           [recent] { recent->setValue(Settings::instance()->value(Settings::RecentFoldersCount).toInt()); });
+    connect(recent, &QSpinBox::valueChanged, this, [](int v) { Settings::instance()->setValue(Settings::RecentFoldersCount, v); });
+    f->addRow(Gifiles::tr("최근 폴더:"), recent);
+    f->addRow(QString(), hint(Gifiles::tr("사이드바에 보일 개수. 둘러보기만 한 폴더가 아니라 파일을 복사·이동·만들기·삭제했거나, "
+                                            "파일을 열었거나, 명령을 실행한 폴더만 들어갑니다.")));
     add(QStringLiteral("list"), Gifiles::tr("보기"), view);
 
     // 모양 및 색상

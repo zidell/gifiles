@@ -482,12 +482,18 @@ void FolderTree::noteVisit(const QString &path)
     if (path.isEmpty())
         return;
     ++m_visits[path];
-    if (m_visits.size() > kMaxVisits) { // keep the most visited
-        QList<int> counts = m_visits.values();
-        std::sort(counts.begin(), counts.end(), std::greater<int>());
-        const int cut = counts[kMaxVisits * 4 / 5];
-        for (auto it = m_visits.begin(); it != m_visits.end();)
-            it = it.value() <= cut && it.key() != path ? m_visits.erase(it) : std::next(it);
+    if (m_visits.size() > kMaxVisits) {
+        // Keep the most visited fifth out (this one stays). By rank, not by a count threshold: with
+        // many folders visited equally often (all once, say) a threshold dropped every one of them.
+        QList<QPair<int, QString>> ranked;
+        for (auto it = m_visits.cbegin(); it != m_visits.cend(); ++it)
+            if (it.key() != path)
+                ranked.append({it.value(), it.key()});
+        std::sort(ranked.begin(), ranked.end(), [](const auto &a, const auto &b) {
+            return a.first != b.first ? a.first > b.first : a.second < b.second;
+        });
+        for (qsizetype i = kMaxVisits * 4 / 5 - 1; i < ranked.size(); ++i)
+            m_visits.remove(ranked[i].second);
     }
     m_saveVisits.start();
 #ifdef Q_OS_MACOS

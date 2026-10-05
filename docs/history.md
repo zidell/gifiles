@@ -700,3 +700,62 @@ shortcuts in `../README.md`. Dates are 2026.
   30 MB APFS image mounted as `/Volumes/Work` (Projects/Documents/Photos/Music/Archive), `folder_tree.roots` set to it and
   the volume's dot folders excluded, so the selected row's path shows no real or scratch path; resized to 1600 px and
   pngquant'ed like the others.
+
+## Headless tests split by what they need, coverage of all suites, bugs found (2026-10-05)
+
+- Asked by the user: tests kept taking the keyboard focus. Measured (frontmost app polled with
+  `lsappinfo` while each suite ran): the offscreen suites never did; what did was `local/rebuild-run.sh`
+  (`open` brings the relaunched app to the front, now `open -g`), `GIFILES_SNAPSHOT` runs (22 s in front;
+  `NSApplicationActivationPolicyAccessory` was not enough, `Prohibited` is: `macStayInBackground`, windows
+  render as inactive, `GIFILES_SNAPSHOT_FOREGROUND=1` for active colors) and test binaries started without
+  `QT_QPA_PLATFORM`. Every suite now includes `tests/Headless.h` (offscreen unless set), `ctest` runs them all.
+- Split: `tests/unit_widgets.cpp` (new) holds what needs one widget, not the MainWindow (preview, media,
+  terminal, sidebar, settings pages, dialogs, log); pure logic moved to `unit_core`; `smoke` keeps what needs
+  the whole window. smoke went from 81 tests / 127 s to 64 + the new ones. On macOS the media tests used to
+  skip (AVFoundation answers on the main dispatch queue, which the offscreen platform's event loop never
+  runs); unit_widgets runs the CoreFoundation run loop from a timer and they now play.
+- `GIFILES_CONFIG_DIR` now also moves the app's state (QSettings as ini in `<dir>/state`, `folders.ini`, the
+  debug log), so `unit_core appStartsDrawsAndQuits` can run the real app headless (snapshot mode) without
+  touching the user's session.
+- Coverage of src (all suites, `scripts/coverage.sh`): 85.5 % lines before, see the end of this entry after.
+- Bugs found and fixed:
+  - Crash (2 of 3 full smoke runs): `util::isPackage` called `QFileInfo::isBundle()` on the GUI thread while
+    painting; that makes a CFBundle, and Qt's file-info thread makes CFBundles for the same folders —
+    CoreFoundation's bundle cache raced (SIGSEGV in `CFBundleGetIdentifier`). Now `NSURLIsPackageKey`
+    (`macIsPackage`), which also no longer reads inside the folders (TCC). 0 crashes in the runs since.
+  - A half-typed shell line could be wiped: once the cursor moved inside the line (←, Home, ⌃A, ⌘←, Delete)
+    `m_typed` no longer matched it, Backspace could empty `m_typed` with text still there, and the browser's cd
+    (`^U cd …`) cleared it. Cursor moves now make the line "unknown" until Enter / ⌃C, like history recall.
+  - Terminal titles and OSC 7 folders arriving in pieces shared one static buffer across all terminal tabs.
+  - Scrolled back in a full history (5000 lines), new output moved the view.
+  - Programs that take the mouse got no second click of a double click.
+  - 중단 stopped only the last job started (and its `disconnect()` cut Qt's own connections: the
+    "wildcard call disconnects from destroyed signal" warning); it now stops every running job.
+  - A drop read the modifier keys when it was handled (queued), not when it happened: letting go of ⌥ right
+    after the drop turned a copy into a move. The keys at the drop travel with it now.
+  - Column view: a column entered by keyboard kept a private selection model (QColumnView hands the view's
+    to the current column only on its own mouse handling), so ⇧↓ / ⌘A there changed the screen but not what
+    ⌘C / ⌘⌫ act on; and ⇧-click / ⌘-click lost all but the clicked item (QColumnView's release handler sets
+    it as the "current selection"). `adoptColumnSelection` and a re-apply after such clicks.
+  - ⌘⌥→ unfolded only the first level: QFileSystemModel reads a folder only once it is expanded. Folders
+    read later now unfold too (`unfoldAll`, at most 500).
+  - The folder tree's visit ranking dropped every folder visited as often as the 800th one (with many visited
+    once: all of them) when it passed 1000; now trimmed by rank.
+  - README said ⌥→ unfolds everything; it is ⌘⌥→ (⌥← / ⌥→ move between panes).
+- Not tested on purpose (they'd act on the user's desktop): opening files in other apps, "Finder에서 보기",
+  System Settings from the Full Disk Access guide, dragging a favorite with a real QDrag.
+
+## Recent folders in the sidebar (2026-10-05)
+
+- Asked by the user: "최근 폴더", but only folders where something meaningful was done, not every folder
+  visited. `RecentFolders` notes a folder for every new undo record (copy/move/new folder/rename/trash/extract:
+  destination; a move also its source; a copy's source isn't), a file opened (`OpenWith::open`/`openWith`), a
+  selection command, and a command line entered at the shell's prompt (`commandEntered`; cd, ls, pwd, clear,
+  pushd/popd, exit and PowerShell's equivalents don't count; a line recalled from history does). Newest first,
+  50 kept in QSettings; `sidebar.recent_folders` (default 8, 0 hides) shows how many, also in 설정 → 보기.
+- The section sits between 즐겨찾기 and 위치 whenever `sidebar.recent_folders` > 0, the title alone while
+  empty (the user asked to see it empty too, then found a note line under it unnecessary);
+  every section title (즐겨찾기 / 최근 폴더 / 위치) got a ⌄ / › at its right end (as in Finder, 16 px, 50 % opacity) and folds with one click (Return too; a double
+  click is two toggles), remembered in QSettings `sidebar/folded` (the user asked for folding; all sections got it, one folding alone looked odd); its rows open on
+  click, take drops into the folder, and have 새로운 탭에서 열기 / 즐겨찾기에 추가 / 최근 폴더에서 제거 /
+  최근 폴더 모두 지우기.

@@ -21,7 +21,8 @@ Gifiles는 아래쪽에 터미널이 붙은 파일 관리자입니다 (macOS · 
   Windows  Gifiles.exe --config-path
   Linux    ./Gifiles-*.AppImage --config-path
 
-환경 변수 GIFILES_CONFIG_DIR를 주면 그 폴더의 config.toml을 씁니다.
+환경 변수 GIFILES_CONFIG_DIR를 주면 그 폴더의 config.toml을 쓰고, 창·탭 상태와 최근 폴더,
+폴더별 보기도 그 폴더에 둡니다 (두 번째 사본을 따로 돌릴 때).
 설정 창의 "일반" 탭에도 경로와 "Finder에서 보기" 버튼이 있습니다.
 
 
@@ -120,7 +121,8 @@ Gifiles is a file manager with a terminal attached at the bottom (macOS · Windo
      Linux    ${XDG_CONFIG_HOME:-~/.config}/gifiles/config.toml
    The app prints the path it really uses (prefer it):  Gifiles --config-path
    (macOS: /Applications/Gifiles.app/Contents/MacOS/Gifiles --config-path).
-   GIFILES_CONFIG_DIR overrides the folder. There is no settings file in the install folder.
+   GIFILES_CONFIG_DIR overrides the folder; the window/tab state, recent folders and per-folder
+   views then live there too. There is no settings file in the install folder.
 
 2. Format and editing
    TOML; '#' starts a comment. Above every item the file says what it does, its type, allowed

@@ -70,7 +70,7 @@ Windows/Linux도 같은 CMake 명령에 각 환경의 Qt 경로(`CMAKE_PREFIX_PA
 | 설정 | ⌘, |
 | 터미널 패널 접기/펼치기 | ⌃\` (Windows/Linux: Ctrl+\`) |
 | 선택 항목으로 새로운 폴더 (되돌리기 가능) | ⌃⌘N (Windows/Linux: Ctrl+Alt+N) |
-| 목록에서 폴더 펼치기 / 접기 (⌥: 하위까지) · 더 접을 게 없으면 사이드바로 (사이드바에서 →는 목록으로) | → / ← |
+| 목록에서 폴더 펼치기 / 접기 (⌘⌥: 하위까지, 아직 안 읽은 폴더도) · 더 접을 게 없으면 사이드바로 (사이드바에서 →는 목록으로) | → / ← |
 | 다음·이전 탭 | ⌃⇥ / ⌃⇧⇥ · ⇧⌘] / ⇧⌘[ (Windows: Ctrl+Tab, Ctrl+PgDn/PgUp) |
 | 보기: 갤러리 / 목록 / 컬럼 (Finder와 같은 순서) | ⌘1 / ⌘2 / ⌘3 |
 | 퀵 뷰어 (열린 채 ↑↓←→로 다음 항목, Enter 재생/일시정지, 소리·영상은 ←→ 5초 뒤로/앞으로, 진행 바 클릭 위치로 이동, 방금 재생하던 파일은 다시 열면 멈춘 곳부터 — 끝까지 봤거나 폴더를 옮기면 처음부터) | Space · ⌘Y |
@@ -139,6 +139,13 @@ Windows/Linux도 같은 CMake 명령에 각 환경의 Qt 경로(`CMAKE_PREFIX_PA
 - 도구를 바꾸려면 설정(⌘,) → 선택 항목 메뉴에서 "AI로 실행"의 명령을 고친다(예: `codex exec {prompt}`).
 - 터미널에서 다른 프로그램이 실행 중이면 새 터미널 탭에서 실행하고, 입력 중인 줄이 있으면 끝날 때까지 기다렸다가 실행한다.
 
+## 최근 폴더
+
+사이드바의 "최근 폴더"에는 둘러보기만 한 폴더가 아니라 실제로 무언가를 한 폴더만 최근 순으로 들어간다:
+항목을 복사·이동·만들기·이름 변경·삭제·압축 풀기 한 폴더, 파일을 연 폴더, "선택한 항목들로…" 명령이나
+터미널 명령(`cd`·`ls`처럼 이동하거나 보기만 하는 명령은 제외)을 실행한 폴더. 개수는 설정 → 보기(`sidebar.recent_folders`,
+기본 8, 0이면 숨김). 아직 없을 때도 제목은 보인다. 사이드바의 섹션(즐겨찾기·최근 폴더·위치)은 제목 줄 오른쪽 끝의 화살표가 접힘 상태를 보여 주고, 제목을 한 번 클릭하면(키보드: Return) 접거나 펼친다. 접은 상태는 다음 실행에도 유지된다. 우클릭으로 즐겨찾기에 추가하거나 목록에서 뺄 수 있다.
+
 ## 폴더별 보기 기억
 
 보기 모드, 정렬, 열 너비·순서, 갤러리 아이콘 크기를 바꾸면 그 폴더에 기억했다가 다음에 그대로 연다.
@@ -200,12 +207,15 @@ Windows PowerShell `"…"`를 쉼표로 이음: 공백·한글·따옴표·줄�
 
 ## 테스트
 
-`tests/smoke.cpp`는 실제 창을 화면 없이 띄워 키 입력으로 조작하는 E2E 테스트다. `tests/unit_fileops.cpp`(파일 작업과 되돌리기),
-`tests/unit_core.cpp`(설정·TOML·명령 인용·명령행 옵션)는 창 없이 도는 단위 테스트다.
+모든 테스트는 헤드리스로 돈다(Qt offscreen 플랫폼, `tests/Headless.h`): 창이 화면에 뜨거나 포커스를 가져가지 않는다.
+`tests/smoke.cpp`는 실제 메인 창을 화면 없이 띄워 키 입력으로 조작하는 E2E 테스트, `tests/unit_widgets.cpp`는 미리보기·터미널·
+사이드바·설정 창 같은 위젯을 하나씩 확인하는 테스트, `tests/unit_fileops.cpp`(파일 작업과 되돌리기)·`tests/unit_core.cpp`(설정·TOML·
+명령 인용·명령행 옵션)·`tests/unit_update.cpp`(자동 업데이트)는 창 없는 단위 테스트다.
 
 ```sh
-cmake --build build && QT_QPA_PLATFORM=offscreen OUT=/tmp/shots ./build/gifiles_smoke
-QT_QPA_PLATFORM=offscreen ./build/gifiles_unit_fileops && QT_QPA_PLATFORM=offscreen ./build/gifiles_unit_core
+cmake --build build && ctest --test-dir build --output-on-failure
+OUT=/tmp/shots ./build/gifiles_smoke   # 스크린샷도 저장
+scripts/coverage.sh                    # 모든 스위트를 합친 줄 커버리지 (build-cov)
 ```
 
 ## 구조

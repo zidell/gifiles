@@ -48,18 +48,25 @@ Discussions and Wiki are off: the README says requests aren't taken (fork under 
 
 ## Workflow (every change)
 
-1. Build and run the tests:
-   `cmake --build build && for t in smoke unit_fileops unit_core unit_update; do QT_QPA_PLATFORM=offscreen ./build/gifiles_$t || break; done`
-   (configure once: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=$(brew --prefix qt)`)
-   Add or extend a test for each behavior change: UI behavior in `tests/smoke.cpp`, file operations
-   and their undo in `tests/unit_fileops.cpp`, config/TOML/command quoting/helpers and the
-   command-line options in `tests/unit_core.cpp` (it runs the built app), updates in
-   `tests/unit_update.cpp`. Coverage: a
-   `build-cov` with `-fprofile-instr-generate -fcoverage-mapping`, then `xcrun llvm-cov report`.
+1. Build and run the tests: `cmake --build build && ctest --test-dir build --output-on-failure`
+   (configure once: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=$(brew --prefix qt)`;
+   one suite: `./build/gifiles_<suite> [test names]`).
+   **Every test is headless and must stay so** (the user works while they run): each suite includes
+   `tests/Headless.h` first, which puts it on Qt's offscreen platform unless `QT_QPA_PLATFORM` is set;
+   never launch the app or a real window from a test, never use `open` without `-g`.
+   Put each test where it needs the least: logic without widgets (TOML, settings, quoting, helpers,
+   RecentFolders, the CLI options — it runs the built app) in `tests/unit_core.cpp`; file operations
+   and their undo in `tests/unit_fileops.cpp`; updates in `tests/unit_update.cpp`; one widget on its
+   own (preview, terminal, sidebar, settings window, dialogs) in `tests/unit_widgets.cpp`; only what
+   needs the whole MainWindow (keys across panes, tabs, the list ↔ terminal link) in `tests/smoke.cpp`.
+   Add or extend a test for each behavior change. Coverage of all suites together:
+   `scripts/coverage.sh` (instrumented `build-cov`; `scripts/coverage.sh show src/X.cpp` for lines).
 2. Release build in `build-rel` (see README); on a developer machine, `local/` (above).
 3. For UI changes, check real rendering (native icons, dark mode):
    `GIFILES_SNAPSHOT=<dir> build-rel/Gifiles.app/Contents/MacOS/Gifiles <folder>` saves
    list/gallery/column screenshots of the first window (first row selected in list) and quits.
+   On macOS it runs in the background (`macStayInBackground`: never activated, the user's focus
+   stays), so windows render as inactive; `GIFILES_SNAPSHOT_FOREGROUND=1` when active colors matter.
    Put scratch output in the session scratchpad, not in the repo. `sips -c H W --cropOffset Y X`
    crops; a tiny Swift script with `NSBitmapImageRep.colorAt` can sample pixel colors.
 
@@ -238,6 +245,16 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
 - **Look:** colors come from `Theme::colors()` (light/dark, system accent); icons are line glyphs in
   `Theme.cpp` (SVG has no #AARRGGBB — use stroke-opacity). Don't hard-code colors in widgets
   (exception: the magnifier cursor, black/white so it reads on any image).
+- **Recent folders** (`RecentFolders`): only work counts, never browsing — a new undo record
+  (`App::recordDone` → `noteRecord`), a file opened (`OpenWith::open` / `openWith`), a selection command
+  (`runCommandNow`), a line entered at the shell's prompt (`TerminalWidget::commandEntered`; `cd`, `ls` and
+  other looking/moving commands don't count, `isNavigationCommand`). A new kind of work notes its folder
+  there too. The list is state (QSettings `recent/folders`, 50 kept); how many show is
+  config.toml `sidebar.recent_folders` (0 hides the section). "위치" is no longer always the second
+  section: find sections by title.
+- **Packages on macOS:** `util::isPackage` asks `NSURLIsPackageKey` (`macIsPackage`), never
+  `QFileInfo::isBundle()`: that makes a CFBundle on the GUI thread, which raced with the CFBundles Qt's
+  file-info thread makes for the same folders and crashed in `CFBundleGetIdentifier`.
 - **Tests must pass on all three platforms:** use the per-platform key modifiers at the top of
   `tests/smoke.cpp` (`kTerminalMods`, …), `np()` for paths as the shell prints them, and no Unix-only
   tools on Windows. In CI no temp dir is special; jobs finish later than locally, so wait for a
@@ -259,7 +276,8 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
 | `src/Preview` | preview widget, `ZoomArea`, the Quick Look window |
 | `src/SystemPreview*` | the OS's own preview of office documents & co. (macOS Quick Look, Windows preview handlers) |
 | `src/TerminalWidget`, `src/Pty*` | libvterm terminal, pty (forkpty / ConPTY), list integration, queued commands |
-| `src/Sidebar`, `src/PathBar` | favorites & volumes, breadcrumb / go-to-folder |
+| `src/Sidebar`, `src/PathBar` | favorites, recent folders & volumes, breadcrumb / go-to-folder |
+| `src/RecentFolders` | the sidebar's "최근 폴더": folders where something was done (QSettings state) |
 | `src/FolderIndex`, `src/FolderTree` | the NCD-style folder tree (\`): index of every folder (scan, search, cache file), background scans, the panel over the whole window |
 | `src/Settings` | preferences in config.toml (schema, load/watch/save, check) and the settings window (⌘,: 일반/보기/모양 및 색상/미리보기/터미널/선택 항목 메뉴/단축키) |
 | `src/Shortcuts` | built-in keys of the menu actions, the user's keys, rebinding |
@@ -274,6 +292,8 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
 | `src/Permissions` | macOS Full Disk Access guide |
 | `src/Theme`, `src/MacWindow.mm` | stylesheet, colors, glyphs, file colors; macOS title bar, window animation |
 | `tests/smoke.cpp` | end-to-end tests driving a real window with synthetic input, run on all three platforms in CI |
+| `tests/unit_widgets.cpp` | single widgets without a MainWindow: preview, media, terminal, sidebar, settings window, "다음으로 열기" |
+| `tests/Headless.h`, `scripts/coverage.sh` | every suite on the offscreen platform; coverage of all suites together |
 | `tests/unit_fileops.cpp`, `tests/unit_core.cpp`, `tests/unit_update.cpp` | windowless tests: file operations and undo; TOML, settings, command quoting, helpers, the CLI options; automatic updates |
 | `third_party/libvterm` | vendored libvterm 0.3.3, built where no system package exists (Windows, Linux CI) |
 | `packaging/icon` | app icon: `gifiles.svg` is the source; `.icns` (macOS bundle) and `.ico` (Windows, via `packaging/windows/gifiles.rc`) are rendered from it — re-render both when it changes |

@@ -1,4 +1,6 @@
 #include "FileProxy.h"
+
+#include <QGuiApplication>
 #include "Settings.h"
 #include "Util.h"
 
@@ -186,7 +188,7 @@ bool FileProxy::dropMimeData(const QMimeData *data, Qt::DropAction action, int r
 {
     if (!canDropMimeData(data, action, row, column, parent))
         return false;
-    emit dropRequested(data->urls(), dropTarget(parent), action);
+    emit dropRequested(data->urls(), dropTarget(parent), action, QGuiApplication::queryKeyboardModifiers());
     // Returning false keeps the source view from trying to remove the dragged rows itself.
     return false;
 }

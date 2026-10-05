@@ -52,6 +52,7 @@ public:
     static constexpr const char *PreviewTextFontSize = "preview/text_font_size"; // code, config: fixed-width
     static constexpr const char *PreviewDocFontSize = "preview/doc_font_size";   // txt, md: UI font
     static constexpr const char *Favorites = "sidebar/favorites";             // folder paths
+    static constexpr const char *RecentFoldersCount = "sidebar/recent_folders"; // int, 0 = no "최근 폴더"
     // [{id?, label, key, terminal, command}], the context menu's "선택한 항목들로…"; the built-in ones
     // (id "new_folder", "zip", "ai") can be changed but not removed.
     static constexpr const char *SelectionCommands = "selection_menu/commands";
