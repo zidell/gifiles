@@ -50,6 +50,15 @@ MainWindow *App::newWindow(const QStringList &tabPaths, QWidget *near)
     return w;
 }
 
+QList<MainWindow *> App::windows() const
+{
+    QList<MainWindow *> out;
+    for (const auto &w : m_windows)
+        if (w)
+            out << w;
+    return out;
+}
+
 void App::restoreSession()
 {
     QSettings s;

@@ -2489,6 +2489,76 @@ private slots:
         QVERIFY(m_win->isVisible());
     }
 
+    // Tabs between windows: a tab moves into another window with its history; pulled out it becomes a window
+    // of its own; 모든 윈도우 합치기 gathers every tab, and a window left without tabs closes. The drags
+    // themselves (tabBarEvent, the system window move) can't be driven offscreen; their drop target can.
+    void tabsMoveBetweenWindows()
+    {
+        auto *tabs1 = m_win->findChild<QTabWidget *>();
+        const int before = tabs1->count();
+        QPointer<MainWindow> w2 = App::instance()->newWindow({p("Alpha"), p("Beta")}, m_win);
+        QPointer<MainWindow> w3;
+        const auto restore = qScopeGuard([&] {
+            for (const QPointer<MainWindow> &w : {w2, w3})
+                if (w)
+                    w->close();
+            while (tabs1->count() > before)
+                emit tabs1->tabCloseRequested(tabs1->count() - 1);
+            m_win->activateWindow();
+            (void)QTest::qWaitForWindowActive(m_win);
+        });
+        QVERIFY(QTest::qWaitForWindowExposed(w2));
+        auto *tabs2 = w2->findChild<QTabWidget *>();
+        // The drop target is the other window whose toolbar + tab bar holds the point.
+        QCOMPARE(m_win->tabDropTarget(w2->tabDropZone().center()), w2.data());
+        QVERIFY(!m_win->tabDropTarget(w2->tabDropZone().bottomLeft() + QPoint(0, 40)));
+        QVERIFY(!w2->tabDropTarget(w2->tabDropZone().center())); // never its own window
+
+        auto *beta = static_cast<BrowserTab *>(tabs2->widget(1));
+        beta->navigate(p("Alpha"));
+        QTRY_COMPARE(beta->path(), p("Alpha"));
+        w2->moveTabTo(1, m_win);
+        QCOMPARE(tabs2->count(), 1);
+        QCOMPARE(tabs1->count(), before + 1);
+        QCOMPARE(m_win->tab(), beta);
+        QVERIFY(beta->canGoBack()); // its history came along
+        QCOMPARE(tabs1->tabText(tabs1->indexOf(beta)), util::displayName(p("Alpha")));
+
+        w3 = m_win->detachTab(tabs1->indexOf(beta), m_win->frameGeometry().topRight() + QPoint(300, 200));
+        QVERIFY(w3);
+        QCOMPARE(w3->tab(), beta);
+        QCOMPARE(w3->findChild<QTabWidget *>()->count(), 1);
+        QCOMPARE(tabs1->count(), before);
+        QVERIFY(!w2->detachTab(0, QPoint())); // a window's only tab stays put
+
+        // Pulled off the tab bar with the mouse and let go outside every window: a window of its own.
+        w2->addTab(p("Beta"), false, true);
+        QTabBar *bar = tabs2->tabBar();
+        QTRY_VERIFY(bar->isVisible());
+        QPointer<BrowserTab> pulled = static_cast<BrowserTab *>(tabs2->widget(1));
+        const QPoint from = bar->tabRect(1).center();
+        QTest::mousePress(bar, Qt::LeftButton, {}, from);
+        QTest::mouseMove(bar, from + QPoint(0, 3 * bar->height()));
+        const QPoint away = w2->frameGeometry().bottomRight() + QPoint(200, 200);
+        QTest::mouseMove(bar, bar->mapFromGlobal(away));
+        QTest::mouseRelease(bar, Qt::LeftButton, {}, bar->mapFromGlobal(away));
+        QCOMPARE(tabs2->count(), 1);
+        QVERIFY(pulled && pulled->window() != w2.data() && pulled->window() != m_win);
+        QPointer<MainWindow> w4 = qobject_cast<MainWindow *>(pulled->window());
+        QVERIFY(w4);
+        const auto closeW4 = qScopeGuard([w4] {
+            if (w4)
+                w4->close();
+        });
+
+        m_win->mergeAllWindows();
+        QCOMPARE(tabs1->count(), before + 3);
+        QTRY_VERIFY(!w4 || !w4->isVisible());
+        QTRY_VERIFY(!w2 || !w2->isVisible());
+        QTRY_VERIFY(!w3 || !w3->isVisible());
+        QVERIFY(tabs1->indexOf(beta) >= 0);
+    }
+
     void pasteConflictsAskAndReplaceIsUndoable()
     {
         // Pasting onto names already there asks: 둘 다 유지 / 건너뛰기 / 대치 / 중단. Replacing puts the old

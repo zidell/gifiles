@@ -1652,6 +1652,10 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>しまう</translation>
     </message>
     <message>
+        <source>모든 윈도우 합치기</source>
+        <translation>すべてのウインドウを結合</translation>
+    </message>
+    <message>
         <source>다음 탭 보기</source>
         <translation>次のタブを表示</translation>
     </message>

@@ -1653,6 +1653,10 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>Minimize</translation>
     </message>
     <message>
+        <source>모든 윈도우 합치기</source>
+        <translation>Merge All Windows</translation>
+    </message>
+    <message>
         <source>다음 탭 보기</source>
         <translation>Show Next Tab</translation>
     </message>

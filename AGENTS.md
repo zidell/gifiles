@@ -155,6 +155,15 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   up unfolds at that height, dragging an open one down to the bar folds it. No animation.
 - **Terminal text:** libvterm marks the right half of double-width characters with 0xFFFFFFFF —
   skip those cells; macOS file names are NFD, so compose cell text to NFC before drawing.
+- **Tabs between windows** (`MainWindow::tabBarEvent`, `moveTabTo`, `detachTab`, `mergeAllWindows`): the tab bar's
+  own drag only reorders; leaving the bar by more than its height pulls the tab out (no QDrag: on macOS a drop
+  outside any window would slide back, an animation). Let go over another window's tab area (`tabDropZone`:
+  toolbar down to the tab bar, so a window whose single tab hides the bar still takes drops) and the BrowserTab
+  itself moves there with its history and view (`takeTab` disconnects `connectTab`'s connections, `adoptTab`
+  makes the new window's); outside every window it becomes a new window. A window dragged by its toolbar
+  (`startSystemMove`, Qt gets no mouse events meanwhile) polls the button (`macLeftButtonDown`,
+  `GetAsyncKeyState`) and merges into the window whose tab area is under the pointer when let go; not on Linux
+  (no way to see the release there). A window left without tabs closes.
 - **Terminal mouse and IME** (same rules as tuidock's own terminal): over a program that takes the mouse, a left
   press is held until release — released in the same cell it goes as press + release with its modifiers, dragged
   to another cell it becomes a text selection (Shift no longer means "select": Shift-click reaches the program,

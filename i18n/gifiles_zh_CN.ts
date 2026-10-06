@@ -1652,6 +1652,10 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>最小化</translation>
     </message>
     <message>
+        <source>모든 윈도우 합치기</source>
+        <translation>合并所有窗口</translation>
+    </message>
+    <message>
         <source>다음 탭 보기</source>
         <translation>显示下一个标签页</translation>
     </message>

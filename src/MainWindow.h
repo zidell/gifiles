@@ -43,6 +43,15 @@ public:
     // {prompt} first if it has one; in the terminal, or quietly when its terminal = false.
     void runSelectionCommand(const QVariantMap &command, const QStringList &paths);
 
+    // Tabs between windows (Finder, Chrome): a tab dragged off the tab bar becomes a window of its own; dropped on
+    // another window's tab area (toolbar + tab bar) it joins that window. A window dragged by its toolbar onto
+    // another window's tab area joins it with all its tabs. The tab keeps its history, selection and view.
+    void moveTabTo(int index, MainWindow *target); // after the target's current tab; the last tab closes this window
+    MainWindow *detachTab(int index, const QPoint &globalPos); // into a new window under that point
+    void mergeAllWindows(); // 윈도우 → 모든 윈도우 합치기
+    QRect tabDropZone() const; // global
+    MainWindow *tabDropTarget(const QPoint &globalPos) const; // another window whose tab area has the point
+
 protected:
     void closeEvent(QCloseEvent *e) override;
     bool eventFilter(QObject *obj, QEvent *ev) override;
@@ -61,6 +70,12 @@ private:
     QAction *act(const QString &text, std::function<void()> fn);
 
     void connectTab(BrowserTab *t);
+    BrowserTab *takeTab(int index);
+    void adoptTab(BrowserTab *t);
+    bool tabBarEvent(QEvent *ev);
+    void finishTabDrag(const QPoint &globalPos);
+    void setDropHighlight(MainWindow *target); // outlines the tab area a drop would go to (nullptr: none)
+    void watchWindowMove(); // while the system moves this window: a drop on another window's tab area merges
     void onTabChanged();
     void forgetPlaybackOutside(const QString &folder);
     void updateNav();
@@ -174,4 +189,14 @@ private:
     QList<QAction *> m_goPlaces;
     QAction *m_folderTreeAct = nullptr;
     FolderTreePanel *m_folderTree = nullptr;
+
+    // Dragging a tab off the bar (tabBarEvent)
+    QPointer<BrowserTab> m_tabDragTab;
+    QPoint m_tabDragStart;
+    bool m_tabDragging = false, m_tabSyntheticRelease = false;
+    QLabel *m_tabDragGhost = nullptr;
+    QPointer<MainWindow> m_dropHighlightOn;
+    QWidget *m_dropOutline = nullptr; // shown on this window while a drop would land here
+    QTimer *m_moveWatch = nullptr;
+    QPoint m_moveStartPos;
 };

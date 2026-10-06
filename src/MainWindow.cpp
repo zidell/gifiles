@@ -62,6 +62,9 @@
 #include <QVBoxLayout>
 #include <QWindow>
 #include <QtConcurrent>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 namespace {
 
@@ -72,6 +75,18 @@ constexpr int kTitleBarHeight = 46;
 #endif
 
 const QString kCutMime = QStringLiteral("application/x-gifiles-cut");
+
+// Whether the left button is down now, also while the system moves a window (Qt gets no release then).
+bool leftButtonDown()
+{
+#if defined(Q_OS_MACOS)
+    return macLeftButtonDown();
+#elif defined(Q_OS_WIN)
+    return GetAsyncKeyState(GetSystemMetrics(SM_SWAPBUTTON) ? VK_RBUTTON : VK_LBUTTON) & 0x8000;
+#else
+    return QGuiApplication::mouseButtons() & Qt::LeftButton;
+#endif
+}
 const QString kWinDropEffect = QStringLiteral("application/x-qt-windows-mime;value=\"Preferred DropEffect\"");
 
 class AiPromptPopup final : public QWidget {
@@ -125,6 +140,7 @@ MainWindow::MainWindow(const QStringList &tabPaths, QWidget *parent) : QMainWind
     m_tabs->setTabBarAutoHide(true);
     m_tabs->tabBar()->setExpanding(true);
     m_tabs->tabBar()->setDrawBase(false);
+    m_tabs->tabBar()->installEventFilter(this); // dragging a tab off the bar (tabBarEvent)
     m_previewPane = new PreviewWidget(PreviewWidget::Pane, this);
     m_previewPane->hide();
 
@@ -555,6 +571,7 @@ void MainWindow::createMenus()
 
     QMenu *win = menuBar()->addMenu(Gifiles::tr("윈도우"));
     win->addAction(act(QStringLiteral("최소화"), [this] { showMinimized(); }));
+    win->addAction(act(QStringLiteral("모든 윈도우 합치기"), &MainWindow::mergeAllWindows));
     win->addSeparator();
     win->addActions({m_nextTabAct, m_prevTabAct});
     win->addSeparator();
@@ -752,6 +769,8 @@ void MainWindow::placeFolderTree()
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *ev)
 {
+    if (obj == m_tabs->tabBar() && tabBarEvent(ev))
+        return true;
     if (obj == this && m_folderTree && m_folderTree->isVisible() && ev->type() == QEvent::Resize)
         placeFolderTree();
     if (obj == m_sidebar && ev->type() == QEvent::ShortcutOverride) {
@@ -774,6 +793,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *ev)
     }
     if (obj == m_toolbar || obj == m_sidebarTop) {
         if (ev->type() == QEvent::MouseButtonPress && static_cast<QMouseEvent *>(ev)->button() == Qt::LeftButton) {
+            watchWindowMove();
             windowHandle()->startSystemMove();
             return true;
         }
@@ -1260,6 +1280,207 @@ void MainWindow::closeTab(int index)
     QWidget *w = m_tabs->widget(index);
     m_tabs->removeTab(index);
     w->deleteLater();
+}
+
+// ---------------------------------------------------------------------------
+// Tabs between windows
+
+BrowserTab *MainWindow::takeTab(int index)
+{
+    auto *t = static_cast<BrowserTab *>(m_tabs->widget(index));
+    disconnect(t, nullptr, this, nullptr); // connectTab's connections; the new window makes its own
+    for (QAction *a : {m_renameAct, m_quickLookAct, m_openAct, m_folderTreeAct})
+        t->removeAction(a);
+    m_tabs->removeTab(index);
+    return t;
+}
+
+void MainWindow::adoptTab(BrowserTab *t)
+{
+    const int i = m_tabs->insertTab(m_tabs->currentIndex() + 1, t, QString());
+    connectTab(t);
+    updateTabTitle(t);
+    m_tabs->setCurrentIndex(i);
+    t->focusView();
+}
+
+void MainWindow::moveTabTo(int index, MainWindow *target)
+{
+    if (!target || target == this || index < 0 || index >= m_tabs->count())
+        return;
+    Log::write("tabs", QStringLiteral("move tab %1 to another window").arg(static_cast<BrowserTab *>(m_tabs->widget(index))->path()));
+    const bool last = m_tabs->count() == 1;
+    target->adoptTab(takeTab(index));
+    target->raise();
+    target->activateWindow();
+    if (last)
+        close();
+}
+
+MainWindow *MainWindow::detachTab(int index, const QPoint &globalPos)
+{
+    if (m_tabs->count() < 2 || index < 0 || index >= m_tabs->count())
+        return nullptr;
+    BrowserTab *t = takeTab(index);
+    Log::write("tabs", QStringLiteral("tab to a new window: %1").arg(t->path()));
+    MainWindow *w = App::instance()->newWindow({t->path()}, this);
+    QWidget *fresh = w->m_tabs->widget(0); // newWindow's own tab for the folder; ours replaces it
+    w->adoptTab(t);
+    w->m_tabs->removeTab(w->m_tabs->indexOf(fresh));
+    fresh->deleteLater();
+    // The window comes up with its tab bar under the pointer, as if the tab had been pulled out of it.
+    const QRect zone = w->tabDropZone();
+    w->move(w->pos() + globalPos - QPoint(zone.left() + zone.width() / 2, zone.bottom() - 10));
+    return w;
+}
+
+void MainWindow::mergeAllWindows()
+{
+    for (MainWindow *w : App::instance()->windows())
+        if (w != this)
+            while (w->m_tabs->count() > 0)
+                w->moveTabTo(0, this); // its last tab closes it
+}
+
+QRect MainWindow::tabDropZone() const
+{
+    // From the top of the window (toolbar) down to the tab bar's bottom (the toolbar alone while it's hidden).
+    const QPoint tl = m_tabs->mapToGlobal(QPoint(0, 0));
+    const int top = mapToGlobal(QPoint(0, 0)).y();
+    const int bottom = tl.y() + (m_tabs->tabBar()->isVisible() ? m_tabs->tabBar()->height() : 0);
+    return QRect(QPoint(tl.x(), top), QPoint(tl.x() + m_tabs->width() - 1, bottom));
+}
+
+MainWindow *MainWindow::tabDropTarget(const QPoint &globalPos) const
+{
+    MainWindow *found = nullptr;
+    for (MainWindow *w : App::instance()->windows()) {
+        if (w == this || !w->isVisible() || w->isMinimized() || !w->tabDropZone().contains(globalPos))
+            continue;
+        if (QApplication::topLevelAt(globalPos) == w)
+            return w; // the one in front there
+        if (!found)
+            found = w;
+    }
+    return found;
+}
+
+void MainWindow::setDropHighlight(MainWindow *target)
+{
+    if (m_dropHighlightOn == target)
+        return;
+    if (m_dropHighlightOn && m_dropHighlightOn->m_dropOutline)
+        m_dropHighlightOn->m_dropOutline->hide();
+    m_dropHighlightOn = target;
+    if (!target)
+        return;
+    if (!target->m_dropOutline) {
+        target->m_dropOutline = new QWidget(target);
+        target->m_dropOutline->setAttribute(Qt::WA_TransparentForMouseEvents);
+        target->m_dropOutline->setAttribute(Qt::WA_StyledBackground);
+    }
+    QWidget *o = target->m_dropOutline;
+    o->setStyleSheet(QStringLiteral("border: 2px solid %1; border-radius: 6px; background: transparent;").arg(Theme::colors().accent.name()));
+    const QRect zone = target->tabDropZone();
+    o->setGeometry(QRect(target->mapFromGlobal(zone.topLeft()), zone.size()));
+    o->raise();
+    o->show();
+}
+
+// The tab bar's own drag only reorders; once the pointer leaves the bar by more than its height the tab is
+// pulled out instead: a small picture of it follows the pointer, and the release decides (finishTabDrag).
+bool MainWindow::tabBarEvent(QEvent *ev)
+{
+    QTabBar *bar = m_tabs->tabBar();
+    switch (ev->type()) {
+    case QEvent::MouseButtonPress: {
+        auto *me = static_cast<QMouseEvent *>(ev);
+        const int i = me->button() == Qt::LeftButton ? bar->tabAt(me->position().toPoint()) : -1;
+        m_tabDragTab = i >= 0 ? static_cast<BrowserTab *>(m_tabs->widget(i)) : nullptr;
+        m_tabDragStart = me->globalPosition().toPoint();
+        m_tabDragging = false;
+        return false;
+    }
+    case QEvent::MouseMove: {
+        auto *me = static_cast<QMouseEvent *>(ev);
+        if (!m_tabDragTab || !(me->buttons() & Qt::LeftButton))
+            return false;
+        const QPoint g = me->globalPosition().toPoint();
+        if (!m_tabDragging) {
+            if (bar->rect().adjusted(0, -bar->height(), 0, bar->height()).contains(bar->mapFromGlobal(g)) || m_tabs->count() < 2)
+                return false;
+            m_tabDragging = true;
+            // End the bar's own reordering drag (it puts the tab down where it is).
+            m_tabSyntheticRelease = true;
+            QMouseEvent release(QEvent::MouseButtonRelease, bar->mapFromGlobal(g), g, Qt::LeftButton, Qt::NoButton, me->modifiers());
+            QApplication::sendEvent(bar, &release);
+            m_tabSyntheticRelease = false;
+            m_tabDragGhost = new QLabel(nullptr, Qt::ToolTip | Qt::FramelessWindowHint);
+            m_tabDragGhost->setAttribute(Qt::WA_TransparentForMouseEvents);
+            m_tabDragGhost->setAttribute(Qt::WA_ShowWithoutActivating);
+            m_tabDragGhost->setPixmap(bar->grab(bar->tabRect(m_tabs->indexOf(m_tabDragTab))));
+        }
+        m_tabDragGhost->move(g + QPoint(12, 12)); // off the pointer, so the window under it is what counts
+        m_tabDragGhost->show();
+        setDropHighlight(tabDropTarget(g));
+        return true;
+    }
+    case QEvent::MouseButtonRelease:
+        if (m_tabSyntheticRelease || !m_tabDragging) {
+            if (!m_tabSyntheticRelease)
+                m_tabDragTab = nullptr;
+            return false;
+        }
+        finishTabDrag(static_cast<QMouseEvent *>(ev)->globalPosition().toPoint());
+        return true;
+    default:
+        return false;
+    }
+}
+
+void MainWindow::finishTabDrag(const QPoint &globalPos)
+{
+    delete m_tabDragGhost;
+    m_tabDragGhost = nullptr;
+    setDropHighlight(nullptr);
+    m_tabDragging = false;
+    const int index = m_tabDragTab ? m_tabs->indexOf(m_tabDragTab) : -1;
+    m_tabDragTab = nullptr;
+    if (index < 0)
+        return;
+    if (MainWindow *target = tabDropTarget(globalPos))
+        moveTabTo(index, target);
+    else if (!frameGeometry().contains(globalPos)) // dropped in this window: stays
+        detachTab(index, globalPos);
+}
+
+// A window moved by its toolbar (startSystemMove) and let go with the pointer over another window's tab area
+// joins it. Qt gets no mouse events while the system moves the window, so this polls the button.
+void MainWindow::watchWindowMove()
+{
+#if defined(Q_OS_MACOS) || defined(Q_OS_WIN)
+    if (!m_moveWatch) {
+        m_moveWatch = new QTimer(this);
+        m_moveWatch->setInterval(40);
+        connect(m_moveWatch, &QTimer::timeout, this, [this] {
+            const bool moved = (pos() - m_moveStartPos).manhattanLength() > 8;
+            MainWindow *target = moved ? tabDropTarget(QCursor::pos()) : nullptr;
+            if (leftButtonDown()) {
+                setDropHighlight(target);
+                return;
+            }
+            m_moveWatch->stop();
+            setDropHighlight(nullptr);
+            if (target) {
+                Log::write("tabs", QStringLiteral("window dropped on another window's tabs: merge %1 tab(s)").arg(m_tabs->count()));
+                while (m_tabs->count() > 0)
+                    moveTabTo(0, target);
+            }
+        });
+    }
+    m_moveStartPos = pos();
+    m_moveWatch->start();
+#endif
 }
 
 void MainWindow::updateTabTitle(BrowserTab *t)

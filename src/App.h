@@ -16,6 +16,7 @@ public:
     static App *instance();
 
     MainWindow *newWindow(const QStringList &tabPaths = {}, QWidget *near = nullptr);
+    QList<MainWindow *> windows() const; // open ones, oldest first
     void restoreSession();
     void saveSession(const QList<MainWindow *> &windows);
     void windowClosing(MainWindow *w);

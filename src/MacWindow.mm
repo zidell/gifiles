@@ -30,6 +30,11 @@ long macWindowNumber(QWidget *window)
     return view.window ? long(view.window.windowNumber) : 0;
 }
 
+bool macLeftButtonDown()
+{
+    return ([NSEvent pressedMouseButtons] & 1) != 0;
+}
+
 void macResetCursor()
 {
     if (QGuiApplication::platformName() != QLatin1String("cocoa"))

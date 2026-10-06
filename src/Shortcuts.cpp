@@ -111,6 +111,7 @@ const QList<Shortcuts::Entry> &Shortcuts::entries()
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "폴더로 이동…")), go, L{"Ctrl+Shift+G"})
           << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "폴더 트리")), go, L{"`"}, QStringLiteral("files"))
           << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "최소화")), win, L{"Ctrl+M"})
+          << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "모든 윈도우 합치기")), win, L{})
           << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "다음 탭 보기")), win, mac ? L{"Meta+Tab", "Ctrl+}"} : L{"Ctrl+Tab", "Ctrl+}"})
           << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "이전 탭 보기")), win, mac ? L{"Meta+Shift+Tab", "Ctrl+{"} : L{"Ctrl+Shift+Tab", "Ctrl+{"})
           << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "전체 디스크 접근 권한…")), win, L{});
