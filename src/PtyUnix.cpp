@@ -11,6 +11,7 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <termios.h>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 
@@ -29,6 +30,20 @@ struct Pty::Impl {
     QByteArray pendingWrite;
 };
 
+// Reaps the child without blocking the GUI: macOS can keep an exiting shell in the kernel for half a
+// minute (a zombie waiting on its tty while a program like a TUI agent still holds it), and a blocking
+// waitpid() on the GUI thread froze the whole app when ⌘W closed such a tab.
+static void reap(pid_t pid)
+{
+    int status;
+    if (::waitpid(pid, &status, WNOHANG) != 0)
+        return;
+    std::thread([pid] {
+        int st;
+        ::waitpid(pid, &st, 0);
+    }).detach();
+}
+
 Pty::Pty(QObject *parent) : QObject(parent), d(std::make_unique<Impl>()) {}
 
 Pty::~Pty()
@@ -46,7 +61,7 @@ Pty::~Pty()
             ::usleep(20000);
             if (::waitpid(d->pid, &status, WNOHANG) == 0) {
                 ::kill(d->pid, SIGKILL);
-                ::waitpid(d->pid, &status, 0);
+                reap(d->pid);
             }
         }
     }
@@ -113,8 +128,7 @@ bool Pty::start(const QString &program, const QStringList &args, const QString &
             d->readNotifier->setEnabled(false);
             if (!out.isEmpty())
                 emit dataReceived(out);
-            int status;
-            ::waitpid(d->pid, &status, 0);
+            reap(d->pid);
             d->pid = -1;
             emit finished();
             return;
