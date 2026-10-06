@@ -3,9 +3,9 @@
 Finder-style cross-platform file manager (macOS · Windows · Linux) built with Qt 6 Widgets, C++20,
 with an embedded terminal that is wired to the file list. User-facing text is written in Korean
 (the source language) and translated to English, Japanese and Simplified Chinese (see i18n below).
-README.md describes features and shortcuts for users; this file is for whoever changes the code.
-What has been built so far, why things are the way they are, measurements and open items:
-`docs/history.md` — read it before starting new work.
+README.md describes features and shortcuts for users; this file is for whoever changes the code,
+including the background behind non-obvious code and what is still unverified (end of this file).
+No progress logs or diaries in the repo: a fact that will matter again goes into this file.
 
 Git: public repo `github.com/zidell/gifiles` (GPLv3, `LICENSE`; MIT until 2026-10-05), branch `main`. GitHub Actions
 (`.github/workflows/build.yml`) builds and runs all tests on Windows (MSVC), Linux (Ubuntu 22.04)
@@ -229,7 +229,7 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   so the fold chevron area never splits from the row; each pill leaves a 1px gap below it so
   adjacent selected rows stay separate (rows are 24 px, `kRowHeight`). Names are colored by extension in every view
   (`ItemDelegate::nameStyle`; `Theme::fileColor` / `Theme::folderColor` (bold, packages count as files) read
-  config.toml `[file_colors]`, defaults from Mdir III — see docs/history.md; colors are given for dark mode and
+  config.toml `[file_colors]`, defaults from Mdir III — see Background; colors are given for dark mode and
   light mode derives them with `Theme::lightModeColor`, never a second setting);
   a selected row/tile in an active view is filled with the item's own color (`ItemDelegate::selectionColor`, `file_colors.selection`);
   on macOS the views' text is `QFont::Light` (Qt's grayscale font smoothing can't be turned off and makes Regular look
@@ -298,12 +298,71 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
 | `third_party/libvterm` | vendored libvterm 0.3.3, built where no system package exists (Windows, Linux CI) |
 | `packaging/icon` | app icon: `gifiles.svg` is the source; `.icns` (macOS bundle) and `.ico` (Windows, via `packaging/windows/gifiles.rc`) are rendered from it — re-render both when it changes |
 | `packaging/linux` | .desktop file for the AppImage (icon from `packaging/icon`) |
-| `docs/history.md` | progress log, decisions, measurements, open items |
 
 ## Status
 
 Built and used daily on macOS. Windows and Linux build and pass the tests in CI (offscreen
 platform) and ship as release artifacts, but have not been tried by hand on a real desktop yet
 (ConPTY terminal, the system "Open with" dialog, PowerShell quoting, Recycle Bin restore on
-Windows; `gio` app list, AppImage on various distributions on Linux). Open items are listed in
-`docs/history.md`.
+Windows; `gio` app list, AppImage on various distributions on Linux).
+
+## Background (why the code is the way it is)
+
+Facts that keep someone from undoing a fix or redoing a measurement. Add to it when a reason will matter
+again; leave out what only mattered once.
+
+- **Rejected approaches:** a Go TUI came first (no real drag-and-drop or media in a terminal); web stacks
+  for their idle memory. A built-in zip job was dropped because Windows `tar.exe` wrote Korean archive
+  names as `??`; the `zip` selection command (PowerShell `Compress-Archive` on Windows) replaced it. For
+  office previews LibreOfficeKit (~300 MB), OpenXLSX/DuckX, pandoc and a web view were weighed and dropped
+  in favor of the OS preview. Sparkle/WinSparkle/AppImageUpdate were dropped for one `Updater` with a
+  signed `update.json` (three systems and keys for one job; the signature means a stolen release token
+  alone can't ship an update).
+- **libvterm 0.3.3 patches** (`third_party/libvterm`, the build default for that reason): the resize abort
+  on a clipped wrapped line (inclusive cursor bound) and SGR 2 faint (`VTERM_ATTR_DIM`,
+  `VTermScreenCellAttrs.dim`, `VTERM_HAS_DIM`; upstream drops it, so Claude Code's dimmed hints came out at
+  full brightness).
+  Faint text is drawn halfway to the background, before the 3:1 readability step.
+- **Qt file watching:** `QFileInfoGatherer` (qtbase 6.11) skips `watchPaths` for a folder already queued,
+  while `setRootPath` unwatches the old root at once; going into a folder and straight back while the
+  file-info thread is busy left it unwatched for good. `BrowserTab::m_folderWatch` + `relistIfStale`
+  (log: "model stopped following") cover it; `folderKeepsFollowingChangesAfterQuickReturn` reproduces it.
+- **config.toml on Windows:** the app's own save can fail while the file is held a moment; the retry
+  reads the file first and loads an outside edit made in between instead of writing over it
+  (`failedSaveRetryKeepsOutsideEdit`). Unchanged `file_colors.groups` / `sidebar.favorites` are written
+  commented out so later default changes still reach the user.
+- **BetterTouchTool / accessibility:** Qt's `accessibilityHitTest:` returns nil over item views (108 of 144
+  points failed on a real window); `macFixAccessibilityHitTest()` (MacWindow.mm) falls back to the window.
+  Removing it breaks modifier-drag window tools.
+- **Colors:** file colors share OKLab L 0.78 (equal HSL lightness looked unequal in weight); light mode
+  derives every color at L 0.52 (`Theme::lightModeColor`); the selection bar is the accent at L 0.42 dark /
+  0.88 light (`Theme::nameSelectionColor`); Linux dark selection uses 68% of the accent RGB. Defaults come
+  from Mdir III 3.10's own files (`M.CFG`, `M.DOC`), regrouped by purpose.
+- **Fonts on macOS:** Qt's CoreText path always applies grayscale smoothing; no setting changed a pixel, so
+  the file views use `QFont::Light` (renders like Regular).
+- **Folder tree numbers** (developer's Mac, Release): 115 600 folders scanned in 8.3 s, cache load and
+  searches 1–2 ms, ~30 bytes a folder. FSEvents replay costs 2.6 s per 1 M events, so past `kMaxReplay`
+  (3 M) a full scan is quicker. One fuse-t NFS mount alone took 331 s, hence no crossing of network/FUSE mounts.
+- **Idle memory:** ~82 MB phys_footprint for one window, 46 MB of it Qt's three window-sized IOSurface
+  buffers. Untried: releasing them while hidden/minimized.
+- **Media on macOS:** pinned to the AVFoundation backend; Qt 6.10 (what CI ships) reports BufferedMedia
+  before the file is seekable and gives video frames no time, both handled in the resume code.
+- **CI quirks:** Qt's XDG trash needs `~/.local/share` to exist; Linux `/bin/sh` is dash (tests use bash);
+  offscreen keeps the last modifiers between synthetic events; a deployed Windows Release folder needs
+  `QT_QPA_PLATFORM_PLUGIN_PATH` pointed at the toolchain's `plugins/platforms` for offscreen runs.
+- **Repo history:** the repo went public with one squashed commit (2026-10-03); the earlier commits are only
+  in the macOS checkout's `local/gifiles-history-2026-10-03.bundle`.
+- **Landing page** (`site/`, GitHub Pages at files.gitools.net, DNS-only CNAME in Cloudflare): downloads
+  read `releases/latest` in the browser. Screenshots come from `GIFILES_SNAPSHOT` on a generated demo folder
+  with `HOME`, `CFFIXED_USER_HOME` and `GIFILES_CONFIG_DIR` pointed at a scratch `Users/demo` (no real paths
+  or machine name), resized to 1600 px and pngquant'ed.
+
+## Not verified yet
+
+- Windows/Linux by hand on a real desktop (see Status), the Windows preview handlers with Office, Linux
+  LibreOffice conversion, a real automatic update end to end on each OS, ejecting drives on Windows/Linux.
+- macOS by real input: terminal edge drags, a click into the Quick Look system view then Space,
+  menu letters and ⌃\` under the Korean input source, BTT drags after the hit-test fix, Claude Code's faint
+  text on the real screen (measured offscreen only).
+- i18n: translations were drafted by agents and need a native read (ja, zh_CN especially); dates use the
+  Korean pattern in every language (`util::humanDate`).

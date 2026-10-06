@@ -179,6 +179,7 @@ INTERNAL void vterm_state_resetpen(VTermState *state)
   state->pen.font = 0;      setpenattr_int (state, VTERM_ATTR_FONT, 0);
   state->pen.small = 0;     setpenattr_bool(state, VTERM_ATTR_SMALL, 0);
   state->pen.baseline = 0;  setpenattr_int (state, VTERM_ATTR_BASELINE, 0);
+  state->pen.dim = 0;       setpenattr_bool(state, VTERM_ATTR_DIM, 0);
 
   state->pen.fg = state->default_fg;  setpenattr_col(state, VTERM_ATTR_FOREGROUND, state->default_fg);
   state->pen.bg = state->default_bg;  setpenattr_col(state, VTERM_ATTR_BACKGROUND, state->default_bg);
@@ -202,6 +203,7 @@ INTERNAL void vterm_state_savepen(VTermState *state, int save)
     setpenattr_int (state, VTERM_ATTR_FONT,      state->pen.font);
     setpenattr_bool(state, VTERM_ATTR_SMALL,     state->pen.small);
     setpenattr_int (state, VTERM_ATTR_BASELINE,  state->pen.baseline);
+    setpenattr_bool(state, VTERM_ATTR_DIM,       state->pen.dim);
 
     setpenattr_col( state, VTERM_ATTR_FOREGROUND, state->pen.fg);
     setpenattr_col( state, VTERM_ATTR_BACKGROUND, state->pen.bg);
@@ -301,6 +303,11 @@ INTERNAL void vterm_state_setpen(VTermState *state, const long args[], int argco
       break;
     }
 
+    case 2: // Faint on (local patch)
+      state->pen.dim = 1;
+      setpenattr_bool(state, VTERM_ATTR_DIM, 1);
+      break;
+
     case 3: // Italic on
       state->pen.italic = 1;
       setpenattr_bool(state, VTERM_ATTR_ITALIC, 1);
@@ -359,9 +366,11 @@ INTERNAL void vterm_state_setpen(VTermState *state, const long args[], int argco
       setpenattr_int(state, VTERM_ATTR_UNDERLINE, state->pen.underline);
       break;
 
-    case 22: // Bold off
+    case 22: // Bold and faint off
       state->pen.bold = 0;
       setpenattr_bool(state, VTERM_ATTR_BOLD, 0);
+      state->pen.dim = 0;
+      setpenattr_bool(state, VTERM_ATTR_DIM, 0);
       break;
 
     case 23: // Italic and Gothic (currently unsupported) off
@@ -597,6 +606,10 @@ int vterm_state_get_penattr(const VTermState *state, VTermAttr attr, VTermValue 
 
   case VTERM_ATTR_BASELINE:
     val->number = state->pen.baseline;
+    return 1;
+
+  case VTERM_ATTR_DIM:
+    val->boolean = state->pen.dim;
     return 1;
 
   case VTERM_N_ATTRS:

@@ -7,7 +7,7 @@
 #include <QStringList>
 
 // Translation context for all user-facing text: Gifiles::tr("한국어 원문"). Korean is the source
-// language; i18n/gifiles_{en,ja,zh_CN}.ts hold the translations (scripts/i18n.sh, docs/history.md).
+// language; i18n/gifiles_{en,ja,zh_CN}.ts hold the translations (scripts/i18n.sh).
 struct Gifiles {
     Q_DECLARE_TR_FUNCTIONS(Gifiles)
 };

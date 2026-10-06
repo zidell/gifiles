@@ -12,7 +12,7 @@
 // a compact tree in breadth-first order, so the children of a folder are consecutive and sorted
 // (natural order). Names are kept twice in UTF-8 arenas: as they are and folded (NFC, case-folded)
 // for matching. About 30 bytes a folder; 340 000 folders scan in ~7 s on a Mac SSD, network and
-// FUSE mounts excluded (one NFS mount alone took 5 minutes) — see docs/history.md.
+// FUSE mounts excluded (one NFS mount alone took 5 minutes).
 // Where the file system's change journal (macOS FSEvents) stood when an index was last brought up
 // to date: changes after `eventId` are replayed onto it. `id` names the journal (the volumes'
 // FSEvents UUIDs); another id means the journal was reset and the index must be scanned again.

@@ -128,7 +128,7 @@ jobs:
   macos:
     runs-on: macos-latest
     env:
-      # Developer ID signing and notarization (see docs/history.md "Automatic updates"). Without
+      # Developer ID signing and notarization (see AGENTS.md "Automatic updates"). Without
       # them the app is still built and tested, but no macOS package is published.
       # Same secret names as the user's other apps (Tauri's): the .p12 and its password, the Apple ID
       # with an app-specific password for notarytool, and the team.

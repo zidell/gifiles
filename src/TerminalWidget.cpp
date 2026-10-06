@@ -1132,7 +1132,10 @@ void TerminalWidget::paintEvent(QPaintEvent *)
             QColor fg = color(cell.fg, true), bg = color(cell.bg, false);
             if (cell.attrs.reverse)
                 std::swap(fg, bg);
-            const int x = kPad + col * m_cellW;
+#ifdef VTERM_HAS_DIM
+            if (cell.attrs.dim) // SGR 2 (faint, e.g. Claude Code's suggestions): halfway to the background
+                fg = QColor((fg.red() + bg.red()) / 2, (fg.green() + bg.green()) / 2, (fg.blue() + bg.blue()) / 2);
+#endif
             // Text too close to its background is moved until readable, like Terminal.app does in dark mode
             // (256-color 235 #262626 drawn as #717171, measured): TUIs pick such faint colors for their lines.
             const quint64 key = quint64(fg.rgb() & 0xFFFFFF) << 24 | (bg.rgb() & 0xFFFFFF);
@@ -1140,6 +1143,7 @@ void TerminalWidget::paintEvent(QPaintEvent *)
             if (it == m_readable.cend())
                 it = m_readable.insert(key, readable(fg, bg, 3.0).rgb());
             fg = QColor::fromRgb(*it);
+            const int x = kPad + col * m_cellW;
             const int w = m_cellW * qMax(1, int(cell.width));
             if (isSelected(line, col))
                 bg = selBg;
@@ -1174,9 +1178,9 @@ void TerminalWidget::paintEvent(QPaintEvent *)
             if (cell.attrs.strike)
                 p.fillRect(x, y + m_cellH / 2, w, 1, fg);
         }
-    }
         if (dwl)
             p.restore();
+    }
     // Cursor (only at the live screen)
     if (m_scrollOffset == 0 && m_cursorVisible && isRunning()) {
         const QRect cr(kPad + m_cursor.col * m_cellW, kPad + m_cursor.row * m_cellH, m_cellW, m_cellH);

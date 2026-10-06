@@ -245,6 +245,7 @@ typedef enum {
   VTERM_ATTR_BACKGROUND, // color:  40-49 100-107
   VTERM_ATTR_SMALL,      // bool:   73, 74, 75
   VTERM_ATTR_BASELINE,   // number: 73, 74, 75
+  VTERM_ATTR_DIM,        // bool:   2, 22 (local patch: faint, not in upstream 0.3.3)
 
   VTERM_N_ATTRS
 } VTermAttr;
@@ -509,7 +510,11 @@ typedef struct {
     unsigned int dhl       : 2; /* On a DECDHL line (1=top 2=bottom) */
     unsigned int small     : 1;
     unsigned int baseline  : 2;
+    unsigned int dim       : 1; /* SGR 2 faint (local patch) */
 } VTermScreenCellAttrs;
+
+/* This copy of libvterm carries the SGR 2 (faint) attribute: VTermScreenCellAttrs.dim. */
+#define VTERM_HAS_DIM 1
 
 enum {
   VTERM_UNDERLINE_OFF,
@@ -589,8 +594,9 @@ typedef enum {
   VTERM_ATTR_CONCEAL_MASK    = 1 << 9,
   VTERM_ATTR_SMALL_MASK      = 1 << 10,
   VTERM_ATTR_BASELINE_MASK   = 1 << 11,
+  VTERM_ATTR_DIM_MASK        = 1 << 12,
 
-  VTERM_ALL_ATTRS_MASK = (1 << 12) - 1
+  VTERM_ALL_ATTRS_MASK = (1 << 13) - 1
 } VTermAttrMask;
 
 int vterm_screen_get_attrs_extent(const VTermScreen *screen, VTermRect *extent, VTermPos pos, VTermAttrMask attrs);

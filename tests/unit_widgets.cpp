@@ -727,6 +727,60 @@ private slots:
         QCOMPARE(TerminalWidget::incompleteUtf8Tail(QByteArray()), 0);
     }
 
+    void terminalKeepsFaintText()
+    {
+#ifdef VTERM_HAS_DIM
+        // The bundled libvterm is patched to keep SGR 2 (faint); upstream 0.3.3 drops it, so dimmed
+        // text such as Claude Code's suggestions showed at full brightness.
+        VTerm *vt = vterm_new(2, 20);
+        vterm_set_utf8(vt, 1);
+        VTermScreen *screen = vterm_obtain_screen(vt);
+        vterm_screen_reset(screen, 1);
+        const char s[] = "\x1b[2mab\x1b[22mc\x1b[1;2md\x1b[0me";
+        vterm_input_write(vt, s, sizeof s - 1);
+        VTermScreenCell cell;
+        auto dim = [&](int col) { vterm_screen_get_cell(screen, VTermPos{0, col}, &cell); return bool(cell.attrs.dim); };
+        QVERIFY(dim(0) && dim(1));
+        QVERIFY(!dim(2)); // 22 ends faint
+        QVERIFY(dim(3));
+        QVERIFY(!dim(4)); // 0 resets
+        vterm_free(vt);
+
+#ifndef Q_OS_WIN
+        // Drawn: a faint line has less contrast against the background than the same line without it.
+        useTestShell();
+        TerminalWidget term;
+        term.resize(600, 200);
+        term.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&term));
+        term.start(m_tmp.path());
+        QTRY_VERIFY2_WITH_TIMEOUT(term.isReady(), qPrintable(term.screenText()), 15000);
+        term.setFocus();
+        QTest::keyClicks(&term, "clear; printf '\\033[2mMMMMMMMM\\033[0m\\nMMMMMMMM\\n'; sleep 5");
+        QTest::keyClick(&term, Qt::Key_Return);
+        QTRY_VERIFY2(term.screenText().startsWith(QStringLiteral("MMMMMMMM\nMMMMMMMM")), qPrintable(term.screenText()));
+        QTest::qWait(100);
+        const QImage img = term.grab().toImage();
+        const int bgL = img.pixelColor(1, 1).lightness();
+        QList<int> bands; // strongest contrast of each run of rows holding ink
+        bool inBand = false;
+        for (int y = 0; y < img.height(); ++y) {
+            int best = 0;
+            for (int x = 0; x < img.width() / 2; ++x)
+                best = qMax(best, qAbs(img.pixelColor(x, y).lightness() - bgL));
+            if (best > 20) {
+                if (!inBand)
+                    bands << 0;
+                bands.last() = qMax(bands.last(), best);
+            }
+            inBand = best > 20;
+        }
+        QVERIFY2(bands.size() >= 2, qPrintable(QString::number(bands.size())));
+        QVERIFY2(bands[0] < bands[1] * 3 / 4, qPrintable(QStringLiteral("%1 vs %2").arg(bands[0]).arg(bands[1])));
+#endif
+#endif
+    }
+
     void terminalBrightensFaintText()
     {
         // 256-color 235 (#262626) on the dark background is moved until readable; readable colors stay.

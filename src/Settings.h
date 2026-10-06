@@ -7,7 +7,7 @@
 class QFileSystemWatcher;
 
 // User preferences, stored in config.toml (TOML with a description above every item, so the file
-// alone explains itself — see packaging/readme.txt and docs/history.md). Keys are "table/name".
+// alone explains itself — see packaging/readme.txt). Keys are "table/name".
 // The app writes the whole file on every change and re-reads it when it changes on disk, so an
 // edit made outside the app applies at once; a wrong value is reported and the old one kept.
 class Settings : public QObject {
