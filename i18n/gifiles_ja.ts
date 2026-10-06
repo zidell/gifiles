@@ -738,8 +738,16 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
         <translation>新しく開くターミナルから適用されます。</translation>
     </message>
     <message>
+        <source>터미널 글꼴 이름 (예: &quot;D2Coding&quot;, &quot;JetBrains Mono&quot;). 빈 문자열이면 시스템 기본 고정폭 글꼴.</source>
+        <translation>ターミナルのフォント名(例: &quot;D2Coding&quot;、&quot;JetBrains Mono&quot;)。空文字列ならシステム標準の等幅フォント。</translation>
+    </message>
+    <message>
         <source>터미널 글꼴 크기.</source>
         <translation>ターミナルのフォントサイズ。</translation>
+    </message>
+    <message>
+        <source>터미널 줄간격 (글꼴 기본 줄 높이의 %). 늘린 만큼 줄 위아래에 고르게 나뉩니다.</source>
+        <translation>ターミナルの行間(フォント本来の行の高さに対する %)。増やした分は行の上下に均等に分けられます。</translation>
     </message>
     <message>
         <source>목록에서 폴더를 옮기면 터미널도 그 폴더로 cd 합니다 (셸이 쉬고 있고 입력 중인 명령이 없을 때만).</source>
@@ -1444,8 +1452,20 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>シェル:</translation>
     </message>
     <message>
+        <source>시스템 기본</source>
+        <translation>システム標準</translation>
+    </message>
+    <message>
+        <source>글꼴:</source>
+        <translation>フォント:</translation>
+    </message>
+    <message>
         <source>글꼴 크기:</source>
         <translation>フォントサイズ:</translation>
+    </message>
+    <message>
+        <source>줄간격:</source>
+        <translation>行間:</translation>
     </message>
     <message>
         <source>연동:</source>

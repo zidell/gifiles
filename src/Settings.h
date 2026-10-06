@@ -46,7 +46,9 @@ public:
     static constexpr const char *NewWindowHome = "general/new_window_opens_home"; // true: home, false: current folder
     static constexpr const char *DontAskFullDisk = "general/skip_full_disk_access_prompt";
     static constexpr const char *TermShell = "terminal/shell";                // empty = system default
+    static constexpr const char *TermFontFamily = "terminal/font_family"; // empty = the system's fixed-width font
     static constexpr const char *TermFontSize = "terminal/font_size";
+    static constexpr const char *TermLineHeight = "terminal/line_height"; // % of the font's own line height
     static constexpr const char *TermFollowFolder = "terminal/follow_folder";
     static constexpr const char *TermSyncBack = "terminal/sync_back";
     static constexpr const char *PreviewTextFontSize = "preview/text_font_size"; // code, config: fixed-width

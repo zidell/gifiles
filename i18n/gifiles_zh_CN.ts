@@ -738,8 +738,16 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
         <translation>从新打开的终端开始生效。</translation>
     </message>
     <message>
+        <source>터미널 글꼴 이름 (예: &quot;D2Coding&quot;, &quot;JetBrains Mono&quot;). 빈 문자열이면 시스템 기본 고정폭 글꼴.</source>
+        <translation>终端字体名称(例如 &quot;D2Coding&quot;、&quot;JetBrains Mono&quot;)。为空则使用系统默认等宽字体。</translation>
+    </message>
+    <message>
         <source>터미널 글꼴 크기.</source>
         <translation>终端字体大小。</translation>
+    </message>
+    <message>
+        <source>터미널 줄간격 (글꼴 기본 줄 높이의 %). 늘린 만큼 줄 위아래에 고르게 나뉩니다.</source>
+        <translation>终端行距(字体默认行高的百分比)。增加的部分平均分配到每行的上下。</translation>
     </message>
     <message>
         <source>목록에서 폴더를 옮기면 터미널도 그 폴더로 cd 합니다 (셸이 쉬고 있고 입력 중인 명령이 없을 때만).</source>
@@ -1444,8 +1452,20 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>Shell：</translation>
     </message>
     <message>
+        <source>시스템 기본</source>
+        <translation>系统默认</translation>
+    </message>
+    <message>
+        <source>글꼴:</source>
+        <translation>字体:</translation>
+    </message>
+    <message>
         <source>글꼴 크기:</source>
         <translation>字体大小：</translation>
+    </message>
+    <message>
+        <source>줄간격:</source>
+        <translation>行距:</translation>
     </message>
     <message>
         <source>연동:</source>

@@ -751,6 +751,32 @@ private slots:
         QVERIFY(!draw(U'a').first);
     }
 
+    // 설정 → 터미널: 글꼴 (terminal.font_family, empty = system fixed) and 줄간격 (terminal.line_height, %) apply at
+    // once; the input method's cursor rectangle is one cell.
+    void terminalFontAndLineHeightSettings()
+    {
+        auto *s = Settings::instance();
+        const auto restore = qScopeGuard([s] {
+            s->setValue(Settings::TermFontFamily, QString());
+            s->setValue(Settings::TermLineHeight, 100);
+        });
+        TerminalWidget term;
+        term.resize(600, 400);
+        QWidget *w = &term;
+        auto cellHeight = [w] { return w->inputMethodQuery(Qt::ImCursorRectangle).toRect().height(); };
+        const int normal = cellHeight();
+        s->setValue(Settings::TermLineHeight, 200);
+        QVERIFY2(cellHeight() >= 2 * normal - 1, qPrintable(QStringLiteral("%1 → %2").arg(normal).arg(cellHeight())));
+        s->setValue(Settings::TermLineHeight, 100);
+        QCOMPARE(cellHeight(), normal);
+        const QString family = QFontDatabase::families().value(0);
+        QVERIFY(!family.isEmpty());
+        s->setValue(Settings::TermFontFamily, family);
+        QCOMPARE(w->inputMethodQuery(Qt::ImFont).value<QFont>().family(), family);
+        s->setValue(Settings::TermFontFamily, QString());
+        QCOMPARE(w->inputMethodQuery(Qt::ImFont).value<QFont>().family(), QFontDatabase::systemFont(QFontDatabase::FixedFont).family());
+    }
+
     void terminalKeepsSplitCharactersWhole()
     {
         // The end of a pty read can stop inside a character; those bytes wait for the next read.

@@ -384,7 +384,8 @@ TerminalWidget::TerminalWidget(QWidget *parent) : QWidget(parent)
     applyTheme();
     connect(Theme::instance(), &Theme::changed, this, &TerminalWidget::applyTheme);
     connect(Settings::instance(), &Settings::changed, this, [this](const QString &key) {
-        if (key == QLatin1String(Settings::TermFontSize))
+        if (key == QLatin1String(Settings::TermFontFamily) || key == QLatin1String(Settings::TermFontSize)
+            || key == QLatin1String(Settings::TermLineHeight))
             updateFont();
     });
     m_poll.setInterval(400);
@@ -434,15 +435,18 @@ void TerminalWidget::applyTheme()
 
 void TerminalWidget::updateFont()
 {
-    m_font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    const QString family = Settings::instance()->value(Settings::TermFontFamily).toString();
+    m_font = family.isEmpty() ? QFontDatabase::systemFont(QFontDatabase::FixedFont) : QFont(family);
     m_font.setPointSize(Settings::instance()->value(Settings::TermFontSize).toInt());
     m_font.setStyleHint(QFont::Monospace);
     m_bold = m_font;
     m_bold.setBold(true);
     const QFontMetricsF fm(m_font);
     m_cellW = qCeil(fm.horizontalAdvance(QLatin1Char('M')));
-    m_cellH = qCeil(fm.height()) + 2;
-    m_ascent = qCeil(fm.ascent()) + 1;
+    // Line spacing (terminal.line_height, %) stretches the cell; the extra is split above and below the text.
+    const int natural = qCeil(fm.height()) + 2;
+    m_cellH = qMax(natural, qCeil(natural * Settings::instance()->value(Settings::TermLineHeight).toInt() / 100.0));
+    m_ascent = qCeil(fm.ascent()) + 1 + (m_cellH - natural) / 2;
     m_wideScale.clear();
     recomputeSize();
     update();

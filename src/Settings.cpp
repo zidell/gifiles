@@ -170,7 +170,11 @@ const QList<Item> &items()
         {Settings::TermShell, Type::String, QString(),
          Gifiles::tr("터미널에서 실행할 셸의 경로나 이름. 빈 문자열이면 시스템 기본 셸 ($SHELL, Windows는 powershell.exe)."),
          Gifiles::tr("새로 여는 터미널부터 적용됩니다.")},
+        {Settings::TermFontFamily, Type::String, QString(),
+         Gifiles::tr("터미널 글꼴 이름 (예: \"D2Coding\", \"JetBrains Mono\"). 빈 문자열이면 시스템 기본 고정폭 글꼴.")},
         {Settings::TermFontSize, Type::Int, 12, Gifiles::tr("터미널 글꼴 크기."), {}, 9, 24, QStringLiteral("pt")},
+        {Settings::TermLineHeight, Type::Int, 100, Gifiles::tr("터미널 줄간격 (글꼴 기본 줄 높이의 %). 늘린 만큼 줄 위아래에 고르게 나뉩니다."), {}, 100, 200,
+         QStringLiteral("%")},
         {Settings::TermFollowFolder, Type::Bool, true,
          Gifiles::tr("목록에서 폴더를 옮기면 터미널도 그 폴더로 cd 합니다 (셸이 쉬고 있고 입력 중인 명령이 없을 때만).")},
         {Settings::TermSyncBack, Type::Bool, true, Gifiles::tr("터미널에서 cd 하면 목록도 그 폴더로 옮깁니다.")},
@@ -1785,12 +1789,37 @@ SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent, Qt::Window)
     follow(shell, Settings::TermShell, [shell] { shell->setText(Settings::instance()->value(Settings::TermShell).toString()); });
     connect(shell, &QLineEdit::editingFinished, this, [shell] { Settings::instance()->setValue(Settings::TermShell, shell->text().trimmed()); });
     f->addRow(Gifiles::tr("셸:"), shell);
+    auto *family = new QComboBox(term);
+    family->addItem(Gifiles::tr("시스템 기본"), QString());
+    for (const QString &name : QFontDatabase::families())
+        if (!QFontDatabase::isPrivateFamily(name))
+            family->addItem(name, name);
+    follow(family, Settings::TermFontFamily, [family] {
+        const QString name = Settings::instance()->value(Settings::TermFontFamily).toString();
+        int i = family->findData(name);
+        if (i < 0) { // a font that isn't installed (any more): keep showing it
+            family->addItem(name, name);
+            i = family->count() - 1;
+        }
+        family->setCurrentIndex(i);
+    });
+    connect(family, &QComboBox::currentIndexChanged, this,
+            [family] { Settings::instance()->setValue(Settings::TermFontFamily, family->currentData().toString()); });
+    f->addRow(Gifiles::tr("글꼴:"), family);
     auto *size = new QSpinBox(term);
     size->setRange(9, 24);
     size->setSuffix(QStringLiteral(" pt"));
     follow(size, Settings::TermFontSize, [size] { size->setValue(Settings::instance()->value(Settings::TermFontSize).toInt()); });
     connect(size, &QSpinBox::valueChanged, this, [](int v) { Settings::instance()->setValue(Settings::TermFontSize, v); });
     f->addRow(Gifiles::tr("글꼴 크기:"), size);
+    auto *lineHeight = new QSpinBox(term);
+    lineHeight->setRange(100, 200);
+    lineHeight->setSingleStep(5);
+    lineHeight->setSuffix(QStringLiteral(" %"));
+    follow(lineHeight, Settings::TermLineHeight,
+           [lineHeight] { lineHeight->setValue(Settings::instance()->value(Settings::TermLineHeight).toInt()); });
+    connect(lineHeight, &QSpinBox::valueChanged, this, [](int v) { Settings::instance()->setValue(Settings::TermLineHeight, v); });
+    f->addRow(Gifiles::tr("줄간격:"), lineHeight);
     f->addRow(Gifiles::tr("연동:"), toggle(Settings::TermFollowFolder, Gifiles::tr("폴더를 옮기면 터미널도 이동 (cd)"), term));
     f->addRow(QString(), toggle(Settings::TermSyncBack, Gifiles::tr("터미널에서 cd 하면 목록도 이동"), term));
     f->addRow(QString(), hint(Gifiles::tr("예: rm -rf 를 입력한 뒤 목록에서 항목을 터미널로 끌어다 놓으면 경로가 붙고, Enter로 실행합니다. "

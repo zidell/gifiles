@@ -739,8 +739,16 @@ Example: { extensions = &quot;psd, ai, sketch&quot;, color = &quot;#FFB347&quot;
         <translation>Applies to newly opened terminals.</translation>
     </message>
     <message>
+        <source>터미널 글꼴 이름 (예: &quot;D2Coding&quot;, &quot;JetBrains Mono&quot;). 빈 문자열이면 시스템 기본 고정폭 글꼴.</source>
+        <translation>Terminal font name (e.g. &quot;D2Coding&quot;, &quot;JetBrains Mono&quot;). An empty string uses the system&apos;s fixed-width font.</translation>
+    </message>
+    <message>
         <source>터미널 글꼴 크기.</source>
         <translation>Terminal font size.</translation>
+    </message>
+    <message>
+        <source>터미널 줄간격 (글꼴 기본 줄 높이의 %). 늘린 만큼 줄 위아래에 고르게 나뉩니다.</source>
+        <translation>Terminal line spacing (% of the font&apos;s own line height). The extra space is split evenly above and below each line.</translation>
     </message>
     <message>
         <source>목록에서 폴더를 옮기면 터미널도 그 폴더로 cd 합니다 (셸이 쉬고 있고 입력 중인 명령이 없을 때만).</source>
@@ -1445,8 +1453,20 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>Shell:</translation>
     </message>
     <message>
+        <source>시스템 기본</source>
+        <translation>System Default</translation>
+    </message>
+    <message>
+        <source>글꼴:</source>
+        <translation>Font:</translation>
+    </message>
+    <message>
         <source>글꼴 크기:</source>
         <translation>Font size:</translation>
+    </message>
+    <message>
+        <source>줄간격:</source>
+        <translation>Line Spacing:</translation>
     </message>
     <message>
         <source>연동:</source>
