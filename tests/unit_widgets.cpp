@@ -769,8 +769,7 @@ private slots:
         QVERIFY2(cellHeight() >= 2 * normal - 1, qPrintable(QStringLiteral("%1 → %2").arg(normal).arg(cellHeight())));
         s->setValue(Settings::TermLineHeight, 100);
         QCOMPARE(cellHeight(), normal);
-        const QString family = QFontDatabase::families().value(0);
-        QVERIFY(!family.isEmpty());
+        const QString family = QStringLiteral("Gifiles Test Mono"); // QFont keeps the asked name (no font list offscreen on Windows)
         s->setValue(Settings::TermFontFamily, family);
         QCOMPARE(w->inputMethodQuery(Qt::ImFont).value<QFont>().family(), family);
         s->setValue(Settings::TermFontFamily, QString());
