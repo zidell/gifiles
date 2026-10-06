@@ -254,6 +254,42 @@ private slots:
             QVERIFY(!icon.pixmap(size, size).isNull());
     }
 
+    void menuSelectionRendersWithReadableBackground()
+    {
+        const QVariant original = Settings::instance()->value(Settings::ThemeMode);
+        const auto restore = qScopeGuard([original] { Settings::instance()->setValue(Settings::ThemeMode, original); });
+        QMenu general;
+        Theme::ShortcutMenu context;
+        QMenu parent;
+        QMenu *submenu = parent.addMenu(QStringLiteral("Submenu"));
+        for (const QString &mode : {QStringLiteral("light"), QStringLiteral("dark")}) {
+            Settings::instance()->setValue(Settings::ThemeMode, mode);
+            QTRY_COMPARE(Theme::colors().dark, mode == QStringLiteral("dark"));
+            const auto &colors = Theme::colors();
+            QColor expected = colors.accent;
+#ifdef Q_OS_WIN
+            if (colors.dark)
+                expected = colors.nameSelection;
+#endif
+            // QSS serializes colors to 8-bit channels; verify the painted row, not only the palette.
+            expected = QColor(expected.name());
+            for (QMenu *menu : {&general, static_cast<QMenu *>(&context), submenu}) {
+                menu->clear();
+                QAction *action = menu->addAction(QStringLiteral("Readable label"));
+                action->setShortcut(QKeySequence(QStringLiteral("Ctrl+K")));
+                menu->ensurePolished();
+                menu->resize(menu->sizeHint());
+                menu->setActiveAction(action);
+                const QRect row = menu->actionGeometry(action);
+                const QImage image = menu->grab().toImage();
+                const qreal dpr = menu->devicePixelRatioF();
+                QCOMPARE(image.pixelColor(qRound((row.left() + 7) * dpr), qRound(row.center().y() * dpr)), expected);
+                shot(mode + (menu == &context ? QStringLiteral("-context-menu")
+                             : menu == submenu ? QStringLiteral("-submenu") : QStringLiteral("-general-menu")), menu);
+            }
+        }
+    }
+
     void menuShortcutTextHasHalfOpacity()
     {
         class Menu : public Theme::ShortcutMenu {

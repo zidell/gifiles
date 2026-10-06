@@ -268,7 +268,7 @@ QSplitter::handle:horizontal { width: 1px; }
 QMenu { background: {menuBg}; border: 1px solid {separator}; border-radius: 8px; padding: 5px; }
 QMenu::item { padding: 5px 26px 5px 12px; border-radius: 5px; }
 QMenu::icon { subcontrol-origin: content; subcontrol-position: left center; position: relative; left: -5px; } /* centered between the edge and the label */
-QMenu::item:selected { background: {accent}; color: {selText}; }
+QMenu::item:selected { background: {menuSelection}; color: {selText}; }
 QMenu::item:disabled { color: {tertiary}; }
 QMenu::separator { height: 1px; background: {separator}; margin: 4px 8px; }
 
@@ -401,6 +401,12 @@ void Theme::apply()
 #endif
     c.selText = QColor(Qt::white);
     c.nameSelection = nameSelectionColor(c.accent, dark);
+    c.menuSelection = c.accent;
+#ifdef Q_OS_WIN
+    // White menu labels need the same deep accent as file names in dark mode.
+    if (dark)
+        c.menuSelection = c.nameSelection;
+#endif
     if (dark) {
         c.bg = QColor(0x1E, 0x1E, 0x20);
         c.sidebarBg = QColor(0x26, 0x26, 0x29);
@@ -475,7 +481,7 @@ void Theme::apply()
         {"bg", c.bg}, {"sidebarBg", c.sidebarBg}, {"text", c.text}, {"secondary", c.secondary},
         {"tertiary", c.tertiary}, {"separator", c.separator}, {"accent", c.accent}, {"selection", c.selection}, {"selText", c.selText},
         {"selInactive", c.selInactive}, {"hover", c.hover}, {"inputBg", c.inputBg},
-        {"segmentChecked", c.segmentChecked}, {"menuBg", c.menuBg}, {"scroll", c.scroll},
+        {"segmentChecked", c.segmentChecked}, {"menuBg", c.menuBg}, {"menuSelection", c.menuSelection}, {"scroll", c.scroll},
         {"scrollHover", c.scrollHover}, {"altRow", c.altRow}, {"danger", c.danger},
         {"treeBg", c.treeBg}, {"treeText", c.treeText}, {"treeSecondary", c.treeSecondary}, {"treeSelection", c.treeSelection},
         {"treeSelText", c.treeSelText}, {"treeInput", c.treeInput}, {"treeHover", c.treeHover}, {"treeLine", c.treeLine},
