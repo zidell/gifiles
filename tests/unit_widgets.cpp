@@ -691,6 +691,30 @@ private slots:
         QTRY_VERIFY(term.screenText().normalized(QString::NormalizationForm_C).count(QStringLiteral("가나다")) >= 2);
     }
 
+    void terminalBoxGlyphsFillTheCell()
+    {
+        // Border lines reach the cell's edges whatever the line height, so a column of │ stays one line.
+        auto draw = [](char32_t ch) {
+            QImage img(8, 20, QImage::Format_ARGB32);
+            img.fill(Qt::transparent);
+            QPainter p(&img);
+            const bool drawn = TerminalWidget::drawBoxGlyph(p, QRectF(0, 0, 8, 20), ch, Qt::black);
+            return std::make_pair(drawn, img);
+        };
+        auto inked = [](const QImage &img, int x, int y) { return qAlpha(img.pixel(x, y)) > 0; };
+        const auto [vDrawn, v] = draw(U'│');
+        QVERIFY(vDrawn);
+        QVERIFY(inked(v, 4, 0) && inked(v, 4, 19) && !inked(v, 0, 10));
+        const auto [hDrawn, hz] = draw(U'─');
+        QVERIFY(hDrawn && inked(hz, 0, 10) && inked(hz, 7, 10) && !inked(hz, 4, 0));
+        const auto [cDrawn, corner] = draw(U'╭'); // rounded: down to the bottom, out to the right
+        QVERIFY(cDrawn && inked(corner, 4, 19) && inked(corner, 7, 10) && !inked(corner, 4, 0) && !inked(corner, 0, 10));
+        const auto [bDrawn, block] = draw(U'█');
+        QVERIFY(bDrawn && inked(block, 0, 0) && inked(block, 7, 19));
+        QVERIFY(!draw(U'┄').first); // dashed lines and text keep the font's glyph
+        QVERIFY(!draw(U'a').first);
+    }
+
     void terminalKeysSelectionAndScrollback()
     {
         // The terminal's own keys: editing the line, ⌃C, exit and restart with Return, selecting and

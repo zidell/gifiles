@@ -12,6 +12,7 @@ extern "C" {
 }
 
 class Pty;
+class QPainter;
 
 // An embedded terminal (libvterm + the user's shell) wired to the file browser:
 //  - followFolder(): cd's along with the browser, but only when the shell is idle and the
@@ -43,6 +44,10 @@ public:
     // separated by spaces (sh) or commas (PowerShell, an array).
     static QString expandCommand(const QString &tmpl, const QStringList &paths, const QString &prompt,
                                  const QString &folder = {});
+    // Box-drawing lines (U+2500–257F) and block elements (U+2580–259F) drawn as shapes filling
+    // the whole cell, so borders stay joined whatever the line height (the font's glyphs stop
+    // short of the extra spacing). False: not one of these, draw the font's glyph.
+    static bool drawBoxGlyph(QPainter &p, const QRectF &cell, char32_t ch, const QColor &color);
     QString shellCwd() const { return m_cwd; }
     QString screenText() const; // visible screen as plain text (tests, accessibility)
     QString title() const;

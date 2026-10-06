@@ -18,8 +18,10 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QPainter>
+#include <QPainterPath>
 #include <QUrl>
 #include <QtMath>
+#include <cmath>
 
 #ifndef Q_OS_WIN
 #include <pwd.h>
@@ -79,7 +81,116 @@ QString canonical(const QString &p)
     const QString c = QFileInfo(p).canonicalFilePath();
     return c.isEmpty() ? QDir::cleanPath(p) : c;
 }
+// The arms of U+2500–254B, from the center to each edge, as up | right << 2 | down << 4 | left << 6
+// (0 none, 1 light, 2 heavy); 0 for the dashed ones (U+2504–250B), which keep the font's glyph.
+constexpr uint8_t arms(int up, int right, int down, int left) { return uint8_t(up | right << 2 | down << 4 | left << 6); }
+constexpr uint8_t kLines[] = {
+    arms(0, 1, 0, 1), arms(0, 2, 0, 2), arms(1, 0, 1, 0), arms(2, 0, 2, 0), 0, 0, 0, 0, 0, 0, 0, 0, // ─━│┃ dashed
+    arms(0, 1, 1, 0), arms(0, 2, 1, 0), arms(0, 1, 2, 0), arms(0, 2, 2, 0), // ┌┍┎┏
+    arms(0, 0, 1, 1), arms(0, 0, 1, 2), arms(0, 0, 2, 1), arms(0, 0, 2, 2), // ┐┑┒┓
+    arms(1, 1, 0, 0), arms(1, 2, 0, 0), arms(2, 1, 0, 0), arms(2, 2, 0, 0), // └┕┖┗
+    arms(1, 0, 0, 1), arms(1, 0, 0, 2), arms(2, 0, 0, 1), arms(2, 0, 0, 2), // ┘┙┚┛
+    arms(1, 1, 1, 0), arms(1, 2, 1, 0), arms(2, 1, 1, 0), arms(1, 1, 2, 0), // ├┝┞┟
+    arms(2, 1, 2, 0), arms(2, 2, 1, 0), arms(1, 2, 2, 0), arms(2, 2, 2, 0), // ┠┡┢┣
+    arms(1, 0, 1, 1), arms(1, 0, 1, 2), arms(2, 0, 1, 1), arms(1, 0, 2, 1), // ┤┥┦┧
+    arms(2, 0, 2, 1), arms(2, 0, 1, 2), arms(1, 0, 2, 2), arms(2, 0, 2, 2), // ┨┩┪┫
+    arms(0, 1, 1, 1), arms(0, 1, 1, 2), arms(0, 2, 1, 1), arms(0, 2, 1, 2), // ┬┭┮┯
+    arms(0, 1, 2, 1), arms(0, 1, 2, 2), arms(0, 2, 2, 1), arms(0, 2, 2, 2), // ┰┱┲┳
+    arms(1, 1, 0, 1), arms(1, 1, 0, 2), arms(1, 2, 0, 1), arms(1, 2, 0, 2), // ┴┵┶┷
+    arms(2, 1, 0, 1), arms(2, 1, 0, 2), arms(2, 2, 0, 1), arms(2, 2, 0, 2), // ┸┹┺┻
+    arms(1, 1, 1, 1), arms(1, 1, 1, 2), arms(1, 2, 1, 1), arms(1, 2, 1, 2), // ┼┽┾┿
+    arms(2, 1, 1, 1), arms(1, 1, 2, 1), arms(2, 1, 2, 1), arms(2, 1, 1, 2), // ╀╁╂╃
+    arms(2, 2, 1, 1), arms(1, 1, 2, 2), arms(1, 2, 2, 1), arms(2, 2, 1, 2), // ╄╅╆╇
+    arms(1, 2, 2, 2), arms(2, 1, 2, 2), arms(2, 2, 2, 1), arms(2, 2, 2, 2), // ╈╉╊╋
+};
+// U+2574–257F: half lines.
+constexpr uint8_t kHalfLines[] = {
+    arms(0, 0, 0, 1), arms(1, 0, 0, 0), arms(0, 1, 0, 0), arms(0, 0, 1, 0), // ╴╵╶╷
+    arms(0, 0, 0, 2), arms(2, 0, 0, 0), arms(0, 2, 0, 0), arms(0, 0, 2, 0), // ╸╹╺╻
+    arms(0, 2, 0, 1), arms(1, 0, 2, 0), arms(0, 1, 0, 2), arms(2, 0, 1, 0), // ╼╽╾╿
+};
+// U+2596–259F: quadrants as upper-left 1 | upper-right 2 | lower-left 4 | lower-right 8.
+constexpr uint8_t kQuadrants[] = {4, 8, 1, 1 | 4 | 8, 1 | 8, 1 | 2 | 4, 1 | 2 | 8, 2, 2 | 4, 2 | 4 | 8};
 } // namespace
+
+bool TerminalWidget::drawBoxGlyph(QPainter &p, const QRectF &cell, char32_t ch, const QColor &color)
+{
+    const qreal x = cell.x(), y = cell.y(), w = cell.width(), h = cell.height();
+    const qreal light = qMax<qreal>(1, std::round(w / 8)), heavy = 2 * light;
+    // Line centers on whole pixels, so neighbouring cells' lines meet exactly.
+    const qreal cx = x + std::floor(w / 2), cy = y + std::floor(h / 2);
+    uint8_t a = 0;
+    if (ch >= 0x2500 && ch <= 0x254B)
+        a = kLines[ch - 0x2500];
+    else if (ch >= 0x2574 && ch <= 0x257F)
+        a = kHalfLines[ch - 0x2574];
+    if (a) {
+        auto thick = [&](int shift) { const int k = (a >> shift) & 3; return k == 0 ? 0.0 : k == 1 ? light : heavy; };
+        const qreal up = thick(0), right = thick(2), down = thick(4), left = thick(6);
+        // Each arm runs from its edge into the center far enough to cover the crossing arms.
+        const qreal hMax = qMax(left, right), vMax = qMax(up, down);
+        if (up)
+            p.fillRect(QRectF(cx - up / 2, y, up, cy - y + qMax(hMax, up) / 2), color);
+        if (down)
+            p.fillRect(QRectF(cx - down / 2, cy - qMax(hMax, down) / 2, down, y + h - cy + qMax(hMax, down) / 2), color);
+        if (left)
+            p.fillRect(QRectF(x, cy - left / 2, cx - x + qMax(vMax, left) / 2, left), color);
+        if (right)
+            p.fillRect(QRectF(cx - qMax(vMax, right) / 2, cy - right / 2, x + w - cx + qMax(vMax, right) / 2, right), color);
+        return true;
+    }
+    if (ch >= 0x256D && ch <= 0x2570) { // ╭╮╯╰
+        const bool goesDown = ch == 0x256D || ch == 0x256E, goesRight = ch == 0x256D || ch == 0x2570;
+        const qreal r = qMin(w, h) / 2;
+        const qreal vy = goesDown ? y + h : y, hx = goesRight ? x + w : x;
+        const qreal ry = goesDown ? cy + r : cy - r, rx = goesRight ? cx + r : cx - r;
+        QPainterPath path(QPointF(cx, vy));
+        path.lineTo(cx, ry);
+        path.quadTo(cx, cy, rx, cy);
+        path.lineTo(hx, cy);
+        p.save();
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(color, light, Qt::SolidLine, Qt::FlatCap));
+        p.drawPath(path); // centered on cx/cy, like the straight lines
+        p.restore();
+        return true;
+    }
+    if (ch >= 0x2580 && ch <= 0x259F) {
+        auto eighths = [&](int n) { return std::round(h * n / 8); };
+        auto columns = [&](int n) { return std::round(w * n / 8); };
+        if (ch == 0x2580) // ▀
+            p.fillRect(QRectF(x, y, w, eighths(4)), color);
+        else if (ch <= 0x2588) // ▁…█
+            p.fillRect(QRectF(x, y + h - eighths(int(ch - 0x2580)), w, eighths(int(ch - 0x2580))), color);
+        else if (ch <= 0x258F) // ▉…▏
+            p.fillRect(QRectF(x, y, columns(int(0x2590 - ch)), h), color);
+        else if (ch == 0x2590) // ▐
+            p.fillRect(QRectF(x + columns(4), y, w - columns(4), h), color);
+        else if (ch <= 0x2593) { // ░▒▓
+            QColor c = color;
+            c.setAlphaF(color.alphaF() * (ch - 0x2590) / 4.0);
+            p.fillRect(cell, c);
+        } else if (ch == 0x2594) // ▔
+            p.fillRect(QRectF(x, y, w, eighths(1)), color);
+        else if (ch == 0x2595) // ▕
+            p.fillRect(QRectF(x + w - columns(1), y, columns(1), h), color);
+        else {
+            const uint8_t q = kQuadrants[ch - 0x2596];
+            const qreal mx = columns(4), my = eighths(4);
+            if (q & 1)
+                p.fillRect(QRectF(x, y, mx, my), color);
+            if (q & 2)
+                p.fillRect(QRectF(x + mx, y, w - mx, my), color);
+            if (q & 4)
+                p.fillRect(QRectF(x, y + my, mx, h - my), color);
+            if (q & 8)
+                p.fillRect(QRectF(x + mx, y + my, w - mx, h - my), color);
+        }
+        return true;
+    }
+    return false;
+}
 
 // libvterm calls back into the widget through these.
 struct TerminalCallbacks {
@@ -946,9 +1057,11 @@ void TerminalWidget::paintEvent(QPaintEvent *)
             if (bg != m_bg)
                 p.fillRect(x, y, w, m_cellH, bg);
             if (cell.chars[0] && cell.chars[0] != ' ') {
-                p.setFont(cell.attrs.bold ? m_bold : m_font);
-                p.setPen(fg);
-                p.drawText(x, y + m_ascent, cellText(cell));
+                if (cell.chars[1] || !drawBoxGlyph(p, QRectF(x, y, w, m_cellH), cell.chars[0], fg)) {
+                    p.setFont(cell.attrs.bold ? m_bold : m_font);
+                    p.setPen(fg);
+                    p.drawText(x, y + m_ascent, cellText(cell));
+                }
             }
             if (cell.attrs.underline)
                 p.fillRect(x, y + m_ascent + 2, w, 1, fg);
@@ -979,9 +1092,11 @@ void TerminalWidget::paintEvent(QPaintEvent *)
             p.fillRect(cr, cc);
             if (cellAt(int(m_scrollback.size()) + m_cursor.row, m_cursor.col, &cell) && !isContinuation(cell) &&
                 cell.chars[0] && cell.chars[0] != ' ') {
-                p.setFont(m_font);
-                p.setPen(m_bg);
-                p.drawText(cr.left(), cr.top() + m_ascent, cellText(cell));
+                if (cell.chars[1] || !drawBoxGlyph(p, cr, cell.chars[0], m_bg)) {
+                    p.setFont(m_font);
+                    p.setPen(m_bg);
+                    p.drawText(cr.left(), cr.top() + m_ascent, cellText(cell));
+                }
             }
         }
     }
