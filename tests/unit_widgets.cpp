@@ -1015,6 +1015,82 @@ private slots:
         QVERIFY2(got.count("^[[M`") == 3, got.constData()); // wheel up, as buttons now (64 + 32)
         pty->dataReceived(QByteArray("\x1b[?1000l\x1b[?1049l"));
     }
+
+    // A program that takes the mouse gets a click on release, with its modifiers: Shift-click (range selection)
+    // and ⌘-click as Ctrl-click (the report has no ⌘; a toggle in Ginote's list). A drag selects text and sends nothing.
+    void terminalMouseClicksCarryModifiers()
+    {
+        useTestShell();
+        TerminalWidget term;
+        term.resize(1200, 300);
+        term.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&term));
+        term.start(m_tmp.path());
+        QTRY_VERIFY2_WITH_TIMEOUT(term.isReady(), qPrintable(term.screenText()), 15000);
+        term.setFocus();
+        auto *pty = term.findChild<Pty *>();
+        QVERIFY(pty);
+        QFile::remove(p("mouse.txt"));
+        QTest::keyClicks(&term, "cat -v > mouse.txt");
+        QTest::keyClick(&term, Qt::Key_Return);
+        QTRY_VERIFY(term.isBusy());
+        pty->dataReceived(QByteArray("\x1b[?1000h"));
+        QTest::mouseClick(&term, Qt::LeftButton, Qt::ShiftModifier, QPoint(20, 20));
+        QTest::mouseClick(&term, Qt::LeftButton, Qt::ControlModifier, QPoint(20, 20)); // ⌘ on macOS, Ctrl elsewhere
+        QTest::mousePress(&term, Qt::LeftButton, {}, QPoint(20, 20));
+        QTest::mouseMove(&term, QPoint(300, 20));
+        QTest::mouseRelease(&term, Qt::LeftButton, {}, QPoint(300, 20));
+        pty->dataReceived(QByteArray("\x1b[?1000l"));
+        QTest::keyClick(&term, Qt::Key_Return);
+        QTest::keyClick(&term, Qt::Key_D, kTerminalMods);
+        QTRY_VERIFY(!term.isBusy());
+        QFile f(p("mouse.txt"));
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        const QByteArray got = f.readAll();
+        QVERIFY2(got.count("^[[M") == 4, got.constData()); // two clicks, nothing for the drag
+        QVERIFY2(got.count("^[[M$") == 1 && got.count("^[[M'") == 1, got.constData()); // Shift: press 0|4, release 3|4
+        QVERIFY2(got.count("^[[M0") == 1 && got.count("^[[M3") == 1, got.constData()); // Ctrl: press 0|16, release 3|16
+    }
+
+    // The composing text stays where the cursor was last shown while a program repaints with the cursor hidden
+    // (Bubble Tea does, every frame). A click commits it once, even when the IME commits it again afterwards.
+    void terminalComposingTextFollowsTheShownCursor()
+    {
+        useTestShell();
+        TerminalWidget term;
+        term.resize(1200, 300);
+        term.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&term));
+        term.start(m_tmp.path());
+        QTRY_VERIFY2_WITH_TIMEOUT(term.isReady(), qPrintable(term.screenText()), 15000);
+        term.setFocus();
+        auto *pty = term.findChild<Pty *>();
+        QVERIFY(pty);
+        QFile::remove(p("ime.txt"));
+        QTest::keyClicks(&term, "cat > ime.txt");
+        QTest::keyClick(&term, Qt::Key_Return);
+        QTRY_VERIFY(term.isBusy());
+        QWidget *w = &term;
+        pty->dataReceived(QByteArray("\x1b[5;10H"));
+        const QRect at = w->inputMethodQuery(Qt::ImCursorRectangle).toRect();
+        pty->dataReceived(QByteArray("\x1b[?25l\x1b[1;1Hxx\x1b[9;1H")); // a repaint elsewhere, cursor hidden
+        QCOMPARE(w->inputMethodQuery(Qt::ImCursorRectangle).toRect(), at);
+        pty->dataReceived(QByteArray("\x1b[5;12H\x1b[?25h")); // shown again at its new place
+        QCOMPARE(w->inputMethodQuery(Qt::ImCursorRectangle).toRect().top(), at.top());
+        QVERIFY(w->inputMethodQuery(Qt::ImCursorRectangle).toRect().left() > at.left());
+        QInputMethodEvent composing(QStringLiteral("가"), {});
+        QApplication::sendEvent(&term, &composing);
+        QTest::mouseClick(&term, Qt::LeftButton, {}, QPoint(20, 20));
+        QInputMethodEvent late;
+        late.setCommitString(QStringLiteral("가"));
+        QApplication::sendEvent(&term, &late);
+        QTest::keyClick(&term, Qt::Key_Return);
+        QTest::keyClick(&term, Qt::Key_D, kTerminalMods);
+        QTRY_VERIFY(!term.isBusy());
+        QFile f(p("ime.txt"));
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(f.readAll()), QStringLiteral("가\n"));
+    }
 #endif
 
     // Two terminals whose programs set their titles in pieces, interleaved: each keeps its own.

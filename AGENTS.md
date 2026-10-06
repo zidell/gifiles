@@ -155,6 +155,14 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   up unfolds at that height, dragging an open one down to the bar folds it. No animation.
 - **Terminal text:** libvterm marks the right half of double-width characters with 0xFFFFFFFF —
   skip those cells; macOS file names are NFD, so compose cell text to NFC before drawing.
+- **Terminal mouse and IME** (same rules as tuidock's own terminal): over a program that takes the mouse, a left
+  press is held until release — released in the same cell it goes as press + release with its modifiers, dragged
+  to another cell it becomes a text selection (Shift no longer means "select": Shift-click reaches the program,
+  e.g. Ginote's range selection). Option, right and middle presses go at once (Option also passes drags);
+  Shift-right-click still opens the 복사·붙여넣기 menu. The report has no ⌘ bit, so ⌘-click goes as Ctrl-click.
+  The IME's composing text is drawn at the cursor's last *shown* position (`m_markedAt`): Bubble Tea hides the
+  cursor while repainting changed cells, and following it would flash the text in the sidebar. A click commits
+  the composing text itself (`commitPreedit`) and drops the IME's late commit of the same text (Gureum's is async).
 - **AI:** there is no toolbar button any more (removed at the user's request); AI is the selection
   menu's built-in `ai` command. `{prompt}` is asked in a small one-line box centered on the window
   (`askLine`).

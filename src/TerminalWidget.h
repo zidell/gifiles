@@ -122,6 +122,9 @@ private:
     QString textBetween(QPoint a, QPoint b) const;
     QString selectedText() const;
     bool isSelected(int line, int col) const;
+    int mouseMods(Qt::KeyboardModifiers m) const;
+    void sendMouse(QPoint cell, int button, bool pressed, int mods);
+    void commitPreedit();
 
     VTerm *m_vt = nullptr;
     VTermScreen *m_screen = nullptr;
@@ -135,6 +138,12 @@ private:
     qreal m_wheelAccum = 0;
     VTermPos m_cursor{0, 0};
     bool m_cursorVisible = true;
+    // Where the IME's composing text is drawn: the cursor's last position while it was shown. TUIs (Bubble Tea)
+    // hide the cursor while they repaint changed cells and show it again at its place; a paint in between would put
+    // the composing text wherever the hidden cursor passed (the sidebar, a status line).
+    VTermPos m_markedAt{0, 0};
+    QString m_committedByClick; // composing text a click committed (commitPreedit); the IME's late commit of it is dropped
+    QElapsedTimer m_committedAt;
     int m_cursorShape = VTERM_PROP_CURSORSHAPE_BLOCK;
     bool m_altScreen = false;
     int m_mouseMode = VTERM_PROP_MOUSE_NONE;
@@ -146,6 +155,12 @@ private:
     // Selection (col, absolute line)
     QPoint m_selStart{-1, -1}, m_selEnd{-1, -1};
     bool m_selecting = false;
+    // A program that takes the mouse gets a left press only on release in the same cell (pressed with these
+    // modifiers); dragging to another cell selects text instead. Option, right and middle presses go at once.
+    bool m_pendingPress = false;
+    QPoint m_pressCell;
+    int m_pressMods = 0;
+    int m_buttonToProgram = 0; // the button sent at once and not released yet
 
     // Command-line tracking for the browser integration.
     QString m_typed;      // what the user typed since the last Enter (best effort)

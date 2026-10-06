@@ -13,6 +13,7 @@
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QFontDatabase>
+#include <QInputMethod>
 #include <QInputMethodEvent>
 #include <QLocale>
 #include <QMenu>
@@ -252,6 +253,8 @@ struct TerminalCallbacks {
     {
         w(u)->m_cursor = pos;
         w(u)->m_cursorVisible = visible;
+        if (visible)
+            w(u)->m_markedAt = pos;
         w(u)->update();
         return 1;
     }
@@ -259,7 +262,11 @@ struct TerminalCallbacks {
     {
         TerminalWidget *t = w(u);
         switch (prop) {
-        case VTERM_PROP_CURSORVISIBLE: t->m_cursorVisible = val->boolean; break;
+        case VTERM_PROP_CURSORVISIBLE:
+            t->m_cursorVisible = val->boolean;
+            if (t->m_cursorVisible)
+                t->m_markedAt = t->m_cursor;
+            break;
         case VTERM_PROP_CURSORSHAPE: t->m_cursorShape = val->number; break;
         case VTERM_PROP_ALTSCREEN: t->m_altScreen = val->boolean; t->m_scrollOffset = 0; break;
         case VTERM_PROP_MOUSE: t->m_mouseMode = val->number; break;
@@ -978,7 +985,10 @@ void TerminalWidget::keyPressEvent(QKeyEvent *e)
 
 void TerminalWidget::inputMethodEvent(QInputMethodEvent *e)
 {
-    if (!e->commitString().isEmpty())
+    // A click already sent the composing text (commitPreedit); the IME's own commit of it comes after (async for
+    // Gureum's commitComposition) and is dropped.
+    const bool clickCommitted = e->commitString() == m_committedByClick && m_committedAt.isValid() && m_committedAt.elapsed() < 500;
+    if (!e->commitString().isEmpty() && !clickCommitted)
         sendText(e->commitString(), true);
     m_preedit = e->preeditString();
     update();
@@ -991,7 +1001,7 @@ QVariant TerminalWidget::inputMethodQuery(Qt::InputMethodQuery q) const
     case Qt::ImEnabled: return true;
     case Qt::ImFont: return m_font;
     case Qt::ImCursorRectangle:
-        return QRect(kPad + m_cursor.col * m_cellW, kPad + m_cursor.row * m_cellH, m_cellW, m_cellH);
+        return QRect(kPad + m_markedAt.col * m_cellW, kPad + m_markedAt.row * m_cellH, m_cellW, m_cellH);
     default: return QWidget::inputMethodQuery(q);
     }
 }
@@ -1182,17 +1192,19 @@ void TerminalWidget::paintEvent(QPaintEvent *)
             p.restore();
     }
     // Cursor (only at the live screen)
-    if (m_scrollOffset == 0 && m_cursorVisible && isRunning()) {
+    // Composing text, at the cursor's last shown position (m_markedAt), even while a program hides the cursor.
+    if (m_scrollOffset == 0 && isRunning() && !m_preedit.isEmpty()) {
+        const QRect cr(kPad + m_markedAt.col * m_cellW, kPad + m_markedAt.row * m_cellH, m_cellW, m_cellH);
+        const int pw = QFontMetrics(m_font).horizontalAdvance(m_preedit) + 2;
+        p.fillRect(QRect(cr.topLeft(), QSize(pw, m_cellH)), m_bg);
+        p.setFont(m_font);
+        p.setPen(m_fg);
+        p.drawText(cr.left(), cr.top() + m_ascent, m_preedit);
+        p.fillRect(cr.left(), cr.bottom() - 1, pw, 2, Theme::colors().accent);
+    } else if (m_scrollOffset == 0 && m_cursorVisible && isRunning()) {
         const QRect cr(kPad + m_cursor.col * m_cellW, kPad + m_cursor.row * m_cellH, m_cellW, m_cellH);
         QColor cc = Theme::colors().accent;
-        if (!m_preedit.isEmpty()) {
-            const int pw = QFontMetrics(m_font).horizontalAdvance(m_preedit) + 2;
-            p.fillRect(QRect(cr.topLeft(), QSize(pw, m_cellH)), m_bg);
-            p.setFont(m_font);
-            p.setPen(m_fg);
-            p.drawText(cr.left(), cr.top() + m_ascent, m_preedit);
-            p.fillRect(cr.left(), cr.bottom() - 1, pw, 2, cc);
-        } else if (!hasFocus()) {
+        if (!hasFocus()) {
             p.setPen(QPen(cc, 1));
             p.drawRect(cr.adjusted(0, 0, -1, -1));
         } else if (m_cursorShape == VTERM_PROP_CURSORSHAPE_BAR_LEFT) {
@@ -1217,14 +1229,57 @@ void TerminalWidget::paintEvent(QPaintEvent *)
 // ---------------------------------------------------------------------------
 // Mouse, wheel, drops
 
+// Modifiers for the mouse report. It has no bit for ⌘, so ⌘-click goes as Ctrl-click (a toggle in lists).
+int TerminalWidget::mouseMods(Qt::KeyboardModifiers m) const
+{
+    int vm = VTERM_MOD_NONE;
+    if (m & Qt::ShiftModifier)
+        vm |= VTERM_MOD_SHIFT;
+    if (m & Qt::AltModifier)
+        vm |= VTERM_MOD_ALT;
+    if (m & (kCtrl | kCmd))
+        vm |= VTERM_MOD_CTRL;
+    return vm;
+}
+
+void TerminalWidget::sendMouse(QPoint cell, int button, bool pressed, int mods)
+{
+    vterm_mouse_move(m_vt, cell.y() - int(m_scrollback.size()), cell.x(), VTermModifier(mods));
+    vterm_mouse_button(m_vt, button, pressed, VTermModifier(mods));
+    flushOutput();
+}
+
+// A click commits the composing text, as Terminal.app does; otherwise it would stay on screen while the program
+// moves on. It is sent here at once: the IME's commit comes later (async) and could land on another screen.
+void TerminalWidget::commitPreedit()
+{
+    if (m_preedit.isEmpty())
+        return;
+    const QString text = m_preedit;
+    m_preedit.clear();
+    sendText(text, true);
+    m_committedByClick = text;
+    m_committedAt.start();
+    QGuiApplication::inputMethod()->reset();
+    update();
+}
+
 void TerminalWidget::mousePressEvent(QMouseEvent *e)
 {
     setFocus();
-    if (m_mouseMode != VTERM_PROP_MOUSE_NONE && !(e->modifiers() & Qt::ShiftModifier) && m_scrollOffset == 0) {
+    commitPreedit();
+    const int button = e->button() == Qt::RightButton ? 3 : e->button() == Qt::MiddleButton ? 2 : 1;
+    // Shift-right-click keeps the menu below (복사·붙여넣기) over a program that takes the mouse.
+    if (m_mouseMode != VTERM_PROP_MOUSE_NONE && m_scrollOffset == 0 && !(button == 3 && (e->modifiers() & Qt::ShiftModifier))) {
         const QPoint c = cellFromPos(e->position().toPoint());
-        vterm_mouse_move(m_vt, c.y() - int(m_scrollback.size()), c.x(), VTERM_MOD_NONE);
-        vterm_mouse_button(m_vt, e->button() == Qt::RightButton ? 3 : e->button() == Qt::MiddleButton ? 2 : 1, true, VTERM_MOD_NONE);
-        flushOutput();
+        if (button == 1 && !(e->modifiers() & Qt::AltModifier)) {
+            m_pendingPress = true;
+            m_pressCell = c;
+            m_pressMods = mouseMods(e->modifiers());
+            return;
+        }
+        m_buttonToProgram = button;
+        sendMouse(c, button, true, mouseMods(e->modifiers()));
         return;
     }
     if (e->button() == Qt::RightButton) {
@@ -1250,11 +1305,20 @@ void TerminalWidget::mousePressEvent(QMouseEvent *e)
 
 void TerminalWidget::mouseMoveEvent(QMouseEvent *e)
 {
-    if (m_mouseMode >= VTERM_PROP_MOUSE_DRAG && !m_selecting) {
-        const QPoint c = cellFromPos(e->position().toPoint());
-        vterm_mouse_move(m_vt, c.y() - int(m_scrollback.size()), c.x(), VTERM_MOD_NONE);
-        flushOutput();
+    const QPoint c = cellFromPos(e->position().toPoint());
+    if (m_buttonToProgram) {
+        if (m_mouseMode >= VTERM_PROP_MOUSE_DRAG) {
+            vterm_mouse_move(m_vt, c.y() - int(m_scrollback.size()), c.x(), VTermModifier(mouseMods(e->modifiers())));
+            flushOutput();
+        }
         return;
+    }
+    if (m_pendingPress) {
+        if (c == m_pressCell)
+            return;
+        m_pendingPress = false; // dragged off the cell: a selection, not a click
+        m_selStart = m_pressCell;
+        m_selecting = true;
     }
     if (m_selecting) {
         m_selEnd = cellFromPos(e->position().toPoint());
@@ -1264,9 +1328,15 @@ void TerminalWidget::mouseMoveEvent(QMouseEvent *e)
 
 void TerminalWidget::mouseReleaseEvent(QMouseEvent *e)
 {
-    if (m_mouseMode != VTERM_PROP_MOUSE_NONE && !m_selecting) {
-        vterm_mouse_button(m_vt, e->button() == Qt::RightButton ? 3 : e->button() == Qt::MiddleButton ? 2 : 1, false, VTERM_MOD_NONE);
-        flushOutput();
+    if (m_buttonToProgram) {
+        sendMouse(cellFromPos(e->position().toPoint()), m_buttonToProgram, false, mouseMods(e->modifiers()));
+        m_buttonToProgram = 0;
+        return;
+    }
+    if (m_pendingPress) {
+        m_pendingPress = false;
+        sendMouse(m_pressCell, 1, true, m_pressMods);
+        sendMouse(m_pressCell, 1, false, m_pressMods);
         return;
     }
     m_selecting = false;
@@ -1275,7 +1345,7 @@ void TerminalWidget::mouseReleaseEvent(QMouseEvent *e)
 void TerminalWidget::mouseDoubleClickEvent(QMouseEvent *e)
 {
     // A program that takes the mouse gets the second click as a click (Qt sends no press for it).
-    if (m_mouseMode != VTERM_PROP_MOUSE_NONE && !(e->modifiers() & Qt::ShiftModifier) && m_scrollOffset == 0)
+    if (m_mouseMode != VTERM_PROP_MOUSE_NONE && m_scrollOffset == 0)
         return mousePressEvent(e);
     // Select the word (run of non-space characters) under the pointer.
     const QPoint c = cellFromPos(e->position().toPoint());
