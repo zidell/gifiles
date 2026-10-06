@@ -2,6 +2,7 @@
 
 #include <QElapsedTimer>
 #include <QFont>
+#include <QHash>
 #include <QPoint>
 #include <QTimer>
 #include <QVector>
@@ -48,6 +49,10 @@ public:
     // the whole cell, so borders stay joined whatever the line height (the font's glyphs stop
     // short of the extra spacing). False: not one of these, draw the font's glyph.
     static bool drawBoxGlyph(QPainter &p, const QRectF &cell, char32_t ch, const QColor &color);
+    // How many bytes at the end of `data` are an unfinished UTF-8 character (0: it ends cleanly).
+    static int incompleteUtf8Tail(const QByteArray &data);
+    // `fg` moved toward white (dark bg) or black (light bg) just enough for `ratio` contrast (WCAG) with `bg`.
+    static QColor readable(const QColor &fg, const QColor &bg, double ratio);
     QString shellCwd() const { return m_cwd; }
     QString screenText() const; // visible screen as plain text (tests, accessibility)
     QString title() const;
@@ -111,6 +116,9 @@ private:
     int totalLines() const { return int(m_scrollback.size()) + m_rows; }
     bool cellAt(int line, int col, VTermScreenCell *cell) const;
     QPoint cellFromPos(const QPoint &pos) const; // (col, absolute line)
+    // DEC double-width/height line info for an absolute line (null in the scrollback, which doesn't keep it)
+    const VTermLineInfo *lineInfo(int line) const;
+    QHash<char32_t, qreal> m_wideScale; // how much a 2-cell character's fallback glyph is enlarged, per font
     QString textBetween(QPoint a, QPoint b) const;
     QString selectedText() const;
     bool isSelected(int line, int col) const;
@@ -151,4 +159,6 @@ private:
     bool m_promptSeen = false; // the shell has been idle at least once since start
     QTimer m_poll;
     QByteArray m_outBuf;  // bytes produced by libvterm for the pty
+    QByteArray m_utf8Carry; // an unfinished UTF-8 character from the end of the last pty read
+    QHash<quint64, QRgb> m_readable; // readable() per fg/bg pair, cleared with the theme
 };

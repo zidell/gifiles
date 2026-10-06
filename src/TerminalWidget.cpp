@@ -21,6 +21,7 @@
 #include <QPainterPath>
 #include <QUrl>
 #include <QtMath>
+#include <algorithm>
 #include <cmath>
 
 #ifndef Q_OS_WIN
@@ -111,7 +112,48 @@ constexpr uint8_t kHalfLines[] = {
 };
 // U+2596–259F: quadrants as upper-left 1 | upper-right 2 | lower-left 4 | lower-right 8.
 constexpr uint8_t kQuadrants[] = {4, 8, 1, 1 | 4 | 8, 1 | 8, 1 | 2 | 4, 1 | 2 | 8, 2, 2 | 4, 2 | 4 | 8};
+
+double luminance(const QColor &c)
+{
+    auto lin = [](double v) { return v <= 0.03928 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * lin(c.redF()) + 0.7152 * lin(c.greenF()) + 0.0722 * lin(c.blueF());
+}
 } // namespace
+
+int TerminalWidget::incompleteUtf8Tail(const QByteArray &data)
+{
+    const int n = int(data.size());
+    int i = n - 1;
+    while (i >= 0 && i >= n - 4 && (uchar(data[i]) & 0xC0) == 0x80) // continuation bytes back to the lead byte
+        --i;
+    if (i < 0 || i < n - 4)
+        return 0;
+    const uchar lead = uchar(data[i]);
+    const int need = lead >= 0xF0 ? 4 : lead >= 0xE0 ? 3 : lead >= 0xC0 ? 2 : 1;
+    return n - i < need ? n - i : 0;
+}
+
+QColor TerminalWidget::readable(const QColor &fg, const QColor &bg, double ratio)
+{
+    const double lb = luminance(bg);
+    auto contrast = [lb](const QColor &c) {
+        const double l = luminance(c);
+        return (qMax(l, lb) + 0.05) / (qMin(l, lb) + 0.05);
+    };
+    if (contrast(fg) >= ratio)
+        return fg;
+    const QColor target = lb < 0.18 ? Qt::white : Qt::black;
+    auto mix = [&](double t) {
+        return QColor::fromRgbF(float(fg.redF() + (target.redF() - fg.redF()) * t), float(fg.greenF() + (target.greenF() - fg.greenF()) * t),
+                                float(fg.blueF() + (target.blueF() - fg.blueF()) * t));
+    };
+    double lo = 0, hi = 1;
+    for (int k = 0; k < 12; ++k) { // the least mix that reaches the ratio
+        const double mid = (lo + hi) / 2;
+        (contrast(mix(mid)) < ratio ? lo : hi) = mid;
+    }
+    return mix(hi);
+}
 
 bool TerminalWidget::drawBoxGlyph(QPainter &p, const QRectF &cell, char32_t ch, const QColor &color)
 {
@@ -276,6 +318,18 @@ struct TerminalCallbacks {
     // OSC 7 "file://host/path": shells (and our PowerShell prompt) announce their directory.
     static int osc(int command, VTermStringFragment frag, void *u)
     {
+        // OSC 10/11 "?": programs (lipgloss, vim) ask for the default text/background color to pick dark or
+        // light colors. libvterm doesn't answer; without one they assume dark (Terminal.app answers).
+        if ((command == 10 || command == 11) && frag.initial && frag.final && frag.len == 1 && frag.str[0] == '?') {
+            const QColor c = command == 10 ? w(u)->m_fg : w(u)->m_bg;
+            w(u)->m_outBuf += QStringLiteral("\x1b]%1;rgb:%2/%3/%4\x1b\\")
+                                  .arg(command)
+                                  .arg(c.red() * 257, 4, 16, QLatin1Char('0'))
+                                  .arg(c.green() * 257, 4, 16, QLatin1Char('0'))
+                                  .arg(c.blue() * 257, 4, 16, QLatin1Char('0'))
+                                  .toLatin1();
+            return 1;
+        }
         if (command != 7)
             return 0;
         QByteArray &buf = w(u)->m_oscBuf;
@@ -352,6 +406,7 @@ void TerminalWidget::applyTheme()
     const Theme::Colors &c = Theme::colors();
     m_fg = c.text;
     m_bg = c.dark ? QColor(0x17, 0x17, 0x19) : QColor(0xFB, 0xFB, 0xFC);
+    m_readable.clear();
     VTermColor fg, bg;
     vterm_color_rgb(&fg, m_fg.red(), m_fg.green(), m_fg.blue());
     vterm_color_rgb(&bg, m_bg.red(), m_bg.green(), m_bg.blue());
@@ -381,6 +436,7 @@ void TerminalWidget::updateFont()
     m_cellW = qCeil(fm.horizontalAdvance(QLatin1Char('M')));
     m_cellH = qCeil(fm.height()) + 2;
     m_ascent = qCeil(fm.ascent()) + 1;
+    m_wideScale.clear();
     recomputeSize();
     update();
 }
@@ -440,8 +496,14 @@ void TerminalWidget::start(const QString &cwd)
 #endif
         env << QStringLiteral("LANG=") + lang;
     }
-    connect(m_pty, &Pty::dataReceived, this, [this](const QByteArray &data) {
-        vterm_input_write(m_vt, data.constData(), size_t(data.size()));
+    connect(m_pty, &Pty::dataReceived, this, [this](const QByteArray &chunk) {
+        // libvterm 0.3.3 turns a multi-byte character split across two writes into U+FFFD when an escape
+        // sequence came before it (a colored "←↑ 이동" cut anywhere inside a character, measured), so the
+        // unfinished character at the end waits for the next read.
+        const QByteArray data = m_utf8Carry + chunk;
+        const int keep = incompleteUtf8Tail(data);
+        m_utf8Carry = data.right(keep);
+        vterm_input_write(m_vt, data.constData(), size_t(data.size() - keep));
         vterm_screen_flush_damage(m_screen);
         flushOutput(); // terminal replies (device attributes, cursor reports)
     });
@@ -968,9 +1030,18 @@ bool TerminalWidget::cellAt(int line, int col, VTermScreenCell *cell) const
 
 QPoint TerminalWidget::cellFromPos(const QPoint &pos) const
 {
-    const int col = qBound(0, (pos.x() - kPad) / m_cellW, m_cols - 1);
     const int row = qBound(0, (pos.y() - kPad) / m_cellH, m_rows - 1);
-    return QPoint(col, int(m_scrollback.size()) - m_scrollOffset + row);
+    const int line = int(m_scrollback.size()) - m_scrollOffset + row;
+    int col = (pos.x() - kPad) / m_cellW;
+    if (const VTermLineInfo *info = lineInfo(line); info && info->doublewidth)
+        col /= 2; // drawn twice as wide
+    return QPoint(qBound(0, col, m_cols - 1), line);
+}
+
+const VTermLineInfo *TerminalWidget::lineInfo(int line) const
+{
+    const int row = line - int(m_scrollback.size());
+    return row >= 0 && row < m_rows ? vterm_state_get_lineinfo(vterm_obtain_state(m_vt), row) : nullptr;
 }
 
 QString TerminalWidget::textBetween(QPoint a, QPoint b) const
@@ -1044,13 +1115,31 @@ void TerminalWidget::paintEvent(QPaintEvent *)
     for (int r = 0; r < m_rows; ++r) {
         const int line = firstLine + r;
         const int y = kPad + r * m_cellH;
-        for (int col = 0; col < m_cols; ++col) {
+        // DEC double-width (DECDWL) and double-height (DECDHL) lines, which TUIs use for big titles: the cells are
+        // drawn twice as large; a double-height pair draws the top and the bottom half of the same text.
+        const VTermLineInfo *info = lineInfo(line);
+        const bool dwl = info && info->doublewidth;
+        if (dwl) {
+            p.save();
+            p.setClipRect(0, y, width(), m_cellH);
+            p.translate(kPad, info->doubleheight == 2 ? y - m_cellH : y);
+            p.scale(2, info->doubleheight ? 2 : 1);
+            p.translate(-kPad, -y);
+        }
+        for (int col = 0; col < (dwl ? m_cols / 2 : m_cols); ++col) {
             if (!cellAt(line, col, &cell) || isContinuation(cell))
                 continue;
             QColor fg = color(cell.fg, true), bg = color(cell.bg, false);
             if (cell.attrs.reverse)
                 std::swap(fg, bg);
             const int x = kPad + col * m_cellW;
+            // Text too close to its background is moved until readable, like Terminal.app does in dark mode
+            // (256-color 235 #262626 drawn as #717171, measured): TUIs pick such faint colors for their lines.
+            const quint64 key = quint64(fg.rgb() & 0xFFFFFF) << 24 | (bg.rgb() & 0xFFFFFF);
+            auto it = m_readable.constFind(key);
+            if (it == m_readable.cend())
+                it = m_readable.insert(key, readable(fg, bg, 3.0).rgb());
+            fg = QColor::fromRgb(*it);
             const int w = m_cellW * qMax(1, int(cell.width));
             if (isSelected(line, col))
                 bg = selBg;
@@ -1058,9 +1147,26 @@ void TerminalWidget::paintEvent(QPaintEvent *)
                 p.fillRect(x, y, w, m_cellH, bg);
             if (cell.chars[0] && cell.chars[0] != ' ') {
                 if (cell.chars[1] || !drawBoxGlyph(p, QRectF(x, y, w, m_cellH), cell.chars[0], fg)) {
-                    p.setFont(cell.attrs.bold ? m_bold : m_font);
+                    QFont f = cell.attrs.bold ? m_bold : m_font;
+                    const QString text = cellText(cell);
+                    int tx = x;
+                    if (cell.width > 1) {
+                        // A 2-cell character (Hangul, CJK) from a fallback font is narrower than its two cells,
+                        // leaving gaps inside words; enlarge it to fill them like Terminal.app (within the line).
+                        auto it = m_wideScale.constFind(cell.chars[0]);
+                        if (it == m_wideScale.cend()) {
+                            const QFontMetricsF fm(f);
+                            const qreal adv = fm.horizontalAdvance(text);
+                            const qreal s = adv > 0 && adv < w * 0.9 ? std::min({w * 0.95 / adv, 1.4, m_cellH / fm.height()}) : 1.0;
+                            it = m_wideScale.insert(cell.chars[0], qMax(1.0, s));
+                        }
+                        if (*it > 1.0)
+                            f.setPointSizeF(f.pointSizeF() * *it);
+                        tx = x + qMax(0, int((w - QFontMetricsF(f).horizontalAdvance(text)) / 2));
+                    }
+                    p.setFont(f);
                     p.setPen(fg);
-                    p.drawText(x, y + m_ascent, cellText(cell));
+                    p.drawText(tx, y + m_ascent, text);
                 }
             }
             if (cell.attrs.underline)
@@ -1069,6 +1175,8 @@ void TerminalWidget::paintEvent(QPaintEvent *)
                 p.fillRect(x, y + m_cellH / 2, w, 1, fg);
         }
     }
+        if (dwl)
+            p.restore();
     // Cursor (only at the live screen)
     if (m_scrollOffset == 0 && m_cursorVisible && isRunning()) {
         const QRect cr(kPad + m_cursor.col * m_cellW, kPad + m_cursor.row * m_cellH, m_cellW, m_cellH);

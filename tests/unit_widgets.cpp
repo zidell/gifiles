@@ -715,6 +715,29 @@ private slots:
         QVERIFY(!draw(U'a').first);
     }
 
+    void terminalKeepsSplitCharactersWhole()
+    {
+        // The end of a pty read can stop inside a character; those bytes wait for the next read.
+        const QByteArray s = QStringLiteral("이동 ←").toUtf8(); // 3 + 3 + 1 + 3 bytes
+        QCOMPARE(TerminalWidget::incompleteUtf8Tail(s), 0);
+        QCOMPARE(TerminalWidget::incompleteUtf8Tail(s.left(4)), 1);  // "이" + first byte of "동"
+        QCOMPARE(TerminalWidget::incompleteUtf8Tail(s.left(5)), 2);
+        QCOMPARE(TerminalWidget::incompleteUtf8Tail(s.left(9)), 2); // "←" missing its last byte
+        QCOMPARE(TerminalWidget::incompleteUtf8Tail(QByteArray("abc")), 0);
+        QCOMPARE(TerminalWidget::incompleteUtf8Tail(QByteArray()), 0);
+    }
+
+    void terminalBrightensFaintText()
+    {
+        // 256-color 235 (#262626) on the dark background is moved until readable; readable colors stay.
+        const QColor bg(0x17, 0x17, 0x19), faint(0x26, 0x26, 0x26), fine(0xd4, 0xd4, 0xd8);
+        const QColor out = TerminalWidget::readable(faint, bg, 3.0);
+        QVERIFY2(out.lightness() > 90, qPrintable(out.name()));
+        QCOMPARE(TerminalWidget::readable(fine, bg, 3.0), fine);
+        // On a light background faint text gets darker.
+        QVERIFY(TerminalWidget::readable(QColor(0xee, 0xee, 0xee), QColor(0xfb, 0xfb, 0xfc), 3.0).lightness() < 0xee);
+    }
+
     void terminalKeysSelectionAndScrollback()
     {
         // The terminal's own keys: editing the line, ⌃C, exit and restart with Return, selecting and
