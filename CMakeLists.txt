@@ -13,6 +13,15 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets Concurrent Multimedia Multimedi
 find_package(Qt6 6.5 QUIET COMPONENTS Pdf PdfWidgets)
 qt_standard_project_setup()
 
+if(MSVC)
+    # Normalize /showIncludes even when only the Korean compiler UI is installed.
+    find_program(GIFILES_POWERSHELL_EXECUTABLE NAMES powershell REQUIRED)
+    set(_msvc_launcher "${GIFILES_POWERSHELL_EXECUTABLE}" -NoLogo -NoProfile -NonInteractive
+        -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/scripts/msvc-includes.ps1")
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${_msvc_launcher} ${CMAKE_CXX_COMPILER_LAUNCHER})
+    set(CMAKE_C_COMPILER_LAUNCHER ${_msvc_launcher} ${CMAKE_C_COMPILER_LAUNCHER})
+endif()
+
 qt_add_library(gifiles_core STATIC
     src/App.h src/App.cpp
     src/MainWindow.h src/MainWindow.cpp
@@ -74,6 +83,9 @@ else()
     target_link_libraries(gifiles_core PUBLIC vterm_static)
 endif()
 if(MSVC)
+    # Override a localized prefix cached during compiler detection (C may have
+    # been enabled above by the bundled libvterm).
+    set(CMAKE_CL_SHOWINCLUDES_PREFIX "Note: including file: ")
     # Sources are UTF-8 (Korean UI text); MSVC would read them in the system code page.
     target_compile_options(gifiles_core PUBLIC /utf-8)
     target_compile_definitions(gifiles_core PUBLIC NOMINMAX UNICODE _UNICODE)
@@ -124,6 +136,9 @@ if(APPLE)
         PROPERTIES MACOSX_PACKAGE_LOCATION Resources/licenses)
 elseif(WIN32)
     target_sources(gifiles PRIVATE packaging/windows/gifiles.rc)
+    # Resource compilers do not reliably discover ICON file dependencies.
+    set_source_files_properties(packaging/windows/gifiles.rc PROPERTIES
+        OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/packaging/icon/gifiles.ico")
 endif()
 qt_add_resources(gifiles "appicon" PREFIX "/" BASE packaging/icon FILES packaging/icon/gifiles.svg)
 # The terminal's default font D2Coding (SIL OFL 1.1, packaging/licenses/OFL-1.1.txt), registered for this
