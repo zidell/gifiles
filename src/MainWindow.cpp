@@ -416,7 +416,9 @@ void MainWindow::createActions()
     m_quickLookAct = act(QStringLiteral("퀵 뷰어"), &MainWindow::toggleQuickLook);
     m_trashAct = act(QStringLiteral("휴지통으로 이동"), &MainWindow::moveToTrash);
     m_permissionsAct = act(QStringLiteral("전체 디스크 접근 권한…"), [this] { Permissions::showDialog(this, true); });
-    m_settingsAct = act(QStringLiteral("설정…"), [this] { SettingsDialog::showSingleton(this); });
+    m_settingsAct = act(QStringLiteral("설정…"), [this] {
+        SettingsDialog::showSingleton(this, terminalHasFocus() ? Gifiles::tr("터미널") : QString());
+    });
     m_settingsAct->setMenuRole(QAction::PreferencesRole);
     m_updateAct = act(QStringLiteral("업데이트 확인…"), &MainWindow::checkForUpdates);
     m_updateAct->setMenuRole(QAction::ApplicationSpecificRole); // macOS: in the app menu

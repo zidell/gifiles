@@ -1434,6 +1434,31 @@ private slots:
         tab()->setMode(BrowserTab::List, true);
     }
 
+    void settingsShortcutOpensTerminalPageFromTerminal()
+    {
+        tab()->focusView();
+        key(Qt::Key_Comma, Qt::ControlModifier); // ⌘ on macOS, Ctrl on Windows/Linux
+        QPointer<SettingsDialog> dialog;
+        for (QWidget *w : QApplication::topLevelWidgets())
+            if (auto *settings = qobject_cast<SettingsDialog *>(w); settings && settings->isVisible())
+                dialog = settings;
+        QVERIFY(dialog);
+        const auto closeDialog = qScopeGuard([&] { if (dialog) dialog->close(); });
+        auto *nav = dialog->findChild<QListWidget *>(QStringLiteral("settingsNav"));
+        QVERIFY(nav && nav->currentItem());
+        QCOMPARE(nav->currentItem()->text(), QStringLiteral("일반"));
+        dialog->hide(); // Reusing the existing dialog must switch away from its previous page too.
+        m_win->activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(m_win));
+        key(Qt::Key_Down, Qt::AltModifier);
+        auto *terminal = qobject_cast<TerminalWidget *>(focus());
+        QVERIFY(terminal);
+        key(Qt::Key_Comma, Qt::ControlModifier);
+        QTRY_VERIFY(dialog->isVisible());
+        QCOMPARE(nav->currentItem()->text(), QStringLiteral("터미널"));
+        shot(QStringLiteral("settings-from-terminal"), dialog);
+    }
+
     void closeKeyClosesTheFrontWindowOnly()
     {
         // macOS's menu bar sends ⌘W to the main window's action while Settings is in front.
