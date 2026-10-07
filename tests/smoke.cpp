@@ -1809,12 +1809,9 @@ private slots:
         QTRY_VERIFY(terminal && terminal->isVisible());
         QTRY_VERIFY2_WITH_TIMEOUT(terminal->isReady(), qPrintable(terminal->screenText()), 15000);
         QTest::keyClicks(terminal, "echo keep_this_line");
-        QTRY_VERIFY2(terminal->screenText().contains(QStringLiteral("keep_this_line")),
-                     qPrintable(QStringLiteral("size=%1x%2 cell=%3x%4 font=%5 screen=[%6]")
-                                    .arg(terminal->width()).arg(terminal->height())
-                                    .arg(static_cast<QWidget *>(terminal.data())->inputMethodQuery(Qt::ImCursorRectangle).toRect().width())
-                                    .arg(static_cast<QWidget *>(terminal.data())->inputMethodQuery(Qt::ImCursorRectangle).toRect().height())
-                                    .arg(static_cast<QWidget *>(terminal.data())->inputMethodQuery(Qt::ImFont).value<QFont>().family(), terminal->screenText())));
+        // A long prompt (CI's host name) can wrap the typed line, so look across the row breaks.
+        QTRY_VERIFY2(terminal->screenText().remove(QLatin1Char('\n')).contains(QStringLiteral("keep_this_line")),
+                     qPrintable(terminal->screenText()));
         const QString screen = terminal->screenText();
         const int tabs = m_win->findChild<QTabBar *>(QStringLiteral("termTabs"))->count();
         key(Qt::Key_Up, Qt::AltModifier);
