@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://files.gitools.net/sitemap.xml
+Sitemap: https://zidell.github.io/gifiles/sitemap.xml

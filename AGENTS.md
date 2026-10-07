@@ -369,7 +369,7 @@ again; leave out what only mattered once.
   `QT_QPA_PLATFORM_PLUGIN_PATH` pointed at the toolchain's `plugins/platforms` for offscreen runs.
 - **Repo history:** the repo went public with one squashed commit (2026-10-03); the earlier commits are only
   in the macOS checkout's `local/gifiles-history-2026-10-03.bundle`.
-- **Landing page** (`site/`, GitHub Pages at files.gitools.net, DNS-only CNAME in Cloudflare): downloads
+- **Landing page** (`site/`, GitHub Pages at zidell.github.io/gifiles; no custom domain: files.gitools.net was dropped, don't add a CNAME): downloads
   read `releases/latest` in the browser. Screenshots come from `GIFILES_SNAPSHOT` on a generated demo folder
   with `HOME`, `CFFIXED_USER_HOME` and `GIFILES_CONFIG_DIR` pointed at a scratch `Users/demo` (no real paths
   or machine name), resized to 1600 px and pngquant'ed.
