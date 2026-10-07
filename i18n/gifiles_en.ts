@@ -739,10 +739,6 @@ Example: { extensions = &quot;psd, ai, sketch&quot;, color = &quot;#FFB347&quot;
         <translation>Applies to newly opened terminals.</translation>
     </message>
     <message>
-        <source>터미널 글꼴 이름 (예: &quot;D2Coding&quot;, &quot;JetBrains Mono&quot;). 빈 문자열이면 시스템 기본 고정폭 글꼴.</source>
-        <translation>Terminal font name (e.g. &quot;D2Coding&quot;, &quot;JetBrains Mono&quot;). An empty string uses the system&apos;s fixed-width font.</translation>
-    </message>
-    <message>
         <source>터미널 글꼴 크기.</source>
         <translation>Terminal font size.</translation>
     </message>
@@ -1059,6 +1055,10 @@ Desktop, Documents and Downloads are included only after you have opened them in
         <translation>Change</translation>
     </message>
     <message>
+        <source>D2Coding (기본)</source>
+        <translation>D2Coding (default)</translation>
+    </message>
+    <message>
         <source>단축키</source>
         <translation>Shortcuts</translation>
     </message>
@@ -1297,6 +1297,10 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>Folder and all extension colors back to the defaults</translation>
     </message>
     <message>
+        <source>터미널 글꼴 이름 (예: &quot;JetBrains Mono&quot;, &quot;Menlo&quot;). 빈 문자열이면 앱에 든 D2Coding (네이버, SIL Open Font License).</source>
+        <translation>Terminal font name (e.g. &quot;JetBrains Mono&quot;, &quot;Menlo&quot;). An empty string uses D2Coding, bundled with the app (NAVER, SIL Open Font License).</translation>
+    </message>
+    <message>
         <source>폴더와 확장자 색을 모두 기본값으로 되돌릴까요? 직접 바꾼 색은 사라집니다.</source>
         <translation>Reset the folder and extension colors to the defaults? Colors you changed will be lost.</translation>
     </message>
@@ -1451,10 +1455,6 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
     <message>
         <source>셸:</source>
         <translation>Shell:</translation>
-    </message>
-    <message>
-        <source>시스템 기본</source>
-        <translation>System Default</translation>
     </message>
     <message>
         <source>글꼴:</source>

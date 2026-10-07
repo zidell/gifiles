@@ -171,7 +171,7 @@ const QList<Item> &items()
          Gifiles::tr("터미널에서 실행할 셸의 경로나 이름. 빈 문자열이면 시스템 기본 셸 ($SHELL, Windows는 powershell.exe)."),
          Gifiles::tr("새로 여는 터미널부터 적용됩니다.")},
         {Settings::TermFontFamily, Type::String, QString(),
-         Gifiles::tr("터미널 글꼴 이름 (예: \"D2Coding\", \"JetBrains Mono\"). 빈 문자열이면 시스템 기본 고정폭 글꼴.")},
+         Gifiles::tr("터미널 글꼴 이름 (예: \"JetBrains Mono\", \"Menlo\"). 빈 문자열이면 앱에 든 D2Coding (네이버, SIL Open Font License).")},
         {Settings::TermFontSize, Type::Int, 12, Gifiles::tr("터미널 글꼴 크기."), {}, 9, 24, QStringLiteral("pt")},
         {Settings::TermLineHeight, Type::Int, 100, Gifiles::tr("터미널 줄간격 (글꼴 기본 줄 높이의 %). 늘린 만큼 줄 위아래에 고르게 나뉩니다."), {}, 100, 200,
          QStringLiteral("%")},
@@ -1790,9 +1790,9 @@ SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent, Qt::Window)
     connect(shell, &QLineEdit::editingFinished, this, [shell] { Settings::instance()->setValue(Settings::TermShell, shell->text().trimmed()); });
     f->addRow(Gifiles::tr("셸:"), shell);
     auto *family = new QComboBox(term);
-    family->addItem(Gifiles::tr("시스템 기본"), QString());
+    family->addItem(Gifiles::tr("D2Coding (기본)"), QString());
     for (const QString &name : QFontDatabase::families())
-        if (!QFontDatabase::isPrivateFamily(name))
+        if (!QFontDatabase::isPrivateFamily(name) && name != QLatin1String("D2Coding")) // the default is the first item
             family->addItem(name, name);
     follow(family, Settings::TermFontFamily, [family] {
         const QString name = Settings::instance()->value(Settings::TermFontFamily).toString();

@@ -51,6 +51,8 @@ public:
     static bool drawBoxGlyph(QPainter &p, const QRectF &cell, char32_t ch, const QColor &color);
     // How many bytes at the end of `data` are an unfinished UTF-8 character (0: it ends cleanly).
     static int incompleteUtf8Tail(const QByteArray &data);
+    // The bundled default font (D2Coding), registered on first use; empty if it couldn't be.
+    static QString bundledFont();
     // `fg` moved toward white (dark bg) or black (light bg) just enough for `ratio` contrast (WCAG) with `bg`.
     static QColor readable(const QColor &fg, const QColor &bg, double ratio);
     QString shellCwd() const { return m_cwd; }

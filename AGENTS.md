@@ -302,7 +302,7 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
 | `src/Log` | debug log of user actions (dev machine only) |
 | `i18n/`, `scripts/i18n.sh` | translations (en, ja, zh_CN; Korean is the source) and their refresh script |
 | `packaging/readme.txt` | installed guide to the settings (bundle Resources, next to the .exe, AppImage share/doc) |
-| `LICENSE`, `packaging/licenses` | MIT for Gifiles; notices and texts for what the builds ship (Qt LGPLv3 dynamically linked, FFmpeg, libvterm), copied next to readme.txt — keep them in step when a bundled library changes |
+| `LICENSE`, `packaging/licenses` | MIT for Gifiles; notices and texts for what the builds ship (Qt LGPLv3 dynamically linked, FFmpeg, libvterm, D2Coding OFL), copied next to readme.txt — keep them in step when a bundled library changes |
 | `src/Updater` | automatic updates: signed update.json, download + checks, the swap helper |
 | `third_party/tweetnacl` | TweetNaCl (public domain), Ed25519 verification of update.json |
 | `src/OpenWith*` | "다음으로 열기" app list and remembered per-extension apps |
@@ -314,6 +314,7 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
 | `tests/unit_fileops.cpp`, `tests/unit_core.cpp`, `tests/unit_update.cpp` | windowless tests: file operations and undo; TOML, settings, command quoting, helpers, the CLI options; automatic updates |
 | `third_party/libvterm` | vendored libvterm 0.3.3, built where no system package exists (Windows, Linux CI) |
 | `packaging/icon` | app icon: `gifiles.svg` is the source; `.icns` (macOS bundle) and `.ico` (Windows, via `packaging/windows/gifiles.rc`) are rendered from it — re-render both when it changes |
+| `packaging/fonts` | the terminal's default font D2Coding 1.4.0 Regular/Bold (SIL OFL 1.1, `packaging/licenses/OFL-1.1.txt`), a Qt resource of `gifiles_core` registered on the first terminal (`TerminalWidget::bundledFont`); empty `terminal.font_family` means it |
 | `packaging/linux` | .desktop file for the AppImage (icon from `packaging/icon`) |
 
 ## Status

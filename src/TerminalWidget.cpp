@@ -433,9 +433,28 @@ void TerminalWidget::applyTheme()
     update();
 }
 
+QString TerminalWidget::bundledFont()
+{
+    // D2Coding (SIL OFL 1.1) is embedded as a Qt resource and registered for this process the first time a
+    // terminal needs it, so a session that never opens the terminal never loads its 8 MB. Empty if the
+    // platform refuses it (the terminal then uses the system's fixed-width font).
+    static const QString family = [] {
+        QString name;
+        for (const char *file : {":/fonts/D2Coding.ttf", ":/fonts/D2CodingBold.ttf"}) {
+            const int id = QFontDatabase::addApplicationFont(QString::fromLatin1(file));
+            if (id >= 0 && name.isEmpty())
+                name = QFontDatabase::applicationFontFamilies(id).value(0);
+        }
+        return name;
+    }();
+    return family;
+}
+
 void TerminalWidget::updateFont()
 {
-    const QString family = Settings::instance()->value(Settings::TermFontFamily).toString();
+    QString family = Settings::instance()->value(Settings::TermFontFamily).toString();
+    if (family.isEmpty())
+        family = bundledFont();
     m_font = family.isEmpty() ? QFontDatabase::systemFont(QFontDatabase::FixedFont) : QFont(family);
     m_font.setPointSize(Settings::instance()->value(Settings::TermFontSize).toInt());
     m_font.setStyleHint(QFont::Monospace);

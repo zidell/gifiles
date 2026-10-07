@@ -738,10 +738,6 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
         <translation>新しく開くターミナルから適用されます。</translation>
     </message>
     <message>
-        <source>터미널 글꼴 이름 (예: &quot;D2Coding&quot;, &quot;JetBrains Mono&quot;). 빈 문자열이면 시스템 기본 고정폭 글꼴.</source>
-        <translation>ターミナルのフォント名(例: &quot;D2Coding&quot;、&quot;JetBrains Mono&quot;)。空文字列ならシステム標準の等幅フォント。</translation>
-    </message>
-    <message>
         <source>터미널 글꼴 크기.</source>
         <translation>ターミナルのフォントサイズ。</translation>
     </message>
@@ -1058,6 +1054,10 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>変更</translation>
     </message>
     <message>
+        <source>D2Coding (기본)</source>
+        <translation>D2Coding（標準）</translation>
+    </message>
+    <message>
         <source>단축키</source>
         <translation>ショートカット</translation>
     </message>
@@ -1296,6 +1296,10 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>フォルダとすべての拡張子の色を既定値に</translation>
     </message>
     <message>
+        <source>터미널 글꼴 이름 (예: &quot;JetBrains Mono&quot;, &quot;Menlo&quot;). 빈 문자열이면 앱에 든 D2Coding (네이버, SIL Open Font License).</source>
+        <translation>ターミナルのフォント名（例: &quot;JetBrains Mono&quot;、&quot;Menlo&quot;）。空文字列ならアプリ同梱の D2Coding（NAVER、SIL Open Font License）。</translation>
+    </message>
+    <message>
         <source>폴더와 확장자 색을 모두 기본값으로 되돌릴까요? 직접 바꾼 색은 사라집니다.</source>
         <translation>フォルダと拡張子の色をすべて既定値に戻しますか? 変更した色は失われます。</translation>
     </message>
@@ -1450,10 +1454,6 @@ command 内のプレースホルダは実行時に置き換えられます (各�
     <message>
         <source>셸:</source>
         <translation>シェル:</translation>
-    </message>
-    <message>
-        <source>시스템 기본</source>
-        <translation>システム標準</translation>
     </message>
     <message>
         <source>글꼴:</source>

@@ -26,6 +26,11 @@ TweetNaCl 20140427 (Daniel J. Bernstein, Bernard van Gastel, Wesley Janssen,
   into Gifiles to verify the signature of update information.
   License: public domain (https://tweetnacl.cr.yp.to)
 
+D2Coding 1.4.0 (NAVER Corporation) — packaging/fonts, built into Gifiles as
+  the terminal's default font.
+  License: SIL Open Font License 1.1 (OFL-1.1.txt)
+  https://github.com/naver/d2codingfont
+
 libvterm 0.3.3 (Paul Evans) — third_party/libvterm, built into Gifiles
   License: MIT
 

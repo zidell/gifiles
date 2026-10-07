@@ -738,10 +738,6 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
         <translation>从新打开的终端开始生效。</translation>
     </message>
     <message>
-        <source>터미널 글꼴 이름 (예: &quot;D2Coding&quot;, &quot;JetBrains Mono&quot;). 빈 문자열이면 시스템 기본 고정폭 글꼴.</source>
-        <translation>终端字体名称(例如 &quot;D2Coding&quot;、&quot;JetBrains Mono&quot;)。为空则使用系统默认等宽字体。</translation>
-    </message>
-    <message>
         <source>터미널 글꼴 크기.</source>
         <translation>终端字体大小。</translation>
     </message>
@@ -1058,6 +1054,10 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>更改</translation>
     </message>
     <message>
+        <source>D2Coding (기본)</source>
+        <translation>D2Coding（默认）</translation>
+    </message>
+    <message>
         <source>단축키</source>
         <translation>快捷键</translation>
     </message>
@@ -1296,6 +1296,10 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>将文件夹和所有扩展名颜色恢复为默认值</translation>
     </message>
     <message>
+        <source>터미널 글꼴 이름 (예: &quot;JetBrains Mono&quot;, &quot;Menlo&quot;). 빈 문자열이면 앱에 든 D2Coding (네이버, SIL Open Font License).</source>
+        <translation>终端字体名称（例如 &quot;JetBrains Mono&quot;、&quot;Menlo&quot;）。空字符串则使用应用自带的 D2Coding（NAVER，SIL Open Font License）。</translation>
+    </message>
+    <message>
         <source>폴더와 확장자 색을 모두 기본값으로 되돌릴까요? 직접 바꾼 색은 사라집니다.</source>
         <translation>将文件夹和扩展名颜色全部恢复为默认值吗? 您更改的颜色将丢失。</translation>
     </message>
@@ -1450,10 +1454,6 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
     <message>
         <source>셸:</source>
         <translation>Shell：</translation>
-    </message>
-    <message>
-        <source>시스템 기본</source>
-        <translation>系统默认</translation>
     </message>
     <message>
         <source>글꼴:</source>

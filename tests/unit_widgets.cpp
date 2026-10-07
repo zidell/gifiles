@@ -751,7 +751,7 @@ private slots:
         QVERIFY(!draw(U'a').first);
     }
 
-    // 설정 → 터미널: 글꼴 (terminal.font_family, empty = system fixed) and 줄간격 (terminal.line_height, %) apply at
+    // 설정 → 터미널: 글꼴 (terminal.font_family, empty = the bundled D2Coding) and 줄간격 (terminal.line_height, %) apply at
     // once; the input method's cursor rectangle is one cell.
     void terminalFontAndLineHeightSettings()
     {
@@ -773,7 +773,13 @@ private slots:
         s->setValue(Settings::TermFontFamily, family);
         QCOMPARE(w->inputMethodQuery(Qt::ImFont).value<QFont>().family(), family);
         s->setValue(Settings::TermFontFamily, QString());
+#ifdef Q_OS_WIN // Windows' offscreen platform has no font database to register it in: the system's fixed font
+        QVERIFY(TerminalWidget::bundledFont().isEmpty());
         QCOMPARE(w->inputMethodQuery(Qt::ImFont).value<QFont>().family(), QFontDatabase::systemFont(QFontDatabase::FixedFont).family());
+#else
+        QCOMPARE(TerminalWidget::bundledFont(), QStringLiteral("D2Coding"));
+        QCOMPARE(w->inputMethodQuery(Qt::ImFont).value<QFont>().family(), QStringLiteral("D2Coding"));
+#endif
     }
 
     void terminalKeepsSplitCharactersWhole()

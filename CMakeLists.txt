@@ -114,18 +114,22 @@ set_target_properties(gifiles PROPERTIES
 if(APPLE)
     target_sources(gifiles PRIVATE packaging/icon/gifiles.icns packaging/readme.txt
         LICENSE packaging/licenses/THIRD_PARTY_NOTICES.txt packaging/licenses/LGPL-3.0.txt
-        packaging/licenses/GPL-3.0.txt packaging/licenses/LGPL-2.1.txt)
+        packaging/licenses/GPL-3.0.txt packaging/licenses/LGPL-2.1.txt packaging/licenses/OFL-1.1.txt)
     set_source_files_properties(packaging/icon/gifiles.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
     # The installed guide to the settings and the licenses (Windows: next to the .exe; Linux:
     # share/doc in the AppImage).
     set_source_files_properties(packaging/readme.txt LICENSE PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
     set_source_files_properties(packaging/licenses/THIRD_PARTY_NOTICES.txt packaging/licenses/LGPL-3.0.txt
-        packaging/licenses/GPL-3.0.txt packaging/licenses/LGPL-2.1.txt
+        packaging/licenses/GPL-3.0.txt packaging/licenses/LGPL-2.1.txt packaging/licenses/OFL-1.1.txt
         PROPERTIES MACOSX_PACKAGE_LOCATION Resources/licenses)
 elseif(WIN32)
     target_sources(gifiles PRIVATE packaging/windows/gifiles.rc)
 endif()
 qt_add_resources(gifiles "appicon" PREFIX "/" BASE packaging/icon FILES packaging/icon/gifiles.svg)
+# The terminal's default font D2Coding (SIL OFL 1.1, packaging/licenses/OFL-1.1.txt), registered for this
+# process only when a terminal is first made (TerminalWidget::bundledFont); never installed system-wide.
+qt_add_resources(gifiles_core "fonts" PREFIX "/fonts" BASE packaging/fonts
+    FILES packaging/fonts/D2Coding.ttf packaging/fonts/D2CodingBold.ttf)
 # UI translations (Korean in the code is the source text). The .qm files are compiled by
 # scripts/i18n.sh and committed, so building doesn't need Qt Linguist.
 qt_add_resources(gifiles "i18n" PREFIX "/i18n" BASE i18n
