@@ -13,6 +13,10 @@
 #include <QStorageInfo>
 #include <QUrl>
 
+#ifdef Q_OS_MACOS
+#include <sys/mount.h>
+#endif
+
 namespace util {
 
 QString humanSize(qint64 n)
@@ -154,7 +158,16 @@ bool isUserVolume(const QStorageInfo &si)
         return false;
     const QString root = si.rootPath();
 #if defined(Q_OS_MACOS)
-    return root == QLatin1String("/") || root.startsWith(QLatin1String("/Volumes/"));
+    // Finder's rule: every mount not flagged nobrowse (system volumes, Recovery, simulators are), so a share
+    // mounted outside /Volumes (fuse-t, sshfs under ~/mnt) shows too. MNT_NOWAIT: a dead share never blocks.
+    if (root == QLatin1String("/"))
+        return true;
+    struct statfs *mounts = nullptr;
+    const int n = getmntinfo(&mounts, MNT_NOWAIT);
+    for (int i = 0; i < n; ++i)
+        if (root == QString::fromUtf8(mounts[i].f_mntonname))
+            return !(mounts[i].f_flags & MNT_DONTBROWSE);
+    return false;
 #elif defined(Q_OS_WIN)
     return true;
 #else

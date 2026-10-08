@@ -36,6 +36,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTranslator>
+#include <QStorageInfo>
 #include <QtTest>
 
 #include <cmath>
@@ -1269,6 +1270,17 @@ private slots:
         QVERIFY(dir.args.contains(QStringLiteral("org.freedesktop.FileManager1.ShowFolders")));
         QVERIFY(file.args.contains(QStringLiteral("org.freedesktop.FileManager1.ShowItems")));
         QVERIFY(file.args.contains(QStringLiteral("array:string:") + QUrl::fromLocalFile(p("README.md")).toString(QUrl::FullyEncoded)));
+#endif
+    }
+
+    void userVolumes()
+    {
+        QVERIFY(util::isUserVolume(QStorageInfo(QDir::rootPath())));
+#if defined(Q_OS_MACOS)
+        // Finder's rule: the system's own (nobrowse) volumes stay out of 위치, wherever they are mounted.
+        for (const QStorageInfo &si : QStorageInfo::mountedVolumes())
+            if (si.rootPath().startsWith(QLatin1String("/System/Volumes/")))
+                QVERIFY2(!util::isUserVolume(si), qPrintable(si.rootPath()));
 #endif
     }
 
