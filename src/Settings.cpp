@@ -733,9 +733,10 @@ QVariantMap Settings::selectionCommand(const QString &id) const
 
 // Mdir III's hues (its own M.CFG, 3.10, and the user's memory of the screen), grouped by what the files
 // are for: programs and installers lime, scripts yellow, archives/disk images magenta, documents teal, source
-// code purple, build output blue, pictures sand (the user's pick), video green, sound brown, backups red. Kinds
+// code purple, build output blue, pictures olive, video green, sound brown, backups red. Kinds
 // Mdir didn't know take the colors it left free: shortcuts cyan (COM's), data/config sky blue, fonts and
-// design files rose. Toned down from the pure DOS colors, which glare on a dark background.
+// design files rose. Toned down from the pure DOS colors, which glare on a dark background, to one lightness
+// (OKLab L 0.78); then the user's tuning: programs and scripts brighter to stand out, pictures and sound dimmer.
 QVariantList Settings::defaultFileColors()
 {
     auto row = [](const char *exts, const char *color) {
@@ -743,9 +744,9 @@ QVariantList Settings::defaultFileColors()
     };
     return {
         // programs, and the installers that bring them (apk, dmg, pkg, msi, …)
-        row("exe, com, app, appimage, run, apk, ipa, dmg, pkg, msi, deb, rpm", "#8ACF39"),
+        row("exe, com, app, appimage, run, apk, ipa, dmg, pkg, msi, deb, rpm", "#00FF09"),
         // scripts and batch files
-        row("bat, btm, cmd, sh, bash, zsh, fish, ps1, command", "#CEB82E"),
+        row("bat, btm, cmd, sh, bash, zsh, fish, ps1, command", "#F7D800"),
         // shortcuts and links
         row("lnk, url, webloc, desktop", "#35CDDE"),
         // archives and disk images: containers of other files
@@ -765,12 +766,12 @@ QVariantList Settings::defaultFileColors()
         row("o, obj, a, lib, so, dylib, dll, class, pyc, wasm", "#9BB5F9"),
         // pictures
         row("jpg, jpeg, png, gif, webp, heic, heif, avif, bmp, tif, tiff, svg, ico, icns, raw, dng, cr2, cr3, nef, arw, "
-            "pcx, lbm", "#C6B878"),
+            "pcx, lbm", "#7EB206"),
         // video and subtitles
         row("mp4, mov, mkv, avi, webm, m4v, wmv, flv, mpg, mpeg, 3gp, fli, flc, anm, srt, vtt, ass", "#35D87B"),
         // sound
         row("mp3, m4a, aac, flac, wav, aiff, ogg, opus, wma, mid, mod, s3m, voc, ims, stm, rol, bnk, nst, wrk, pcm, okp, "
-            "cmf, sop, okm, oka", "#FAA03B"),
+            "cmf, sop, okm, oka", "#C47623"),
         // backups and temporary files
         row("bak, old, orig, tmp, swp, $$$, olz, crdownload, part", "#FA998F"),
         // fonts, design and 3D files

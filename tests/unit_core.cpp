@@ -1009,7 +1009,7 @@ private slots:
         QCOMPARE(Theme::fileBaseColor(QStringLiteral("a.zip")), QColor(QStringLiteral("#FA85EE")));
         QCOMPARE(Theme::fileBaseColor(QStringLiteral("A.ZIP")), QColor(QStringLiteral("#FA85EE")));
         QCOMPARE(Theme::fileBaseColor(QStringLiteral("x.tar.gz")), QColor(QStringLiteral("#FA85EE")));
-        QCOMPARE(Theme::fileBaseColor(QStringLiteral("run.exe")), QColor(QStringLiteral("#8ACF39")));
+        QCOMPARE(Theme::fileBaseColor(QStringLiteral("run.exe")), QColor(QStringLiteral("#00FF09")));
         QCOMPARE(Theme::fileBaseColor(QStringLiteral("notes.md")), QColor(QStringLiteral("#35D1C5")));
         QCOMPARE(Theme::fileBaseColor(QStringLiteral("backup.$$$")), QColor(QStringLiteral("#FA998F")));
         QVERIFY(!Theme::fileBaseColor(QStringLiteral("README")).isValid());
@@ -1049,7 +1049,8 @@ private slots:
         QVERIFY(!Theme::folderColor().isValid());
     }
 
-    // Light mode: every color gets the same perceived lightness (OKLab L 0.52), keeps its hue, stays in sRGB.
+    // Light mode: the perceived lightness is mirrored around the usual one (dark L 0.78 -> OKLab L 0.52), so a
+    // color made brighter to stand out on black is darker on white; the hue stays, the color stays in sRGB.
     void lightModeColor()
     {
         QList<QColor> inputs;
@@ -1061,7 +1062,8 @@ private slots:
             const QColor out = Theme::lightModeColor(c);
             QVERIFY(out.isValid());
             const Lab in = oklab(c), o = oklab(out);
-            QVERIFY2(std::abs(o.l - 0.52) < 0.01, qPrintable(c.name() + QStringLiteral(" -> ") + out.name()));
+            const double expected = std::clamp(0.52 - 0.6 * (in.l - 0.78), 0.42, 0.62);
+            QVERIFY2(std::abs(o.l - expected) < 0.01, qPrintable(c.name() + QStringLiteral(" -> ") + out.name()));
             const double hueIn = std::atan2(in.b, in.a), hueOut = std::atan2(o.b, o.a);
             double dh = std::abs(hueIn - hueOut);
             dh = std::min(dh, 2 * 3.14159265358979323846 - dh);
@@ -1069,13 +1071,17 @@ private slots:
             // A little more chroma than given, or as much as fits.
             QVERIFY(std::hypot(o.a, o.b) <= std::hypot(in.a, in.b) * 1.1 + 0.01);
         }
-        // Grays stay gray; black and white land on the same mid gray.
+        // Grays stay gray; white turns darkest, black lightest.
         for (const QColor &g : {QColor(Qt::white), QColor(Qt::black), QColor(QStringLiteral("#808080"))}) {
             const QColor out = Theme::lightModeColor(g);
             QVERIFY(std::abs(out.red() - out.green()) <= 1 && std::abs(out.green() - out.blue()) <= 1);
-            QVERIFY(std::abs(oklab(out).l - 0.52) < 0.01);
         }
-        QCOMPARE(Theme::lightModeColor(Qt::white), Theme::lightModeColor(Qt::black));
+        QVERIFY(std::abs(oklab(Theme::lightModeColor(Qt::white)).l - 0.42) < 0.01);
+        QVERIFY(std::abs(oklab(Theme::lightModeColor(Qt::black)).l - 0.62) < 0.01);
+        // The usual dark-mode lightness lands on 0.52; brighter in dark is darker in light.
+        QVERIFY(std::abs(oklab(Theme::lightModeColor(QColor(QStringLiteral("#35D1C5")))).l - 0.52) < 0.01);
+        QVERIFY(oklab(Theme::lightModeColor(QColor(QStringLiteral("#00FF09")))).l
+                < oklab(Theme::lightModeColor(QColor(QStringLiteral("#C47623")))).l);
     }
 
     // The selection bar: each item color at 80% of its perceived lightness, same hue, in sRGB.

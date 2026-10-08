@@ -623,12 +623,13 @@ std::array<double, 3> fromOkLch(const OkLch &o, bool *inGamut)
 
 QColor Theme::lightModeColor(const QColor &c)
 {
-    // Colors are chosen against the dark background. On white every one gets the same perceived
-    // lightness (OKLab L 0.52: the contrast of the darkest kinds), its own hue and a little more
-    // chroma, cut back to what sRGB can show at that lightness. HSL scaling left yellow and cyan
-    // light enough to vanish on white while blue went near black.
+    // Colors are chosen against the dark background. On white each one keeps its hue and gets a little
+    // more chroma, cut back to what sRGB can show, at a perceived lightness mirrored from the dark one:
+    // the usual dark-mode L 0.78 becomes OKLab L 0.52 (the contrast of the darkest kinds), a color made
+    // brighter to stand out on black comes out darker on white and a dimmed one lighter. HSL scaling
+    // left yellow and cyan light enough to vanish on white while blue went near black.
     OkLch o = toOkLch(c);
-    o.l = 0.52;
+    o.l = qBound(0.42, 0.52 - 0.6 * (o.l - 0.78), 0.62);
     double lo = 0, hi = o.c * 1.1;
     bool fits = false;
     fromOkLch({o.l, hi, o.h}, &fits);

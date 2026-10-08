@@ -1699,12 +1699,12 @@ private slots:
         st->setValue(Settings::FolderColor, QStringLiteral("#00FF00"));
         QCOMPARE(Theme::folderColor(), shown("#00FF00"));
         // Light mode: the same hue, darker and stronger.
-        const QColor light = Theme::lightModeColor(QColor(0xDC, 0x88, 0xDC));
+        const QColor light = Theme::lightModeColor(QColor(0xFA, 0x85, 0xEE));
         QVERIFY(light.lightness() < 110);
-        QVERIFY(qAbs(light.hslHue() - QColor(0xDC, 0x88, 0xDC).hslHue()) <= 2);
-        // ...and every hue the same weight on white: yellow no lighter than blue (HSL scaling left it pale).
+        QVERIFY(qAbs(light.hslHue() - QColor(0xFA, 0x85, 0xEE).hslHue()) <= 2);
+        // ...and hues of the same weight on black keep it on white: yellow no lighter than blue (HSL scaling left it pale).
         auto luma = [](const QColor &c) { return 0.2126 * c.redF() + 0.7152 * c.greenF() + 0.0722 * c.blueF(); };
-        QVERIFY(qAbs(luma(Theme::lightModeColor(QColor(0xF8, 0xDF, 0x44))) - luma(Theme::lightModeColor(QColor(0x3E, 0x5F, 0xEA)))) < 0.06);
+        QVERIFY(qAbs(luma(Theme::lightModeColor(QColor(0xCE, 0xB8, 0x2E))) - luma(Theme::lightModeColor(QColor(0x7B, 0xBE, 0xF9)))) < 0.06);
         // A wrong value is reported.
         QVERIFY(!Settings::check(QStringLiteral("[file_colors]\ngroups = [ { extensions = \"a\", color = \"red\" } ]\n")).isEmpty());
         QVERIFY(!Settings::check(QStringLiteral("[file_colors]\nfolder = \"#12345\"\n")).isEmpty());

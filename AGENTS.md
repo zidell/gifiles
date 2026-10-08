@@ -352,8 +352,10 @@ again; leave out what only mattered once.
 - **BetterTouchTool / accessibility:** Qt's `accessibilityHitTest:` returns nil over item views (108 of 144
   points failed on a real window); `macFixAccessibilityHitTest()` (MacWindow.mm) falls back to the window.
   Removing it breaks modifier-drag window tools.
-- **Colors:** file colors share OKLab L 0.78 (equal HSL lightness looked unequal in weight); light mode
-  derives every color at L 0.52 (`Theme::lightModeColor`); the selection bar is the accent at L 0.42 dark /
+- **Colors:** file colors start at OKLab L 0.78 (equal HSL lightness looked unequal in weight), then the
+  user tuned emphasis (2026-10-08: programs #00FF09 and scripts #F7D800 brighter, pictures #7EB206 and sound #C47623
+  dimmer); light mode mirrors the lightness, L = 0.52 − 0.6·(L_dark − 0.78) clamped to 0.42–0.62
+  (`Theme::lightModeColor`; one flat L 0.52 erased the emphasis); the selection bar is the accent at L 0.42 dark /
   0.88 light (`Theme::nameSelectionColor`); Linux dark selection uses 68% of the accent RGB. Defaults come
   from Mdir III 3.10's own files (`M.CFG`, `M.DOC`), regrouped by purpose.
 - **Fonts on macOS:** Qt's CoreText path always applies grayscale smoothing; no setting changed a pixel, so
