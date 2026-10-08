@@ -113,11 +113,9 @@ class Smoke : public QObject {
         (w ? w : m_win)->grab().save(QDir(out).filePath(name + QStringLiteral(".png")));
     }
 
-    // Presses ⌘↓ and, if it shows a menu (files are selected), returns its first item's text
-    // after choosing it (accept) or closing the menu.
-    // viaAction: run the 열기 action instead of pressing its key (Windows offscreen loses the
-    // keyboard focus after a dialog closed; what's tested then is the menu, not the key).
-    QString openKey(bool accept, std::function<void(QMenu *)> onMenu = {}, bool viaAction = false)
+    // Shows the selection's context menu and returns its first item's text after choosing it
+    // (accept) or closing the menu.
+    QString itemMenu(bool accept, std::function<void(QMenu *)> onMenu = {})
     {
         // Offscreen, closing a popup leaves no active window (macOS gives it back to the window).
         QTest::qWait(50);
@@ -153,13 +151,8 @@ class Smoke : public QObject {
             }
         };
         QTimer::singleShot(20, *grab);
-        if (viaAction) {
-            if (auto *a = m_win->findChild<QAction *>(QStringLiteral("열기")))
-                a->trigger();
-        } else {
-            key(Qt::Key_Down, Qt::ControlModifier);
-        }
-        st->done = true; // a folder opens without a menu
+        emit tab()->contextMenuRequested(tab()->selectionMenuPos(), true);
+        st->done = true;
         grab.reset();
         QTest::qWait(50);
         m_win->activateWindow(); // for the keys that follow
@@ -1138,13 +1131,13 @@ private slots:
 
         tab()->selectPaths({p(QStringLiteral("arch/one.zip"))});
         QTRY_COMPARE(tab()->selectedPaths().size(), 1);
-        QCOMPARE(openKey(true), QStringLiteral("열기 (O)")); // open, from the menu ⌘↓ shows on files
+        key(Qt::Key_Down, Qt::ControlModifier); // ⌘↓ opens a file at once
         QTRY_VERIFY(QFile::exists(p(QStringLiteral("arch/pack 2/a.txt"))));
         QTRY_COMPARE(tab()->selectedPaths(), QStringList{p(QStringLiteral("arch/pack 2"))});
 
         tab()->selectPaths({p(QStringLiteral("arch/many.zip"))});
         QTRY_COMPARE(tab()->selectedPaths(), QStringList{p(QStringLiteral("arch/many.zip"))});
-        openKey(true);
+        QCOMPARE(itemMenu(true), QStringLiteral("열기 (O)")); // the menu's 열기 too
         QTRY_VERIFY(QFile::exists(p(QStringLiteral("arch/many/b.txt"))));
         QVERIFY(QFile::exists(p(QStringLiteral("arch/many/pack/a.txt"))));
         // The job's undo record lands with the selection, after the files appear on disk.
@@ -1244,23 +1237,27 @@ private slots:
         QCOMPARE(tab()->path(), m_tmp.path());
     }
 
-    void openKeyOnSeveralItemsShowsMenu()
+    void openKeyOpensEverySelectedItem()
     {
+        // ⌘↓ opens what is selected, like Finder (no menu): the first folder here, others in new tabs.
+        auto *tabs = m_win->findChild<QTabWidget *>();
+        const int before = tabs->count();
         tab()->focusView();
         tab()->selectPaths({p("Alpha"), p("Beta")});
         QTRY_COMPARE(tab()->selectedPaths().size(), 2);
-        QCOMPARE(openKey(false), QStringLiteral("열기 (2개 항목) (O)"));
-        QCOMPARE(tab()->path(), m_tmp.path()); // nothing opened
-        write(QStringLiteral("single.txt"), "x\n");
-        tab()->selectPaths({p("single.txt")}); // a single file: the menu too
-        QTRY_COMPARE(tab()->selectedPaths().size(), 1);
-        QCOMPARE(openKey(false), QStringLiteral("열기 (O)"));
-        tab()->selectPaths({p("Alpha")}); // a single folder is entered at once
-        QTRY_COMPARE(tab()->selectedPaths().size(), 1);
-        QCOMPARE(openKey(false), QString());
+        key(Qt::Key_Down, Qt::ControlModifier);
+        QVERIFY(!QApplication::activePopupWidget());
+        QTRY_COMPARE(tabs->count(), before + 1);
+        while (tabs->count() > before)
+            tabs->tabCloseRequested(tabs->count() - 1);
+        tabs->setCurrentIndex(0);
         QTRY_COMPARE(tab()->path(), p("Alpha"));
         tab()->navigate(m_tmp.path());
-        QFile::remove(p("single.txt"));
+        // The context menu still names how many items its 열기 opens.
+        tab()->selectPaths({p("Alpha"), p("Beta")});
+        QTRY_COMPARE(tab()->selectedPaths().size(), 2);
+        QCOMPARE(itemMenu(false), QStringLiteral("열기 (2개 항목) (O)"));
+        QCOMPARE(tab()->path(), m_tmp.path()); // nothing opened
     }
 
     void configFileEditsApply()
@@ -1342,10 +1339,10 @@ private slots:
         write(QStringLiteral("tabonly.txt"), "x\n");
         auto offered = [&] {
             bool found = false;
-            openKey(false, [&](QMenu *menu) {
+            itemMenu(false, [&](QMenu *menu) {
                 for (QAction *a : menu->actions())
                     found = found || a->objectName() == QStringLiteral("새로운 탭에서 열기");
-            }, true);
+            });
             return found;
         };
         tab()->selectPaths({p("tabonly.txt")});
@@ -1371,7 +1368,7 @@ private slots:
         auto *tabs = m_win->findChild<QTabWidget *>();
         const int before = tabs->count();
         QString seen; // what the menu offered, for a failure message
-        const QString first = openKey(false, [&](QMenu *menu) {
+        const QString first = itemMenu(false, [&](QMenu *menu) {
             for (QAction *a : menu->actions())
                 if (a->property("menuLetter").toChar() == QLatin1Char('E'))
                     seen += a->text() + (a->isEnabled() ? QStringLiteral(" on") : QStringLiteral(" off"));
@@ -1379,7 +1376,7 @@ private slots:
             QKeyEvent k(QEvent::KeyPress, 0, Qt::NoModifier, QStringLiteral("ㄷ"));
             seen += QCoreApplication::sendEvent(menu, &k) ? QStringLiteral(" | taken") : QStringLiteral(" | ignored");
             seen += QStringLiteral(" | tabs %1").arg(tabs->count());
-        }, true);
+        });
         QTRY_VERIFY2(tabs->count() == before + 2, qPrintable(first + QStringLiteral(" | ") + seen));
         while (tabs->count() > before)
             tabs->tabCloseRequested(tabs->count() - 1);
@@ -1388,14 +1385,14 @@ private slots:
         QTRY_COMPARE(tab()->selectedPaths().size(), 1);
         // S opens "선택한 항목들로…" with its first command chosen; the names are back afterwards.
         QString sub, active;
-        openKey(false, [&](QMenu *menu) {
+        itemMenu(false, [&](QMenu *menu) {
             QTest::keyClick(menu, Qt::Key_S);
             if (auto *m = qobject_cast<QMenu *>(QApplication::activePopupWidget()); m && m != menu) {
                 sub = m->title();
                 active = m->activeAction() ? m->activeAction()->text() : QString();
                 m->close();
             }
-        }, true);
+        });
         QCOMPARE(sub, QStringLiteral("선택한 항목들로… (S)"));
         QCOMPARE(active, QStringLiteral("새로운 폴더 (N)"));
         for (QAction *a : m_win->actions())
@@ -1406,12 +1403,12 @@ private slots:
         Shortcuts::instance()->assign(id, QKeySequence(QStringLiteral("F8")));
         tab()->selectPaths({p("Alpha"), p("Beta")});
         QTRY_COMPARE(tab()->selectedPaths().size(), 2);
-        openKey(false, [&](QMenu *menu) {
+        itemMenu(false, [&](QMenu *menu) {
             QTest::keyClick(menu, Qt::Key_E); // the old menu key no longer runs the command
             QVERIFY(menu->isVisible());
             QCOMPARE(tabs->count(), before);
             QTest::keyClick(menu, Qt::Key_F8);
-        }, true);
+        });
         QTRY_COMPARE(tabs->count(), before + 2);
         while (tabs->count() > before)
             tabs->tabCloseRequested(tabs->count() - 1);

@@ -130,7 +130,7 @@ private:
     void revealInFileManager(); // Finder / Explorer / the desktop's file manager
     void checkForUpdates();     // 업데이트 확인…: the result in a message box
     void restartToUpdate();     // install the downloaded version now (the app quits and comes back)
-    void showContextMenu(const QPoint &globalPos, bool onItem, bool fromKey = false);
+    void showContextMenu(const QPoint &globalPos, bool onItem);
 
     QTabWidget *m_tabs;
     QWidget *m_toolbar = nullptr;

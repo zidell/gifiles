@@ -380,14 +380,7 @@ void MainWindow::createActions()
     // On selected files the open key shows the context menu (open is its first, highlighted item:
     // Return opens): doing something else with them is more common than opening. A single folder
     // is entered at once.
-    m_openAct = act(QStringLiteral("열기"), [this] {
-                        const QStringList sel = tab()->selectedPaths();
-                        const QFileInfo fi(sel.value(0));
-                        if (sel.size() == 1 && fi.isDir() && !util::isPackage(fi))
-                            tab()->openSelection(false);
-                        else if (!sel.isEmpty())
-                            showContextMenu(tab()->selectionMenuPos(), true, true);
-                    });
+    m_openAct = act(QStringLiteral("열기"), [this] { tab()->openSelection(false); });
     m_openWithAct = act(QStringLiteral("다음으로 열기…"), [this] {
         QStringList files;
         for (const QString &p : tab()->selectedPaths())
@@ -2072,7 +2065,7 @@ protected:
 
 } // namespace
 
-void MainWindow::showContextMenu(const QPoint &globalPos, bool onItem, bool fromKey)
+void MainWindow::showContextMenu(const QPoint &globalPos, bool onItem)
 {
     Theme::ShortcutMenu menu(this);
     auto *letters = new MenuLetters(&menu);
@@ -2113,14 +2106,11 @@ void MainWindow::showContextMenu(const QPoint &globalPos, bool onItem, bool from
         bool anyFile = false;
         for (const QString &p : tab()->selectedPaths())
             anyFile = anyFile || !QFileInfo(p).isDir();
-        // Not m_openAct: on files that one shows this menu.
         const int count = tab()->selectedPaths().size();
         QAction *open = menu.addAction(m_openAct->icon(), count > 1 ? Gifiles::tr("열기 (%1개 항목)").arg(count) : Gifiles::tr("열기"));
         open->setObjectName(QStringLiteral("menuOpen"));
         letter(open, 'O', false);
         connect(open, &QAction::triggered, this, [this] { tab()->openSelection(false); });
-        if (fromKey)
-            menu.setActiveAction(open);
         if (anyFile)
             add(m_openWithAct, 'H');
         if (tab()->hasSelectedFolder())
