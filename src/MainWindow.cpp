@@ -345,8 +345,12 @@ QAction *MainWindow::act(const QString &text, std::function<void()> fn)
             return fn();
         const QString key = Log::recentKey();
         Log::write("action", QStringLiteral("%1 (%2) | %3").arg(a->text(), key.isEmpty() ? QStringLiteral("menu/click") : key, debugState()));
+        // The action can take its window with it: on ⌘Q, macOS's terminate path sometimes runs the
+        // closed windows' deferred deletes before fn() returns (three crashes in debugState on 2026-10-08).
+        const QPointer<MainWindow> self(this);
         fn();
-        Log::write("after", debugState());
+        if (self)
+            Log::write("after", debugState());
     });
     if (Shortcuts::instance()->context(text) == QLatin1String("files"))
         a->setShortcutContext(Qt::WidgetWithChildrenShortcut);
