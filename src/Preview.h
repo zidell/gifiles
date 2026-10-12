@@ -185,6 +185,7 @@ signals:
 protected:
     void showEvent(QShowEvent *e) override;
     void hideEvent(QHideEvent *e) override;
+    void leaveEvent(QEvent *e) override;
     void closeEvent(QCloseEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
     bool eventFilter(QObject *obj, QEvent *ev) override;

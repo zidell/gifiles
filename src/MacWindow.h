@@ -22,6 +22,11 @@ bool macLeftButtonDown();
 // macOS: show the arrow cursor now (a window closing under the pointer leaves its cursor up).
 void macResetCursor();
 
+// macOS: show the arrow cursor whenever the app is about to stop being the active app. A Qt::Tool
+// window (Quick Look) is an NSPanel that AppKit hides on deactivation without telling Qt (no
+// hideEvent), so the magnifier over its image stayed on in the app that came to the front.
+void macResetCursorOnDeactivate();
+
 // macOS: the window's number in the window server (screencapture -l), for snapshots.
 long macWindowNumber(QWidget *window);
 

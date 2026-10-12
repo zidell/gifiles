@@ -1136,6 +1136,9 @@ QuickLookWindow::QuickLookWindow(QWidget *parent) : QWidget(parent, Qt::Tool)
     m_sizeSave->setSingleShot(true);
     m_sizeSave->setInterval(400);
     connect(m_sizeSave, &QTimer::timeout, this, &QuickLookWindow::rememberUserSize);
+#ifdef Q_OS_MACOS
+    macResetCursorOnDeactivate();
+#endif
 }
 
 QSize QuickLookWindow::windowSizeFor(bool audio) const
@@ -1358,6 +1361,18 @@ void QuickLookWindow::unsetZoomCursors()
 #ifdef Q_OS_MACOS
     macResetCursor();
 #endif
+}
+
+// The pointer left the window straight into another app's window: that app sets no cursor until
+// something changes, so the magnifier would ride along. Over another Gifiles window, that window's
+// own cursor is left alone.
+void QuickLookWindow::leaveEvent(QEvent *e)
+{
+#ifdef Q_OS_MACOS
+    if (!QApplication::widgetAt(QCursor::pos()))
+        macResetCursor();
+#endif
+    QWidget::leaveEvent(e);
 }
 
 bool QuickLookWindow::eventFilter(QObject *obj, QEvent *ev)

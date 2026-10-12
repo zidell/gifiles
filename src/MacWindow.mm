@@ -42,6 +42,21 @@ void macResetCursor()
     [[NSCursor arrowCursor] set];
 }
 
+void macResetCursorOnDeactivate()
+{
+    static bool installed = false;
+    if (installed || QGuiApplication::platformName() != QLatin1String("cocoa"))
+        return;
+    installed = true;
+    // "Will" resign: the app is still active, so the window server still takes its cursor.
+    [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationWillResignActiveNotification
+                                                      object:nil
+                                                       queue:nil
+                                                  usingBlock:^(NSNotification *) {
+                                                      [[NSCursor arrowCursor] set];
+                                                  }];
+}
+
 static IMP s_qtHitTest = nullptr;
 
 static id gifilesHitTest(id self, SEL cmd, NSPoint point)
