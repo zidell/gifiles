@@ -444,8 +444,8 @@ Windows: Gifiles.exe の隣、Linux AppImage: --appimage-extract 後の squashfs
         <translation>開く</translation>
     </message>
     <message>
-        <source>선택한 항목들로…</source>
-        <translation>選択した項目で…</translation>
+        <source>선택한 항목들…</source>
+        <translation>選択した項目…</translation>
     </message>
     <message>
         <source>메뉴 편집…</source>
@@ -626,10 +626,6 @@ Windows: Gifiles.exe の隣、Linux AppImage: --appimage-extract 後の squashfs
         <translation>フォルダツリー(` キー)</translation>
     </message>
     <message>
-        <source>목록의 컨텍스트 메뉴 &quot;선택한 항목들로…&quot;</source>
-        <translation>リストのコンテキストメニュー &quot;選択した項目で…&quot;</translation>
-    </message>
-    <message>
         <source>화면에 쓸 언어. &quot;system&quot; 시스템 언어 따르기 (지원하지 않는 언어면 영어), &quot;ko&quot; 한국어, &quot;en&quot; English, &quot;ja&quot; 日本語, &quot;zh_CN&quot; 简体中文.</source>
         <translation>画面に使う言語。&quot;system&quot; システムの言語に従う (サポートしていない言語の場合は英語)、&quot;ko&quot; 한국어、&quot;en&quot; English、&quot;ja&quot; 日本語、&quot;zh_CN&quot; 简体中文。</translation>
     </message>
@@ -754,20 +750,18 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
         <translation>ターミナルで cd すると、リストもそのフォルダに移動します。</translation>
     </message>
     <message>
+        <source>이 줄이 없으면 기본 명령 세 가지(새로운 폴더로 옮기기, 압축하기, AI로 실행)만 씁니다.
+문자열 안의 &quot; 는 \&quot; 로, \ 는 \\ 로 적습니다.</source>
+        <translation>この行がなければ 3 つの標準コマンド (新規フォルダに移動、圧縮、AIで実行) だけを使います。
+文字列の中の &quot; は \&quot; に、\ は \\ と書きます。</translation>
+    </message>
+    <message>
         <source>사이드바 &apos;즐겨찾기&apos;에 보일 폴더 경로들 (순서대로).</source>
         <translation>サイドバーの「よく使う項目」に表示するフォルダのパス (順番どおり)。</translation>
     </message>
     <message>
         <source>이 줄이 없으면 기본 목록(홈, 데스크탑, 문서, 다운로드 등)을 씁니다.</source>
         <translation>この行がない場合はデフォルトのリスト(ホーム、デスクトップ、書類、ダウンロードなど)を使います。</translation>
-    </message>
-    <message>
-        <source>사이드바 &apos;최근 폴더&apos;에 보일 폴더 수. 0이면 숨깁니다.
-둘러보기만 한 폴더는 들어가지 않고, 무언가를 한 폴더만 들어갑니다: 항목을 복사·이동·만들기·이름 변경·삭제·압축 풀기 했거나,
-파일을 열었거나, &apos;선택한 항목들로…&apos; 명령이나 터미널 명령(cd, ls 같은 이동·보기 말고)을 실행한 폴더.</source>
-        <translation>サイドバーの「最近のフォルダ」に表示するフォルダの数。0 で非表示。
-見ただけのフォルダは入らず、何かをしたフォルダだけが入ります: 項目をコピー・移動・作成・名前変更・削除・展開した、
-ファイルを開いた、「選択した項目で…」のコマンドやターミナルのコマンド（cd や ls のような移動・表示以外）を実行したフォルダ。</translation>
     </message>
     <message>
         <source>폴더 트리(파일 목록에서 ` 키)에 보일 폴더들. []이면 드라이브 전체 (macOS·Linux는 &quot;/&quot;, Windows는 모든 고정 드라이브).
@@ -806,10 +800,6 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
     <message>
         <source>Set-Location -LiteralPath {dir}; $d = &apos;새 폴더&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;새 폴더 $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</source>
         <translation>Set-Location -LiteralPath {dir}; $d = &apos;新規フォルダ&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;新規フォルダ $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</translation>
-    </message>
-    <message>
-        <source>압축 파일 생성</source>
-        <translation>アーカイブを作成</translation>
     </message>
     <message>
         <source>Set-Location -LiteralPath {dir}; $f = &apos;압축 파일.zip&apos;; $n = 2; while (Test-Path -LiteralPath $f) { $f = &quot;압축 파일 $n.zip&quot;; $n++ }; Compress-Archive -LiteralPath {names} -DestinationPath $f</source>
@@ -1076,12 +1066,6 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
         <translation>名前:</translation>
     </message>
     <message>
-        <source>이 줄이 없으면 기본 명령 세 가지(새로운 폴더, 압축 파일 생성, AI로 실행)만 씁니다.
-문자열 안의 &quot; 는 \&quot; 로, \ 는 \\ 로 적습니다.</source>
-        <translation>この行がなければ 3 つの標準コマンド (新規フォルダ、アーカイブを作成、AIで実行) だけを使います。
-文字列の中の &quot; は \&quot; に、\ は \\ と書きます。</translation>
-    </message>
-    <message>
         <source>%1: %2번째 항목</source>
         <translation>%1: %2 番目の項目</translation>
     </message>
@@ -1130,6 +1114,10 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
         <translation>OK</translation>
     </message>
     <message>
+        <source>목록의 컨텍스트 메뉴 &quot;선택한 항목들…&quot;</source>
+        <translation>リストのコンテキストメニュー &quot;選択した項目…&quot;</translation>
+    </message>
+    <message>
         <source>선택한 항목의 배경을 그 항목의 색으로 칠합니다 (Mdir의 선택 막대처럼, 글자는 검게). 색이 없는 항목은 회색. false면 강조색 막대 위에 이름 색을 그대로 둡니다.</source>
         <translation>選択した項目の背景をその項目の色で塗ります（Mdir の選択バーのように、文字は黒）。色のない項目はグレー。false ならアクセントカラーのバーの上で名前の色をそのまま保ちます。</translation>
     </message>
@@ -1174,6 +1162,22 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
         <translation>上のウインドウの高さ。0 なら基本サイズ。</translation>
     </message>
     <message>
+        <source>사이드바 &apos;최근 폴더&apos;에 보일 폴더 수. 0이면 숨깁니다.
+둘러보기만 한 폴더는 들어가지 않고, 무언가를 한 폴더만 들어갑니다: 항목을 복사·이동·만들기·이름 변경·삭제·압축 풀기 했거나,
+파일을 열었거나, &apos;선택한 항목들…&apos; 명령이나 터미널 명령(cd, ls 같은 이동·보기 말고)을 실행한 폴더.</source>
+        <translation>サイドバーの「最近のフォルダ」に表示するフォルダの数。0 で非表示。
+見ただけのフォルダは入らず、何かをしたフォルダだけが入ります: 項目をコピー・移動・作成・名前変更・削除・展開した、
+ファイルを開いた、「選択した項目…」のコマンドやターミナルのコマンド（cd や ls のような移動・表示以外）を実行したフォルダ。</translation>
+    </message>
+    <message>
+        <source>새로운 폴더로 옮기기</source>
+        <translation>新規フォルダに移動</translation>
+    </message>
+    <message>
+        <source>압축하기</source>
+        <translation>圧縮</translation>
+    </message>
+    <message>
         <source>%1: &quot;#RRGGBB&quot; 형식의 색이거나 빈 문자열이어야 합니다</source>
         <translation>%1: &quot;#RRGGBB&quot; 形式の色か空文字列である必要があります</translation>
     </message>
@@ -1212,10 +1216,6 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
     <message>
         <source>끄면 터미널 없이 조용히 실행하고, 실패했을 때만 알립니다.</source>
         <translation>オフにするとターミナルなしで静かに実行し、失敗したときだけ知らせます。</translation>
-    </message>
-    <message>
-        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들로…&quot;에 나오는 명령입니다. 셸 스크립트도 등록할 수 있습니다. 기본 명령 셋은 고칠 수 있지만 지울 수는 없습니다.</source>
-        <translation>「選択した項目で…」(リストで項目を選び、右クリックまたは ⌘↓) に表示されるコマンドです。シェルスクリプトも登録できます。3 つの標準コマンドは変更できますが削除はできません。</translation>
     </message>
     <message>
         <source>추가</source>
@@ -1282,7 +1282,7 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
         <translation>ターミナルのフォント名（例: &quot;JetBrains Mono&quot;、&quot;Menlo&quot;）。空文字列ならアプリ同梱の D2Coding（NAVER、SIL Open Font License）。</translation>
     </message>
     <message>
-        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들로…&quot; 메뉴에 나오는 명령들 (위에서부터 순서대로).
+        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들…&quot; 메뉴에 나오는 명령들 (위에서부터 순서대로).
 한 항목은 한 줄의 { } 이고, 쓸 수 있는 키는 다음과 같습니다:
   label    메뉴에 보일 이름 (필수)
   command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법
@@ -1301,7 +1301,29 @@ command 안의 자리표시자는 실행할 때 바뀝니다 (각 경로는 셸�
 여러 항목은 macOS·Linux에서 공백으로, Windows(PowerShell)에서 쉼표로 이어집니다 (배열).
 셸 스크립트도 됩니다. 예:
   { label = &quot;이미지 줄이기&quot;, key = &quot;R&quot;, terminal = false, command = &quot;~/bin/shrink.sh {files}&quot; }</source>
-        <translation></translation>
+        <translation>「選択した項目…」メニューのコマンド (リストで項目を選び、右クリックまたは ⌘↓)。上から順に表示されます。
+1 項目は 1 行の { } で、使えるキーは次のとおりです:
+  label    メニューに表示する名前 (必須)
+  command  実行するシェルコマンド (必須)。macOS·Linux はターミナルのシェル (zsh/bash)、Windows は PowerShell の文法
+  key      メニューが開いているときにこの 1 文字を押すとすぐ実行 (A-Z または 0-9、省略可)
+  extensions カンマ区切りの拡張子 (例: &quot;jpg,png&quot;)。既定値 &quot;*&quot;: すべての項目。選択した項目すべてが一致すると表示
+  terminal true: 下のターミナルを開いてそこで実行し、出力を表示します。
+           false: ターミナルなしで静かに実行し、失敗したときだけ知らせます (省略時は true)
+  id       標準コマンドの印 (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;)。標準コマンドは変更できますが削除はできず、
+           なくなっていると既定値で戻ります。自分で追加するコマンドには使いません。
+           &quot;ai&quot; で claude の代わりに codex などを使うには、その command を変更してください。
+command 内のプレースホルダは実行時に置き換えられます (各パスはシェルに合わせて引用符で囲みます: 空白·日本語·引用符も安全):
+  {files}  選択した項目の絶対パス
+  {names}  {dir} からの相対パス (同じフォルダなら名前)
+  {dir}    最初の項目があるフォルダ (選択がなければ今見ているフォルダ)
+  {prompt} 実行時に 1 行の入力を受けてその文に置き換え (メニュー名の後ろに … が付きます)
+複数の項目は macOS·Linux では空白で、Windows (PowerShell) ではカンマでつながります (配列)。
+シェルスクリプトも使えます。例:
+  { label = &quot;画像を縮小&quot;, key = &quot;R&quot;, terminal = false, command = &quot;~/bin/shrink.sh {files}&quot; }</translation>
+    </message>
+    <message>
+        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들…&quot;에 나오는 명령입니다. 셸 스크립트도 등록할 수 있습니다. 기본 명령 셋은 고칠 수 있지만 지울 수는 없습니다.</source>
+        <translation>「選択した項目…」(リストで項目を選び、右クリックまたは ⌘↓) に表示されるコマンドです。シェルスクリプトも登録できます。3 つの標準コマンドは変更できますが削除はできません。</translation>
     </message>
     <message>
         <source>폴더와 확장자 색을 모두 기본값으로 되돌릴까요? 직접 바꾼 색은 사라집니다.</source>

@@ -80,7 +80,7 @@ const QList<Table> &tables()
         {QStringLiteral("terminal"), Gifiles::tr("아래쪽 터미널")},
         {QStringLiteral("sidebar"), Gifiles::tr("사이드바")},
         {QStringLiteral("folder_tree"), Gifiles::tr("폴더 트리 (` 키)")},
-        {QStringLiteral("selection_menu"), Gifiles::tr("목록의 컨텍스트 메뉴 \"선택한 항목들로…\"")},
+        {QStringLiteral("selection_menu"), Gifiles::tr("목록의 컨텍스트 메뉴 \"선택한 항목들…\"")},
     };
     return t;
 }
@@ -180,7 +180,7 @@ const QList<Item> &items()
         {Settings::TermSyncBack, Type::Bool, true, Gifiles::tr("터미널에서 cd 하면 목록도 그 폴더로 옮깁니다.")},
 
         {Settings::SelectionCommands, Type::CommandList, QVariant(),
-         Gifiles::tr("목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → \"선택한 항목들로…\" 메뉴에 나오는 명령들 (위에서부터 순서대로).\n"
+         Gifiles::tr("목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → \"선택한 항목들…\" 메뉴에 나오는 명령들 (위에서부터 순서대로).\n"
                         "한 항목은 한 줄의 { } 이고, 쓸 수 있는 키는 다음과 같습니다:\n"
                         "  label    메뉴에 보일 이름 (필수)\n"
                         "  command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법\n"
@@ -199,7 +199,7 @@ const QList<Item> &items()
                         "여러 항목은 macOS·Linux에서 공백으로, Windows(PowerShell)에서 쉼표로 이어집니다 (배열).\n"
                         "셸 스크립트도 됩니다. 예:\n"
                         "  { label = \"이미지 줄이기\", key = \"R\", terminal = false, command = \"~/bin/shrink.sh {files}\" }"),
-         Gifiles::tr("이 줄이 없으면 기본 명령 세 가지(새로운 폴더, 압축 파일 생성, AI로 실행)만 씁니다.\n"
+         Gifiles::tr("이 줄이 없으면 기본 명령 세 가지(새로운 폴더로 옮기기, 압축하기, AI로 실행)만 씁니다.\n"
                         "문자열 안의 \" 는 \\\" 로, \\ 는 \\\\ 로 적습니다.")},
         {Settings::Favorites, Type::StringList, QVariant(),
          Gifiles::tr("사이드바 '즐겨찾기'에 보일 폴더 경로들 (순서대로)."),
@@ -207,7 +207,7 @@ const QList<Item> &items()
         {Settings::RecentFoldersCount, Type::Int, 8,
          Gifiles::tr("사이드바 '최근 폴더'에 보일 폴더 수. 0이면 숨깁니다.\n"
                      "둘러보기만 한 폴더는 들어가지 않고, 무언가를 한 폴더만 들어갑니다: 항목을 복사·이동·만들기·이름 변경·삭제·압축 풀기 했거나,\n"
-                     "파일을 열었거나, '선택한 항목들로…' 명령이나 터미널 명령(cd, ls 같은 이동·보기 말고)을 실행한 폴더."),
+                     "파일을 열었거나, '선택한 항목들…' 명령이나 터미널 명령(cd, ls 같은 이동·보기 말고)을 실행한 폴더."),
          {}, 0, 50},
 
         {Settings::FolderTreeRoots, Type::StringList, QVariant(),
@@ -267,16 +267,16 @@ QString aiCommandExample(bool codex)
 #endif
 }
 
-// The built-in "선택한 항목들로…" commands. New folder and zip run quietly (the result shows in the
+// The built-in "선택한 항목들…" commands. New folder and zip run quietly (the result shows in the
 // list); AI runs in the terminal, where its answer appears.
 QVariantList defaultSelectionCommands()
 {
 #ifdef Q_OS_WIN
     return {
-        command("new_folder", Gifiles::tr("새로운 폴더"), "N", false,
+        command("new_folder", Gifiles::tr("새로운 폴더로 옮기기"), "N", false,
                 Gifiles::tr("Set-Location -LiteralPath {dir}; $d = '새 폴더'; $n = 2; while (Test-Path -LiteralPath $d) { $d = \"새 폴더 $n\"; $n++ }; "
                                "New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d")),
-        command("zip", Gifiles::tr("압축 파일 생성"), "Z", false,
+        command("zip", Gifiles::tr("압축하기"), "Z", false,
                 Gifiles::tr("Set-Location -LiteralPath {dir}; $f = '압축 파일.zip'; $n = 2; while (Test-Path -LiteralPath $f) { $f = \"압축 파일 $n.zip\"; $n++ }; "
                                "Compress-Archive -LiteralPath {names} -DestinationPath $f")),
         command("ai", Gifiles::tr("AI로 실행"), "A", true,
@@ -284,10 +284,10 @@ QVariantList defaultSelectionCommands()
     };
 #else
     return {
-        command("new_folder", Gifiles::tr("새로운 폴더"), "N", false,
+        command("new_folder", Gifiles::tr("새로운 폴더로 옮기기"), "N", false,
                 Gifiles::tr("cd {dir} && d='새 폴더' && n=2 && while [ -e \"$d\" ]; do d=\"새 폴더 $n\"; n=$((n+1)); done && "
                                "mkdir -- \"$d\" && mv -n -- {names} \"$d\"/")),
-        command("zip", Gifiles::tr("압축 파일 생성"), "Z", false,
+        command("zip", Gifiles::tr("압축하기"), "Z", false,
                 Gifiles::tr("cd {dir} && f='압축 파일.zip' && n=2 && while [ -e \"$f\" ]; do f=\"압축 파일 $n.zip\"; n=$((n+1)); done && "
                                "zip -r -y -q \"$f\" {names}")),
         command("ai", Gifiles::tr("AI로 실행"), "A", true,
@@ -296,9 +296,30 @@ QVariantList defaultSelectionCommands()
 #endif
 }
 
+// Upgrade saved default labels, including labels written in another UI language. Custom labels stay.
+QVariantList renamedCommandLabels(QVariantList list)
+{
+    const QStringList folders{QString::fromUtf8("새로운 폴더"), QStringLiteral("New Folder"),
+                              QString::fromUtf8("新規フォルダ"), QString::fromUtf8("新建文件夹")};
+    const QStringList archives{QString::fromUtf8("압축 파일 생성"), QStringLiteral("Create Archive"),
+                               QString::fromUtf8("アーカイブを作成"), QString::fromUtf8("创建归档")};
+    for (QVariant &row : list) {
+        QVariantMap m = row.toMap();
+        const QString id = m.value(QStringLiteral("id")).toString();
+        const QString label = m.value(QStringLiteral("label")).toString();
+        if (id == QLatin1String("new_folder") && folders.contains(label))
+            m.insert(QStringLiteral("label"), Gifiles::tr("새로운 폴더로 옮기기"));
+        else if (id == QLatin1String("zip") && archives.contains(label))
+            m.insert(QStringLiteral("label"), Gifiles::tr("압축하기"));
+        row = m;
+    }
+    return list;
+}
+
 // Built-in commands can't be removed: one missing from the list comes back (at the end).
 QVariantList withBuiltins(QVariantList list)
 {
+    list = renamedCommandLabels(list);
     for (const QVariant &d : defaultSelectionCommands()) {
         const QString id = d.toMap().value(QStringLiteral("id")).toString();
         if (std::none_of(list.cbegin(), list.cend(), [&](const QVariant &c) { return c.toMap().value(QStringLiteral("id")).toString() == id; }))
@@ -717,8 +738,9 @@ QStringList Settings::keys(const QString &table) const
     return out;
 }
 
-void Settings::setValue(const QString &key, const QVariant &v)
+void Settings::setValue(const QString &key, const QVariant &input)
 {
+    const QVariant v = key == QLatin1String(SelectionCommands) ? QVariant(renamedCommandLabels(input.toList())) : input;
     if (m_values.contains(key) && m_values.value(key) == v)
         return;
     const bool same = value(key) == v;
@@ -1215,7 +1237,7 @@ QWidget *shortcutsPage()
     return w;
 }
 
-// One "선택한 항목들로…" command: name, its letter in the menu, the command, and whether it runs in
+// One "선택한 항목들…" command: name, its letter in the menu, the command, and whether it runs in
 // the terminal (shown) or quietly.
 class CommandEditDialog : public QDialog {
 public:
@@ -1327,7 +1349,7 @@ private:
     QCheckBox *m_terminal;
 };
 
-// "선택한 항목들로…" commands: the list, and buttons under it; 추가 and 편집 open CommandEditDialog.
+// "선택한 항목들…" commands: the list, and buttons under it; 추가 and 편집 open CommandEditDialog.
 QWidget *selectionMenuPage()
 {
     auto *w = new QWidget;
@@ -1337,7 +1359,7 @@ QWidget *selectionMenuPage()
     auto *t = new QLabel(Gifiles::tr("선택 항목 메뉴"), w);
     t->setObjectName(QStringLiteral("title"));
     l->addWidget(t);
-    l->addWidget(hint(Gifiles::tr("목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → \"선택한 항목들로…\"에 나오는 명령입니다. "
+    l->addWidget(hint(Gifiles::tr("목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → \"선택한 항목들…\"에 나오는 명령입니다. "
                                      "셸 스크립트도 등록할 수 있습니다. 기본 명령 셋은 고칠 수 있지만 지울 수는 없습니다.")));
     auto *list = new QListWidget(w);
     list->setObjectName(QStringLiteral("commandList"));

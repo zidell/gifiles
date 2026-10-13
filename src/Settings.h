@@ -55,7 +55,7 @@ public:
     static constexpr const char *PreviewDocFontSize = "preview/doc_font_size";   // txt, md: UI font
     static constexpr const char *Favorites = "sidebar/favorites";             // folder paths
     static constexpr const char *RecentFoldersCount = "sidebar/recent_folders"; // int, 0 = no "최근 폴더"
-    // [{id?, label, key, extensions?, terminal, command}], the context menu's "선택한 항목들로…"; the built-in ones
+    // [{id?, label, key, extensions?, terminal, command}], the context menu's "선택한 항목들…"; the built-in ones
     // (id "new_folder", "zip", "ai") can be changed but not removed.
     static constexpr const char *SelectionCommands = "selection_menu/commands";
     // [{extensions, color}]: file name colors by extension ("zip, 7z", "#DC88DC"), given for dark mode;
@@ -70,7 +70,7 @@ public:
     static constexpr const char *FolderTreeCase = "folder_tree/case_sensitive"; // bool: the Aa toggle
     // "open_with/<extension>": app remembered by "항상 이 앱으로 열기"; "shortcuts/<menu title>": keys.
 
-    // A "선택한 항목들로…" command by its id ("ai": the toolbar's AI button).
+    // A "선택한 항목들…" command by its id ("ai": the toolbar's AI button).
     QVariantMap selectionCommand(const QString &id) const;
     static bool selectionCommandMatches(const QVariantMap &command, const QStringList &paths);
     static QVariantList defaultFileColors();

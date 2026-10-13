@@ -1357,7 +1357,7 @@ private slots:
             QStringList labels;
             itemMenu(false, [&](QMenu *menu) {
                 for (QAction *action : menu->actions()) {
-                    if (action->objectName() != QStringLiteral("선택한 항목들로…"))
+                    if (action->objectName() != QStringLiteral("선택한 항목들…"))
                         continue;
                     for (QAction *item : action->menu()->actions())
                         labels << item->text();
@@ -1429,7 +1429,7 @@ private slots:
         tabs->setCurrentIndex(0);
         tab()->selectPaths({p("letters.txt")});
         QTRY_COMPARE(tab()->selectedPaths().size(), 1);
-        // S opens "선택한 항목들로…" with its first command chosen; the names are back afterwards.
+        // S opens "선택한 항목들…" with its first command chosen; the names are back afterwards.
         QString sub, active;
         itemMenu(false, [&](QMenu *menu) {
             QTest::keyClick(menu, Qt::Key_S);
@@ -1439,8 +1439,8 @@ private slots:
                 m->close();
             }
         });
-        QCOMPARE(sub, QStringLiteral("선택한 항목들로… (S)"));
-        QCOMPARE(active, QStringLiteral("새로운 폴더 (N)"));
+        QCOMPARE(sub, QStringLiteral("선택한 항목들… (S)"));
+        QCOMPARE(active, QStringLiteral("새로운 폴더로 옮기기 (N)"));
         for (QAction *a : m_win->actions())
             if (a->objectName() == QStringLiteral("경로 복사"))
                 QCOMPARE(a->text(), QStringLiteral("경로 복사")); // the letter was only for the menu
@@ -3150,7 +3150,7 @@ private slots:
         QTest::keyClick(panel->queryEdit(), Qt::Key_Escape);
     }
 
-    // A "선택한 항목들로…" command run quietly (terminal = false) that fails says so, with what it printed;
+    // A "선택한 항목들…" command run quietly (terminal = false) that fails says so, with what it printed;
     // one that can't even start (a shell that doesn't exist) too. Nothing is selected then.
     void quietCommandFailureIsReported()
     {

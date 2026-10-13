@@ -2084,7 +2084,7 @@ void MainWindow::showContextMenu(const QPoint &globalPos, bool onItem)
             {QStringLiteral("menuOpen"), QStringLiteral("열기")}, {QStringLiteral("다음으로 열기…"), QStringLiteral("다음으로 열기")},
             {QStringLiteral("새로운 탭에서 열기"), QStringLiteral("새로운 탭에서 열기")}, {QStringLiteral("퀵 뷰어"), QStringLiteral("퀵 뷰어")},
             {util::revealActionId(), QStringLiteral("외부 파일관리자")}, {QStringLiteral("이름 변경"), QStringLiteral("이름 변경")},
-            {QStringLiteral("복제"), QStringLiteral("복제")}, {QStringLiteral("선택한 항목들로…"), QStringLiteral("선택 항목 명령")},
+            {QStringLiteral("복제"), QStringLiteral("복제")}, {QStringLiteral("선택한 항목들…"), QStringLiteral("선택 항목 명령")},
             {QStringLiteral("선택 명령 편집…"), QStringLiteral("명령 편집")}, {QStringLiteral("경로 복사"), QStringLiteral("경로 복사")},
             {QStringLiteral("잘라내기"), QStringLiteral("잘라내기")}, {QStringLiteral("복사하기"), QStringLiteral("복사")},
             {QStringLiteral("휴지통으로 이동"), QStringLiteral("휴지통")}, {QStringLiteral("새로운 폴더"), QStringLiteral("새 폴더")},
@@ -2124,10 +2124,10 @@ void MainWindow::showContextMenu(const QPoint &globalPos, bool onItem)
         add(m_revealAct, 'I');
         add(m_renameAct, 'M');
         add(m_duplicateAct, 'U');
-        // "선택한 항목들로…": the user's commands (config.toml [selection_menu], Settings → 선택 항목 메뉴),
+        // "선택한 항목들…": the user's commands (config.toml [selection_menu], Settings → 선택 항목 메뉴),
         // with the selection filled in; each has its own letter (key).
-        QMenu *with = menu.addMenu(Theme::icon(QStringLiteral("folder-plus"), {}, 16), Gifiles::tr("선택한 항목들로…"));
-        with->menuAction()->setObjectName(QStringLiteral("선택한 항목들로…"));
+        QMenu *with = menu.addMenu(Theme::icon(QStringLiteral("folder-plus"), {}, 16), Gifiles::tr("선택한 항목들…"));
+        with->menuAction()->setObjectName(QStringLiteral("선택한 항목들…"));
         with->installEventFilter(letters);
         letter(with->menuAction(), 'S', false);
         const QVariantList commands = Settings::instance()->value(Settings::SelectionCommands).toList();
@@ -2179,10 +2179,10 @@ void MainWindow::showContextMenu(const QPoint &globalPos, bool onItem)
         menu.ensurePolished();
         menu.resize(menu.sizeHint());
         menu.grab().save(QDir(dir).filePath(QStringLiteral("context-menu.png")));
-        // The same menu over the window with "선택한 항목들로…" open, as a user sees it.
+        // The same menu over the window with "선택한 항목들…" open, as a user sees it.
         for (QAction *withAct : menu.actions()) {
             QMenu *sub = withAct->menu();
-            if (withAct->objectName() != QStringLiteral("선택한 항목들로…") || !sub)
+            if (withAct->objectName() != QStringLiteral("선택한 항목들…") || !sub)
                 continue;
             menu.setActiveAction(withAct);
             sub->ensurePolished();

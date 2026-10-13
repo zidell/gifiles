@@ -445,8 +445,8 @@ GIFILES_CONFIG_DIR environment variable changes the folder. More details: the in
         <translation>Open</translation>
     </message>
     <message>
-        <source>선택한 항목들로…</source>
-        <translation>With Selected Items…</translation>
+        <source>선택한 항목들…</source>
+        <translation>Selected Items…</translation>
     </message>
     <message>
         <source>메뉴 편집…</source>
@@ -627,10 +627,6 @@ It is also installed when you quit the app later.</translation>
         <translation>Folder tree (` key)</translation>
     </message>
     <message>
-        <source>목록의 컨텍스트 메뉴 &quot;선택한 항목들로…&quot;</source>
-        <translation>The list&apos;s context menu &quot;With Selected Items…&quot;</translation>
-    </message>
-    <message>
         <source>화면에 쓸 언어. &quot;system&quot; 시스템 언어 따르기 (지원하지 않는 언어면 영어), &quot;ko&quot; 한국어, &quot;en&quot; English, &quot;ja&quot; 日本語, &quot;zh_CN&quot; 简体中文.</source>
         <translation>Display language. &quot;system&quot; follows the system language (English if unsupported), &quot;ko&quot; 한국어, &quot;en&quot; English, &quot;ja&quot; 日本語, &quot;zh_CN&quot; 简体中文.</translation>
     </message>
@@ -755,20 +751,18 @@ Example: { extensions = &quot;psd, ai, sketch&quot;, color = &quot;#FFB347&quot;
         <translation>When you cd in the terminal, the list moves to that folder too.</translation>
     </message>
     <message>
+        <source>이 줄이 없으면 기본 명령 세 가지(새로운 폴더로 옮기기, 압축하기, AI로 실행)만 씁니다.
+문자열 안의 &quot; 는 \&quot; 로, \ 는 \\ 로 적습니다.</source>
+        <translation>Without this line only the three built-in commands are used (Move to New Folder, Compress, Run with AI).
+Inside a string write &quot; as \&quot; and \ as \\.</translation>
+    </message>
+    <message>
         <source>사이드바 &apos;즐겨찾기&apos;에 보일 폴더 경로들 (순서대로).</source>
         <translation>Folder paths shown under &apos;Favorites&apos; in the sidebar (in order).</translation>
     </message>
     <message>
         <source>이 줄이 없으면 기본 목록(홈, 데스크탑, 문서, 다운로드 등)을 씁니다.</source>
         <translation>Without this line the default list (Home, Desktop, Documents, Downloads, etc.) is used.</translation>
-    </message>
-    <message>
-        <source>사이드바 &apos;최근 폴더&apos;에 보일 폴더 수. 0이면 숨깁니다.
-둘러보기만 한 폴더는 들어가지 않고, 무언가를 한 폴더만 들어갑니다: 항목을 복사·이동·만들기·이름 변경·삭제·압축 풀기 했거나,
-파일을 열었거나, &apos;선택한 항목들로…&apos; 명령이나 터미널 명령(cd, ls 같은 이동·보기 말고)을 실행한 폴더.</source>
-        <translation>How many folders the sidebar&apos;s &quot;Recent Folders&quot; shows. 0 hides it.
-Folders you only browsed aren&apos;t added, only folders where you did something: copied, moved, created, renamed, deleted or extracted items,
-opened a file, or ran a &quot;With Selected Items…&quot; command or a terminal command (other than moving or looking around, like cd or ls).</translation>
     </message>
     <message>
         <source>폴더 트리(파일 목록에서 ` 키)에 보일 폴더들. []이면 드라이브 전체 (macOS·Linux는 &quot;/&quot;, Windows는 모든 고정 드라이브).
@@ -807,10 +801,6 @@ Desktop, Documents and Downloads are included only after you have opened them in
     <message>
         <source>Set-Location -LiteralPath {dir}; $d = &apos;새 폴더&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;새 폴더 $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</source>
         <translation>Set-Location -LiteralPath {dir}; $d = &apos;New Folder&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;New Folder $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</translation>
-    </message>
-    <message>
-        <source>압축 파일 생성</source>
-        <translation>Create Archive</translation>
     </message>
     <message>
         <source>Set-Location -LiteralPath {dir}; $f = &apos;압축 파일.zip&apos;; $n = 2; while (Test-Path -LiteralPath $f) { $f = &quot;압축 파일 $n.zip&quot;; $n++ }; Compress-Archive -LiteralPath {names} -DestinationPath $f</source>
@@ -1077,12 +1067,6 @@ Desktop, Documents and Downloads are included only after you have opened them in
         <translation>Name:</translation>
     </message>
     <message>
-        <source>이 줄이 없으면 기본 명령 세 가지(새로운 폴더, 압축 파일 생성, AI로 실행)만 씁니다.
-문자열 안의 &quot; 는 \&quot; 로, \ 는 \\ 로 적습니다.</source>
-        <translation>Without this line only the three built-in commands are used (New Folder, Create Archive, Run with AI).
-Inside a string write &quot; as \&quot; and \ as \\.</translation>
-    </message>
-    <message>
         <source>%1: %2번째 항목</source>
         <translation>%1: item %2</translation>
     </message>
@@ -1131,6 +1115,10 @@ Inside a string write &quot; as \&quot; and \ as \\.</translation>
         <translation>OK</translation>
     </message>
     <message>
+        <source>목록의 컨텍스트 메뉴 &quot;선택한 항목들…&quot;</source>
+        <translation>The list&apos;s context menu &quot;Selected Items…&quot;</translation>
+    </message>
+    <message>
         <source>선택한 항목의 배경을 그 항목의 색으로 칠합니다 (Mdir의 선택 막대처럼, 글자는 검게). 색이 없는 항목은 회색. false면 강조색 막대 위에 이름 색을 그대로 둡니다.</source>
         <translation>Paints a selected item&apos;s background in that item&apos;s color (like Mdir&apos;s selection bar, with black text). Items without a color get gray. false: an accent bar, with names keeping their colors.</translation>
     </message>
@@ -1175,6 +1163,22 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>Height of the window above. 0 = base size.</translation>
     </message>
     <message>
+        <source>사이드바 &apos;최근 폴더&apos;에 보일 폴더 수. 0이면 숨깁니다.
+둘러보기만 한 폴더는 들어가지 않고, 무언가를 한 폴더만 들어갑니다: 항목을 복사·이동·만들기·이름 변경·삭제·압축 풀기 했거나,
+파일을 열었거나, &apos;선택한 항목들…&apos; 명령이나 터미널 명령(cd, ls 같은 이동·보기 말고)을 실행한 폴더.</source>
+        <translation>How many folders the sidebar&apos;s &quot;Recent Folders&quot; shows. 0 hides it.
+Folders you only browsed aren&apos;t added, only folders where you did something: copied, moved, created, renamed, deleted or extracted items,
+opened a file, or ran a &quot;Selected Items…&quot; command or a terminal command (other than moving or looking around, like cd or ls).</translation>
+    </message>
+    <message>
+        <source>새로운 폴더로 옮기기</source>
+        <translation>Move to New Folder</translation>
+    </message>
+    <message>
+        <source>압축하기</source>
+        <translation>Compress</translation>
+    </message>
+    <message>
         <source>%1: &quot;#RRGGBB&quot; 형식의 색이거나 빈 문자열이어야 합니다</source>
         <translation>%1: must be a color in &quot;#RRGGBB&quot; form or an empty string</translation>
     </message>
@@ -1213,10 +1217,6 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
     <message>
         <source>끄면 터미널 없이 조용히 실행하고, 실패했을 때만 알립니다.</source>
         <translation>When off, the command runs quietly without a terminal, and you are told only if it fails.</translation>
-    </message>
-    <message>
-        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들로…&quot;에 나오는 명령입니다. 셸 스크립트도 등록할 수 있습니다. 기본 명령 셋은 고칠 수 있지만 지울 수는 없습니다.</source>
-        <translation>Commands in &quot;With Selected Items…&quot; (select items in the list, then right-click or ⌘↓). Shell scripts can be added too. The three built-in commands can be changed but not removed.</translation>
     </message>
     <message>
         <source>추가</source>
@@ -1283,7 +1283,7 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
         <translation>Terminal font name (e.g. &quot;JetBrains Mono&quot;, &quot;Menlo&quot;). An empty string uses D2Coding, bundled with the app (NAVER, SIL Open Font License).</translation>
     </message>
     <message>
-        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들로…&quot; 메뉴에 나오는 명령들 (위에서부터 순서대로).
+        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들…&quot; 메뉴에 나오는 명령들 (위에서부터 순서대로).
 한 항목은 한 줄의 { } 이고, 쓸 수 있는 키는 다음과 같습니다:
   label    메뉴에 보일 이름 (필수)
   command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법
@@ -1302,7 +1302,29 @@ command 안의 자리표시자는 실행할 때 바뀝니다 (각 경로는 셸�
 여러 항목은 macOS·Linux에서 공백으로, Windows(PowerShell)에서 쉼표로 이어집니다 (배열).
 셸 스크립트도 됩니다. 예:
   { label = &quot;이미지 줄이기&quot;, key = &quot;R&quot;, terminal = false, command = &quot;~/bin/shrink.sh {files}&quot; }</source>
-        <translation></translation>
+        <translation>Commands in the &quot;Selected Items…&quot; menu (select items in the list, then right-click or ⌘↓), top to bottom.
+One item is one line of { }, with these keys:
+  label    name shown in the menu (required)
+  command  shell command to run (required). macOS·Linux: the terminal&apos;s shell (zsh/bash); Windows: PowerShell syntax
+  key      press this one letter while the menu is open to run it at once (A-Z or 0-9, optional)
+  extensions Comma-separated extensions (e.g. &quot;jpg,png&quot;). Default &quot;*&quot;: all items. Every selected item must match
+  terminal true: open the terminal below and run it there, showing the output.
+           false: run quietly without a terminal and report only errors (default true)
+  id       marks a built-in command (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;). Built-in commands can be changed but not removed;
+           one that is missing comes back with its default. Don&apos;t use it for your own commands.
+           To use codex etc. instead of claude in &quot;ai&quot;, change its command.
+Placeholders in command are replaced when it runs (each path quoted for the shell: safe with spaces, non-ASCII and quotes):
+  {files}  absolute paths of the selected items
+  {names}  paths relative to {dir} (names, when in the same folder)
+  {dir}    the folder of the first item (the current folder when nothing is selected)
+  {prompt} asks for one line when run and puts it here (the menu name gets a …)
+Several items are joined by spaces on macOS·Linux and by commas on Windows (PowerShell, an array).
+Shell scripts work too. Example:
+  { label = &quot;Shrink images&quot;, key = &quot;R&quot;, terminal = false, command = &quot;~/bin/shrink.sh {files}&quot; }</translation>
+    </message>
+    <message>
+        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들…&quot;에 나오는 명령입니다. 셸 스크립트도 등록할 수 있습니다. 기본 명령 셋은 고칠 수 있지만 지울 수는 없습니다.</source>
+        <translation>Commands in &quot;Selected Items…&quot; (select items in the list, then right-click or ⌘↓). Shell scripts can be added too. The three built-in commands can be changed but not removed.</translation>
     </message>
     <message>
         <source>폴더와 확장자 색을 모두 기본값으로 되돌릴까요? 직접 바꾼 색은 사라집니다.</source>

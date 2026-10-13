@@ -444,8 +444,8 @@ Windows: Gifiles.exe 旁边，Linux AppImage: --appimage-extract 后的 squashfs
         <translation>打开</translation>
     </message>
     <message>
-        <source>선택한 항목들로…</source>
-        <translation>用所选项目…</translation>
+        <source>선택한 항목들…</source>
+        <translation>所选项目…</translation>
     </message>
     <message>
         <source>메뉴 편집…</source>
@@ -626,10 +626,6 @@ Windows: Gifiles.exe 旁边，Linux AppImage: --appimage-extract 后的 squashfs
         <translation>文件夹树(` 键)</translation>
     </message>
     <message>
-        <source>목록의 컨텍스트 메뉴 &quot;선택한 항목들로…&quot;</source>
-        <translation>列表的上下文菜单 &quot;用所选项目…&quot;</translation>
-    </message>
-    <message>
         <source>화면에 쓸 언어. &quot;system&quot; 시스템 언어 따르기 (지원하지 않는 언어면 영어), &quot;ko&quot; 한국어, &quot;en&quot; English, &quot;ja&quot; 日本語, &quot;zh_CN&quot; 简体中文.</source>
         <translation>显示语言。&quot;system&quot; 跟随系统语言（不支持的语言则用英语），&quot;ko&quot; 한국어，&quot;en&quot; English，&quot;ja&quot; 日本語，&quot;zh_CN&quot; 简体中文。</translation>
     </message>
@@ -754,20 +750,18 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
         <translation>在终端中 cd 时，列表也切换到该文件夹。</translation>
     </message>
     <message>
+        <source>이 줄이 없으면 기본 명령 세 가지(새로운 폴더로 옮기기, 압축하기, AI로 실행)만 씁니다.
+문자열 안의 &quot; 는 \&quot; 로, \ 는 \\ 로 적습니다.</source>
+        <translation>没有这一行时只使用三个内置命令 (移到新建文件夹、压缩、用 AI 运行)。
+字符串中的 &quot; 写作 \&quot;,\ 写作 \\。</translation>
+    </message>
+    <message>
         <source>사이드바 &apos;즐겨찾기&apos;에 보일 폴더 경로들 (순서대로).</source>
         <translation>边栏 &apos;个人收藏&apos; 中显示的文件夹路径（按顺序）。</translation>
     </message>
     <message>
         <source>이 줄이 없으면 기본 목록(홈, 데스크탑, 문서, 다운로드 등)을 씁니다.</source>
         <translation>没有这一行时使用默认列表（主目录、桌面、文稿、下载等）。</translation>
-    </message>
-    <message>
-        <source>사이드바 &apos;최근 폴더&apos;에 보일 폴더 수. 0이면 숨깁니다.
-둘러보기만 한 폴더는 들어가지 않고, 무언가를 한 폴더만 들어갑니다: 항목을 복사·이동·만들기·이름 변경·삭제·압축 풀기 했거나,
-파일을 열었거나, &apos;선택한 항목들로…&apos; 명령이나 터미널 명령(cd, ls 같은 이동·보기 말고)을 실행한 폴더.</source>
-        <translation>侧边栏“最近的文件夹”中显示的文件夹数量。0 表示隐藏。
-仅浏览过的文件夹不会加入，只加入做过操作的文件夹：复制、移动、新建、重命名、删除或解压过项目，
-打开过文件，或运行过“对所选项目…”命令或终端命令（cd、ls 等移动或查看命令除外）的文件夹。</translation>
     </message>
     <message>
         <source>폴더 트리(파일 목록에서 ` 키)에 보일 폴더들. []이면 드라이브 전체 (macOS·Linux는 &quot;/&quot;, Windows는 모든 고정 드라이브).
@@ -806,10 +800,6 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
     <message>
         <source>Set-Location -LiteralPath {dir}; $d = &apos;새 폴더&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;새 폴더 $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</source>
         <translation>Set-Location -LiteralPath {dir}; $d = &apos;新建文件夹&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;新建文件夹 $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</translation>
-    </message>
-    <message>
-        <source>압축 파일 생성</source>
-        <translation>创建归档</translation>
     </message>
     <message>
         <source>Set-Location -LiteralPath {dir}; $f = &apos;압축 파일.zip&apos;; $n = 2; while (Test-Path -LiteralPath $f) { $f = &quot;압축 파일 $n.zip&quot;; $n++ }; Compress-Archive -LiteralPath {names} -DestinationPath $f</source>
@@ -1076,12 +1066,6 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
         <translation>名称：</translation>
     </message>
     <message>
-        <source>이 줄이 없으면 기본 명령 세 가지(새로운 폴더, 압축 파일 생성, AI로 실행)만 씁니다.
-문자열 안의 &quot; 는 \&quot; 로, \ 는 \\ 로 적습니다.</source>
-        <translation>没有这一行时只使用三个内置命令 (新建文件夹、创建归档、用 AI 运行)。
-字符串中的 &quot; 写作 \&quot;,\ 写作 \\。</translation>
-    </message>
-    <message>
         <source>%1: %2번째 항목</source>
         <translation>%1: 第 %2 项</translation>
     </message>
@@ -1130,6 +1114,10 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
         <translation>确定</translation>
     </message>
     <message>
+        <source>목록의 컨텍스트 메뉴 &quot;선택한 항목들…&quot;</source>
+        <translation>列表的上下文菜单 &quot;所选项目…&quot;</translation>
+    </message>
+    <message>
         <source>선택한 항목의 배경을 그 항목의 색으로 칠합니다 (Mdir의 선택 막대처럼, 글자는 검게). 색이 없는 항목은 회색. false면 강조색 막대 위에 이름 색을 그대로 둡니다.</source>
         <translation>用所选项目自身的颜色绘制其背景（像 Mdir 的选择条一样，文字为黑色）。没有颜色的项目为灰色。false 时使用强调色选择条，名称保留各自的颜色。</translation>
     </message>
@@ -1174,6 +1162,22 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
         <translation>上述窗口的高度。0 表示基本大小。</translation>
     </message>
     <message>
+        <source>사이드바 &apos;최근 폴더&apos;에 보일 폴더 수. 0이면 숨깁니다.
+둘러보기만 한 폴더는 들어가지 않고, 무언가를 한 폴더만 들어갑니다: 항목을 복사·이동·만들기·이름 변경·삭제·압축 풀기 했거나,
+파일을 열었거나, &apos;선택한 항목들…&apos; 명령이나 터미널 명령(cd, ls 같은 이동·보기 말고)을 실행한 폴더.</source>
+        <translation>侧边栏“最近的文件夹”中显示的文件夹数量。0 表示隐藏。
+仅浏览过的文件夹不会加入，只加入做过操作的文件夹：复制、移动、新建、重命名、删除或解压过项目，
+打开过文件，或运行过“对所选项目…”命令或终端命令（cd、ls 等移动或查看命令除外）的文件夹。</translation>
+    </message>
+    <message>
+        <source>새로운 폴더로 옮기기</source>
+        <translation>移到新建文件夹</translation>
+    </message>
+    <message>
+        <source>압축하기</source>
+        <translation>压缩</translation>
+    </message>
+    <message>
         <source>%1: &quot;#RRGGBB&quot; 형식의 색이거나 빈 문자열이어야 합니다</source>
         <translation>%1: 必须是 &quot;#RRGGBB&quot; 格式的颜色或空字符串</translation>
     </message>
@@ -1212,10 +1216,6 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
     <message>
         <source>끄면 터미널 없이 조용히 실행하고, 실패했을 때만 알립니다.</source>
         <translation>关闭后不打开终端静默运行,仅在失败时提示。</translation>
-    </message>
-    <message>
-        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들로…&quot;에 나오는 명령입니다. 셸 스크립트도 등록할 수 있습니다. 기본 명령 셋은 고칠 수 있지만 지울 수는 없습니다.</source>
-        <translation>显示在“用所选项目…”中的命令 (在列表中选择项目后右键或按 ⌘↓)。也可以添加 shell 脚本。三个内置命令可以修改但不能删除。</translation>
     </message>
     <message>
         <source>추가</source>
@@ -1282,7 +1282,7 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
         <translation>终端字体名称（例如 &quot;JetBrains Mono&quot;、&quot;Menlo&quot;）。空字符串则使用应用自带的 D2Coding（NAVER，SIL Open Font License）。</translation>
     </message>
     <message>
-        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들로…&quot; 메뉴에 나오는 명령들 (위에서부터 순서대로).
+        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들…&quot; 메뉴에 나오는 명령들 (위에서부터 순서대로).
 한 항목은 한 줄의 { } 이고, 쓸 수 있는 키는 다음과 같습니다:
   label    메뉴에 보일 이름 (필수)
   command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법
@@ -1301,7 +1301,29 @@ command 안의 자리표시자는 실행할 때 바뀝니다 (각 경로는 셸�
 여러 항목은 macOS·Linux에서 공백으로, Windows(PowerShell)에서 쉼표로 이어집니다 (배열).
 셸 스크립트도 됩니다. 예:
   { label = &quot;이미지 줄이기&quot;, key = &quot;R&quot;, terminal = false, command = &quot;~/bin/shrink.sh {files}&quot; }</source>
-        <translation></translation>
+        <translation>“所选项目…”菜单中的命令 (在列表中选择项目后右键或按 ⌘↓),按从上到下的顺序。
+每一项是一行 { },可用的键如下:
+  label    菜单中显示的名称 (必填)
+  command  要运行的 shell 命令 (必填)。macOS·Linux 使用终端的 shell (zsh/bash),Windows 使用 PowerShell 语法
+  key      菜单打开时按下这个字母即可立即运行 (A-Z 或 0-9,可省略)
+  extensions 以逗号分隔的扩展名 (如 &quot;jpg,png&quot;)。默认 &quot;*&quot;: 所有项目。所有选中项目都匹配时才显示
+  terminal true: 打开下方的终端并在其中运行,显示输出。
+           false: 不打开终端静默运行,仅在失败时提示 (省略时为 true)
+  id       内置命令的标记 (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;)。内置命令可以修改但不能删除,
+           缺少时会以默认值恢复。自己添加的命令不要使用。
+           要在 &quot;ai&quot; 中用 codex 等代替 claude,请修改它的 command。
+command 中的占位符在运行时替换 (每个路径都按 shell 加引号:空格、中文、引号都安全):
+  {files}  所选项目的绝对路径
+  {names}  相对于 {dir} 的路径 (同一文件夹时为名称)
+  {dir}    第一个项目所在的文件夹 (未选择时为当前文件夹)
+  {prompt} 运行时输入一行文字并替换到这里 (菜单名称后会加上 …)
+多个项目在 macOS·Linux 上用空格、在 Windows (PowerShell) 上用逗号连接 (数组)。
+也可以使用 shell 脚本。例:
+  { label = &quot;缩小图片&quot;, key = &quot;R&quot;, terminal = false, command = &quot;~/bin/shrink.sh {files}&quot; }</translation>
+    </message>
+    <message>
+        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들…&quot;에 나오는 명령입니다. 셸 스크립트도 등록할 수 있습니다. 기본 명령 셋은 고칠 수 있지만 지울 수는 없습니다.</source>
+        <translation>显示在“所选项目…”中的命令 (在列表中选择项目后右键或按 ⌘↓)。也可以添加 shell 脚本。三个内置命令可以修改但不能删除。</translation>
     </message>
     <message>
         <source>폴더와 확장자 색을 모두 기본값으로 되돌릴까요? 직접 바꾼 색은 사라집니다.</source>

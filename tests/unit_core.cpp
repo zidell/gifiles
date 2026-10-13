@@ -31,6 +31,8 @@
 #include <QLocale>
 #include <QProcess>
 #include <QRandomGenerator>
+#include <QRegularExpression>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -1016,6 +1018,52 @@ private slots:
         QVERIFY(Settings::selectionCommandMatches(command, {txt}));
     }
 
+    void selectionCommandRenamedLabelsKeepCustomization()
+    {
+        Settings *settings = Settings::instance();
+        const auto restore = qScopeGuard([settings] { settings->remove(Settings::SelectionCommands); });
+        const QStringList folders{QStringLiteral("새로운 폴더"), QStringLiteral("New Folder"),
+                                  QStringLiteral("新規フォルダ"), QStringLiteral("新建文件夹")};
+        const QStringList archives{QStringLiteral("압축 파일 생성"), QStringLiteral("Create Archive"),
+                                   QStringLiteral("アーカイブを作成"), QStringLiteral("创建归档")};
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        for (int i = 0; i < folders.size(); ++i) {
+            const QVariantMap folder{{QStringLiteral("id"), QStringLiteral("new_folder")},
+                                     {QStringLiteral("label"), folders[i]}, {QStringLiteral("command"), QStringLiteral("my-folder-command")},
+                                     {QStringLiteral("key"), QStringLiteral("9")}, {QStringLiteral("extensions"), QStringLiteral("txt")},
+                                     {QStringLiteral("terminal"), true}};
+            QVariantMap archive = folder;
+            archive.insert(QStringLiteral("id"), QStringLiteral("zip"));
+            archive.insert(QStringLiteral("label"), archives[i]);
+            QVariantMap expectedFolder = folder, expectedArchive = archive;
+            expectedFolder.insert(QStringLiteral("label"), QStringLiteral("새로운 폴더로 옮기기"));
+            expectedArchive.insert(QStringLiteral("label"), QStringLiteral("압축하기"));
+            settings->setValue(Settings::SelectionCommands, QVariantList{folder, archive});
+            QCOMPARE(settings->selectionCommand(QStringLiteral("new_folder")), expectedFolder);
+            QCOMPARE(settings->selectionCommand(QStringLiteral("zip")), expectedArchive);
+            // A saved config from an older app goes through the same rename on a fresh read.
+            QVERIFY(writeText(dir.filePath(QStringLiteral("config.toml")),
+                              QStringLiteral("[selection_menu]\ncommands = %1\n").arg(toml::value(QVariantList{folder, archive}))));
+            const ConfigDirOverride own(dir.path());
+            QStringList problems;
+            toml::Document doc;
+            QVERIFY(parseOk(Settings::renderEffective(problems), &doc));
+            QVERIFY(problems.isEmpty());
+            const QVariantList commands = doc.value(QStringLiteral("selection_menu")).value(QStringLiteral("commands")).toList();
+            QCOMPARE(commands[0].toMap(), expectedFolder);
+            QCOMPARE(commands[1].toMap(), expectedArchive);
+        }
+        QVariantMap custom{{QStringLiteral("id"), QStringLiteral("zip")}, {QStringLiteral("label"), QStringLiteral("내 압축")},
+                           {QStringLiteral("command"), QStringLiteral("my-zip-command")}};
+        QVariantMap own = custom;
+        own.remove(QStringLiteral("id"));
+        own.insert(QStringLiteral("label"), QStringLiteral("압축 파일 생성"));
+        settings->setValue(Settings::SelectionCommands, QVariantList{custom, own});
+        QCOMPARE(settings->selectionCommand(QStringLiteral("zip")), custom);
+        QCOMPARE(settings->value(Settings::SelectionCommands).toList()[1].toMap(), own);
+    }
+
     void selectionCommandsEmptyListKeepsBuiltins()
     {
         Settings *s = Settings::instance();
@@ -1328,12 +1376,15 @@ private slots:
             QVERIFY2(!t.isEmpty() && t != QStringLiteral("열기"), qPrintable(lang));
             if (!expected.isEmpty())
                 QCOMPARE(t, expected);
-            QVERIFY(!tr.translate("Gifiles", "선택한 항목들로…").isEmpty());
+            QVERIFY(!tr.translate("Gifiles", "선택한 항목들…").isEmpty());
         }
         for (const auto &[lang, expected] : open) {
             QFile ts(dir + QStringLiteral("/gifiles_%1.ts").arg(lang));
             QVERIFY(ts.open(QIODevice::ReadOnly));
-            QVERIFY2(!ts.readAll().contains("type=\"unfinished\""), qPrintable(QStringLiteral("untranslated messages in %1").arg(ts.fileName())));
+            const QByteArray contents = ts.readAll();
+            QVERIFY2(!contents.contains("type=\"unfinished\""), qPrintable(QStringLiteral("untranslated messages in %1").arg(ts.fileName())));
+            const QRegularExpression empty(QStringLiteral("<translation(?:\\s[^>]*)?>\\s*</translation>|<translation\\s*/>"));
+            QVERIFY2(!empty.match(QString::fromUtf8(contents)).hasMatch(), qPrintable(QStringLiteral("empty translations in %1").arg(ts.fileName())));
         }
     }
 
