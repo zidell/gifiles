@@ -185,6 +185,7 @@ const QList<Item> &items()
                         "  label    메뉴에 보일 이름 (필수)\n"
                         "  command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법\n"
                         "  key      메뉴가 열려 있을 때 이 글자 하나를 누르면 바로 실행 (A-Z 또는 0-9, 생략 가능)\n"
+                        "  extensions 쉼표로 이은 확장자 (예: \"jpg,png\"). 기본값 \"*\": 모든 항목. 선택한 항목 모두가 맞아야 표시\n"
                         "  terminal true: 아래쪽 터미널을 열고 거기서 실행해 출력을 보여 줌.\n"
                         "           false: 터미널 없이 조용히 실행하고, 실패하면 오류만 알림 (생략하면 true)\n"
                         "  id       기본 명령의 표시 (\"new_folder\", \"zip\", \"ai\"). 기본 명령은 고칠 수는 있어도 지울 수 없어서,\n"
@@ -252,7 +253,18 @@ QVariantMap command(const char *id, const QString &label, const char *key, bool 
 {
     return {{QStringLiteral("id"), QString::fromLatin1(id)}, {QStringLiteral("label"), label},
             {QStringLiteral("key"), QString::fromLatin1(key)}, {QStringLiteral("terminal"), terminal},
-            {QStringLiteral("command"), cmd}};
+            {QStringLiteral("command"), cmd}, {QStringLiteral("extensions"), QStringLiteral("*")}};
+}
+
+QString aiCommandExample(bool codex)
+{
+    const QString tool = codex ? QStringLiteral("codex exec --skip-git-repo-check --sandbox workspace-write")
+                               : QStringLiteral("claude -p");
+#ifdef Q_OS_WIN
+    return Gifiles::tr("Set-Location -LiteralPath {dir}; %1 ({prompt} + \"`n`n대상 파일:`n\" + (@({files}) -join \"`n\"))").arg(tool);
+#else
+    return Gifiles::tr("cd {dir} && %1 \"$(printf '%s\\n\\n대상 파일:\\n' {prompt}; printf '%s\\n' {files})\"").arg(tool);
+#endif
 }
 
 // The built-in "선택한 항목들로…" commands. New folder and zip run quietly (the result shows in the
@@ -268,7 +280,7 @@ QVariantList defaultSelectionCommands()
                 Gifiles::tr("Set-Location -LiteralPath {dir}; $f = '압축 파일.zip'; $n = 2; while (Test-Path -LiteralPath $f) { $f = \"압축 파일 $n.zip\"; $n++ }; "
                                "Compress-Archive -LiteralPath {names} -DestinationPath $f")),
         command("ai", Gifiles::tr("AI로 실행"), "A", true,
-                Gifiles::tr("Set-Location -LiteralPath {dir}; claude -p ({prompt} + \"`n`n대상 파일:`n\" + (@({files}) -join \"`n\"))")),
+                aiCommandExample(false)),
     };
 #else
     return {
@@ -279,7 +291,7 @@ QVariantList defaultSelectionCommands()
                 Gifiles::tr("cd {dir} && f='압축 파일.zip' && n=2 && while [ -e \"$f\" ]; do f=\"압축 파일 $n.zip\"; n=$((n+1)); done && "
                                "zip -r -y -q \"$f\" {names}")),
         command("ai", Gifiles::tr("AI로 실행"), "A", true,
-                Gifiles::tr("cd {dir} && claude -p \"$(printf '%s\\n\\n대상 파일:\\n' {prompt}; printf '%s\\n' {files})\"")),
+                aiCommandExample(false)),
     };
 #endif
 }
@@ -376,6 +388,10 @@ QVariant convert(const Item &i, const QVariant &v, QString &err)
             }
             if (m.contains(QStringLiteral("terminal")) && m.value(QStringLiteral("terminal")).typeId() != QMetaType::Bool) {
                 err = Gifiles::tr("%1의 terminal은 true 또는 false여야 합니다").arg(at);
+                return {};
+            }
+            if (m.contains(QStringLiteral("extensions")) && m.value(QStringLiteral("extensions")).typeId() != QMetaType::QString) {
+                err = Gifiles::tr("%1의 extensions는 쉼표로 이은 확장자 문자열이어야 합니다 (전체: *)").arg(at);
                 return {};
             }
             if (const QString id = m.value(QStringLiteral("id")).toString(); !id.isEmpty()) {
@@ -531,7 +547,7 @@ QString renderValues(const QMap<QString, QVariant> &values, bool defaults)
                 break;
             }
             case Type::StringList: kind = Gifiles::tr("타입: 문자열 배열. 기본값: %1.").arg(toml::value(d.toStringList())); break;
-            case Type::CommandList: kind = Gifiles::tr("타입: { label = \"메뉴 이름\", key = \"글자\", terminal = true, command = \"명령\" }의 배열. 한 항목은 한 줄에."); break;
+            case Type::CommandList: kind = Gifiles::tr("타입: { label = \"메뉴 이름\", key = \"글자\", extensions = \"*\", terminal = true, command = \"명령\" }의 배열. 한 항목은 한 줄에."); break;
             case Type::ColorList: kind = Gifiles::tr("타입: { extensions = \"확장자, 확장자\", color = \"#RRGGBB\" }의 배열. 한 항목은 한 줄에."); break;
             }
             o << QStringLiteral("# ") + kind;
@@ -729,6 +745,35 @@ QVariantMap Settings::selectionCommand(const QString &id) const
         if (c.toMap().value(QStringLiteral("id")).toString() == id)
             return c.toMap();
     return {};
+}
+
+bool Settings::selectionCommandMatches(const QVariantMap &command, const QStringList &paths)
+{
+    if (paths.isEmpty())
+        return false;
+    const QString filter = command.value(QStringLiteral("extensions"), QStringLiteral("*")).toString().trimmed();
+    if (filter.isEmpty())
+        return true;
+    QStringList extensions;
+    for (QString ext : filter.split(QLatin1Char(','), Qt::SkipEmptyParts)) {
+        ext = ext.trimmed();
+        if (ext == QLatin1String("*"))
+            return true;
+        if (ext.startsWith(QLatin1String("*.")))
+            ext.remove(0, 2);
+        else if (ext.startsWith(QLatin1Char('.')))
+            ext.remove(0, 1);
+        if (!ext.isEmpty())
+            extensions << QLatin1Char('.') + ext;
+    }
+    return std::all_of(paths.cbegin(), paths.cend(), [&extensions](const QString &path) {
+        const QFileInfo info(path);
+        if (info.isDir() && !util::isPackage(info))
+            return false;
+        return std::any_of(extensions.cbegin(), extensions.cend(), [&info](const QString &ext) {
+            return info.fileName().endsWith(ext, Qt::CaseInsensitive);
+        });
+    });
 }
 
 // Mdir III's hues (its own M.CFG, 3.10, and the user's memory of the screen), grouped by what the files
@@ -1194,6 +1239,9 @@ public:
         m_key->setFixedWidth(44);
         m_key->setAlignment(Qt::AlignCenter);
         m_key->setValidator(new QRegularExpressionValidator(QRegularExpression(QStringLiteral("[A-Za-z0-9]?")), m_key));
+        m_extensions = new QLineEdit(command.value(QStringLiteral("extensions"), QStringLiteral("*")).toString(), this);
+        m_extensions->setObjectName(QStringLiteral("commandExtensions"));
+        m_extensions->setPlaceholderText(QStringLiteral("*"));
         auto *keyRow = new QHBoxLayout;
         keyRow->addWidget(m_key);
         keyRow->addWidget(hint(Gifiles::tr("메뉴가 열려 있을 때 이 글자를 누르면 바로 실행 (A-Z, 0-9)")), 1);
@@ -1208,7 +1256,31 @@ public:
         m_terminal->setChecked(command.value(QStringLiteral("terminal"), true).toBool());
         form->addRow(Gifiles::tr("이름:"), m_label);
         form->addRow(Gifiles::tr("단축키(글자):"), keyRow);
-        form->addRow(Gifiles::tr("명령어:"), m_text);
+        auto *extensionBox = new QVBoxLayout;
+        extensionBox->setSpacing(2);
+        extensionBox->addWidget(m_extensions);
+        extensionBox->addWidget(hint(Gifiles::tr("예: jpg,png,pdf · *: 모든 항목. 선택한 항목 모두가 맞을 때만 표시합니다.")));
+        form->addRow(Gifiles::tr("확장자:"), extensionBox);
+        auto *commandBox = new QVBoxLayout;
+        auto *examples = new QHBoxLayout;
+        auto exampleButton = [this, examples](const QString &title, const char *name, bool codex) {
+            auto *button = new QPushButton(title, this);
+            button->setObjectName(QString::fromLatin1(name));
+            button->setAutoDefault(false);
+            button->setProperty("link", true);
+            button->setCursor(Qt::PointingHandCursor);
+            examples->addWidget(button);
+            connect(button, &QPushButton::clicked, this, [this, codex] {
+                m_text->setPlainText(aiCommandExample(codex));
+                m_terminal->setChecked(true);
+            });
+        };
+        exampleButton(Gifiles::tr("codex 예시"), "commandCodexExample", true);
+        exampleButton(Gifiles::tr("claude 예시"), "commandClaudeExample", false);
+        examples->addStretch();
+        commandBox->addWidget(m_text);
+        commandBox->addLayout(examples);
+        form->addRow(Gifiles::tr("명령어:"), commandBox);
         form->addRow(QString(), hint(Gifiles::tr("{files} 선택한 항목의 경로 · {names} 폴더 기준 이름 · {dir} 그 폴더 · "
                                                     "{prompt} 실행할 때 한 줄 입력받기. 경로는 셸에 맞게 따옴표로 감싸 전달됩니다 "
                                                     "(공백·한글·따옴표 안전).")));
@@ -1239,6 +1311,8 @@ public:
         QVariantMap m = m_command; // keeps the id of a built-in command
         m.insert(QStringLiteral("label"), m_label->text().trimmed());
         m.insert(QStringLiteral("key"), m_key->text().toUpper());
+        const QString extensions = m_extensions->text().trimmed();
+        m.insert(QStringLiteral("extensions"), extensions.isEmpty() ? QStringLiteral("*") : extensions);
         m.insert(QStringLiteral("terminal"), m_terminal->isChecked());
         m.insert(QStringLiteral("command"), m_text->toPlainText().trimmed());
         return m;
@@ -1248,6 +1322,7 @@ private:
     QVariantMap m_command;
     QLineEdit *m_label;
     QLineEdit *m_key;
+    QLineEdit *m_extensions;
     QPlainTextEdit *m_text;
     QCheckBox *m_terminal;
 };
@@ -1313,6 +1388,9 @@ QWidget *selectionMenuPage()
                 if (!m.value(QStringLiteral("key")).toString().isEmpty())
                     text += QStringLiteral(" (%1)").arg(m.value(QStringLiteral("key")).toString().toUpper());
                 QStringList tags;
+                const QString extensions = m.value(QStringLiteral("extensions"), QStringLiteral("*")).toString().trimmed();
+                if (!extensions.isEmpty() && extensions != QLatin1String("*"))
+                    tags << extensions;
                 if (!m.value(QStringLiteral("terminal"), true).toBool())
                     tags << Gifiles::tr("터미널 없이");
                 if (!m.value(QStringLiteral("id")).toString().isEmpty())

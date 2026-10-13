@@ -1332,6 +1332,52 @@ private slots:
         tab()->navigate(m_tmp.path());
     }
 
+    void selectionMenuFiltersAllSelectedExtensions()
+    {
+        Settings *settings = Settings::instance();
+        const QVariant before = settings->value(Settings::SelectionCommands);
+        const auto restore = qScopeGuard([settings, before] { settings->setValue(Settings::SelectionCommands, before); });
+        QVariantList commands = before.toList();
+        commands << QVariantMap{{QStringLiteral("label"), QStringLiteral("images-only")},
+                                {QStringLiteral("extensions"), QStringLiteral("jpg,png")},
+                                {QStringLiteral("command"), QStringLiteral("echo {files}")}};
+        commands << QVariantMap{{QStringLiteral("label"), QStringLiteral("text-only")},
+                                {QStringLiteral("extensions"), QStringLiteral("txt")},
+                                {QStringLiteral("command"), QStringLiteral("echo {files}")}};
+        settings->setValue(Settings::SelectionCommands, commands);
+        const QString folder = p("extension-menu");
+        QVERIFY(QDir().mkpath(folder + QStringLiteral("/folder.jpg")));
+        for (const char *name : {"one.JPG", "two.png", "note.txt"})
+            write(QStringLiteral("extension-menu/") + QString::fromLatin1(name), "x");
+        tab()->setMode(BrowserTab::List);
+        tab()->navigate(folder);
+        QTRY_COMPARE(tab()->itemCount(), 4);
+        auto offered = [&](const QStringList &paths) {
+            tab()->selectPaths(paths);
+            QStringList labels;
+            itemMenu(false, [&](QMenu *menu) {
+                for (QAction *action : menu->actions()) {
+                    if (action->objectName() != QStringLiteral("선택한 항목들로…"))
+                        continue;
+                    for (QAction *item : action->menu()->actions())
+                        labels << item->text();
+                }
+            });
+            return labels;
+        };
+        const QString jpg = folder + QStringLiteral("/one.JPG"), png = folder + QStringLiteral("/two.png");
+        const QString txt = folder + QStringLiteral("/note.txt");
+        const QStringList images = offered({jpg, png});
+        QVERIFY(images.contains(QStringLiteral("images-only")));
+        QVERIFY(!images.contains(QStringLiteral("text-only")));
+        const QStringList mixed = offered({jpg, txt});
+        QVERIFY(!mixed.contains(QStringLiteral("images-only")));
+        QVERIFY(!mixed.contains(QStringLiteral("text-only")));
+        QVERIFY(offered({txt}).contains(QStringLiteral("text-only")));
+        QVERIFY(!offered({jpg, folder + QStringLiteral("/folder.jpg")}).contains(QStringLiteral("images-only")));
+        tab()->navigate(m_tmp.path());
+    }
+
     void openInNewTabOnlyForFolders()
     {
         // Files have no tab to open in: the item is offered only when a folder is selected.

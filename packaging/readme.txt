@@ -38,6 +38,8 @@ Gifiles는 아래쪽에 터미널이 붙은 파일 관리자입니다 (macOS · 
 - 파일 이름 색은 [file_colors] 표에 있습니다. groups는 { extensions = "zip, 7z", color = "#RRGGBB" }
   항목의 배열이고 folder는 폴더 색입니다. 색은 다크 모드 기준이며 라이트 모드에서는 앱이 더 어둡게
   바꿔 씁니다. 설정 창의 "모양 및 색상" 탭에서도 고칠 수 있습니다.
+- 선택 항목 메뉴의 명령은 [selection_menu] commands에 저장합니다. extensions = "jpg,png"처럼
+  확장자를 쉼표로 구분하면 선택한 항목 모두가 일치할 때만 표시합니다. 기본값 "*"는 폴더를 포함한 모든 항목입니다.
 - 설치 폴더(앱 번들, 실행 파일 옆)에는 설정 파일이 없습니다. 이 readme.txt와 라이선스
   (LICENSE: Gifiles는 GPLv3, licenses/: 함께 들어 있는 Qt·FFmpeg(LGPL)·libvterm)뿐입니다.
 

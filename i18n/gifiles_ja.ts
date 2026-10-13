@@ -754,44 +754,6 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
         <translation>ターミナルで cd すると、リストもそのフォルダに移動します。</translation>
     </message>
     <message>
-        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들로…&quot; 메뉴에 나오는 명령들 (위에서부터 순서대로).
-한 항목은 한 줄의 { } 이고, 쓸 수 있는 키는 다음과 같습니다:
-  label    메뉴에 보일 이름 (필수)
-  command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법
-  key      메뉴가 열려 있을 때 이 글자 하나를 누르면 바로 실행 (A-Z 또는 0-9, 생략 가능)
-  terminal true: 아래쪽 터미널을 열고 거기서 실행해 출력을 보여 줌.
-           false: 터미널 없이 조용히 실행하고, 실패하면 오류만 알림 (생략하면 true)
-  id       기본 명령의 표시 (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;). 기본 명령은 고칠 수는 있어도 지울 수 없어서,
-           빠져 있으면 기본값으로 다시 생깁니다. 직접 추가하는 명령에는 쓰지 않습니다.
-           &quot;ai&quot;에서 claude 대신 codex 등을 쓰려면 그 command를 고치세요.
-command 안의 자리표시자는 실행할 때 바뀝니다 (각 경로는 셸에 맞게 따옴표로 감쌈: 공백·한글·따옴표 안전):
-  {files}  선택한 항목의 절대 경로들
-  {names}  {dir} 기준 경로들 (같은 폴더면 이름)
-  {dir}    첫 번째 항목이 있는 폴더 (선택이 없으면 지금 보고 있는 폴더)
-  {prompt} 실행할 때 한 줄 입력을 받아 그 글로 바꿈 (메뉴 이름 뒤에 …가 붙음)
-여러 항목은 macOS·Linux에서 공백으로, Windows(PowerShell)에서 쉼표로 이어집니다 (배열).
-셸 스크립트도 됩니다. 예:
-  { label = &quot;이미지 줄이기&quot;, key = &quot;R&quot;, terminal = false, command = &quot;~/bin/shrink.sh {files}&quot; }</source>
-        <translation>「選択した項目で…」メニューのコマンド (リストで項目を選び、右クリックまたは ⌘↓)。上から順に表示されます。
-1 項目は 1 行の { } で、使えるキーは次のとおりです:
-  label    メニューに表示する名前 (必須)
-  command  実行するシェルコマンド (必須)。macOS·Linux はターミナルのシェル (zsh/bash)、Windows は PowerShell の文法
-  key      メニューが開いているときにこの 1 文字を押すとすぐ実行 (A-Z または 0-9、省略可)
-  terminal true: 下のターミナルを開いてそこで実行し、出力を表示します。
-           false: ターミナルなしで静かに実行し、失敗したときだけ知らせます (省略時は true)
-  id       標準コマンドの印 (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;)。標準コマンドは変更できますが削除はできず、
-           なくなっていると既定値で戻ります。自分で追加するコマンドには使いません。
-           &quot;ai&quot; で claude の代わりに codex などを使うには、その command を変更してください。
-command 内のプレースホルダは実行時に置き換えられます (各パスはシェルに合わせて引用符で囲みます: 空白·日本語·引用符も安全):
-  {files}  選択した項目の絶対パス
-  {names}  {dir} からの相対パス (同じフォルダなら名前)
-  {dir}    最初の項目があるフォルダ (選択がなければ今見ているフォルダ)
-  {prompt} 実行時に 1 行の入力を受けてその文に置き換え (メニュー名の後ろに … が付きます)
-複数の項目は macOS·Linux では空白で、Windows (PowerShell) ではカンマでつながります (配列)。
-シェルスクリプトも使えます。例:
-  { label = &quot;画像を縮小&quot;, key = &quot;R&quot;, terminal = false, command = &quot;~/bin/shrink.sh {files}&quot; }</translation>
-    </message>
-    <message>
         <source>사이드바 &apos;즐겨찾기&apos;에 보일 폴더 경로들 (순서대로).</source>
         <translation>サイドバーの「よく使う項目」に表示するフォルダのパス (順番どおり)。</translation>
     </message>
@@ -834,6 +796,14 @@ command 内のプレースホルダは実行時に置き換えられます (各�
 デスクトップ・書類・ダウンロードはアプリで一度開いてから含まれます (macOS が許可を求めないように)。</translation>
     </message>
     <message>
+        <source>Set-Location -LiteralPath {dir}; %1 ({prompt} + &quot;`n`n대상 파일:`n&quot; + (@({files}) -join &quot;`n&quot;))</source>
+        <translation>Set-Location -LiteralPath {dir}; %1 ({prompt} + &quot;`n`n対象ファイル:`n&quot; + (@({files}) -join &quot;`n&quot;))</translation>
+    </message>
+    <message>
+        <source>cd {dir} &amp;&amp; %1 &quot;$(printf &apos;%s\n\n대상 파일:\n&apos; {prompt}; printf &apos;%s\n&apos; {files})&quot;</source>
+        <translation>cd {dir} &amp;&amp; %1 &quot;$(printf &apos;%s\n\n対象ファイル:\n&apos; {prompt}; printf &apos;%s\n&apos; {files})&quot;</translation>
+    </message>
+    <message>
         <source>Set-Location -LiteralPath {dir}; $d = &apos;새 폴더&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;새 폴더 $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</source>
         <translation>Set-Location -LiteralPath {dir}; $d = &apos;新規フォルダ&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;新規フォルダ $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</translation>
     </message>
@@ -850,20 +820,12 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>AIで実行</translation>
     </message>
     <message>
-        <source>Set-Location -LiteralPath {dir}; claude -p ({prompt} + &quot;`n`n대상 파일:`n&quot; + (@({files}) -join &quot;`n&quot;))</source>
-        <translation>Set-Location -LiteralPath {dir}; claude -p ({prompt} + &quot;`n`n対象ファイル:`n&quot; + (@({files}) -join &quot;`n&quot;))</translation>
-    </message>
-    <message>
         <source>cd {dir} &amp;&amp; d=&apos;새 폴더&apos; &amp;&amp; n=2 &amp;&amp; while [ -e &quot;$d&quot; ]; do d=&quot;새 폴더 $n&quot;; n=$((n+1)); done &amp;&amp; mkdir -- &quot;$d&quot; &amp;&amp; mv -n -- {names} &quot;$d&quot;/</source>
         <translation>cd {dir} &amp;&amp; d=&apos;新規フォルダ&apos; &amp;&amp; n=2 &amp;&amp; while [ -e &quot;$d&quot; ]; do d=&quot;新規フォルダ $n&quot;; n=$((n+1)); done &amp;&amp; mkdir -- &quot;$d&quot; &amp;&amp; mv -n -- {names} &quot;$d&quot;/</translation>
     </message>
     <message>
         <source>cd {dir} &amp;&amp; f=&apos;압축 파일.zip&apos; &amp;&amp; n=2 &amp;&amp; while [ -e &quot;$f&quot; ]; do f=&quot;압축 파일 $n.zip&quot;; n=$((n+1)); done &amp;&amp; zip -r -y -q &quot;$f&quot; {names}</source>
         <translation>cd {dir} &amp;&amp; f=&apos;アーカイブ.zip&apos; &amp;&amp; n=2 &amp;&amp; while [ -e &quot;$f&quot; ]; do f=&quot;アーカイブ $n.zip&quot;; n=$((n+1)); done &amp;&amp; zip -r -y -q &quot;$f&quot; {names}</translation>
-    </message>
-    <message>
-        <source>cd {dir} &amp;&amp; claude -p &quot;$(printf &apos;%s\n\n대상 파일:\n&apos; {prompt}; printf &apos;%s\n&apos; {files})&quot;</source>
-        <translation>cd {dir} &amp;&amp; claude -p &quot;$(printf &apos;%s\n\n対象ファイル:\n&apos; {prompt}; printf &apos;%s\n&apos; {files})&quot;</translation>
     </message>
     <message>
         <source>%1: true 또는 false여야 합니다</source>
@@ -888,6 +850,10 @@ command 内のプレースホルダは実行時に置き換えられます (各�
     <message>
         <source>%1: [ { label = &quot;…&quot;, command = &quot;…&quot; }, ... ] 배열이어야 합니다</source>
         <translation>%1: [ { label = &quot;…&quot;, command = &quot;…&quot; }, ... ] の配列である必要があります</translation>
+    </message>
+    <message>
+        <source>%1의 extensions는 쉼표로 이은 확장자 문자열이어야 합니다 (전체: *)</source>
+        <translation>%1 の extensions はカンマ区切りの拡張子の文字列にしてください (すべて: *)</translation>
     </message>
     <message>
         <source>%1: [ { extensions = &quot;…&quot;, color = &quot;#RRGGBB&quot; }, ... ] 배열이어야 합니다</source>
@@ -990,6 +956,10 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>型: 文字列の配列。デフォルト値: %1。</translation>
     </message>
     <message>
+        <source>타입: { label = &quot;메뉴 이름&quot;, key = &quot;글자&quot;, extensions = &quot;*&quot;, terminal = true, command = &quot;명령&quot; }의 배열. 한 항목은 한 줄에.</source>
+        <translation>型: { label = &quot;メニュー名&quot;, key = &quot;文字&quot;, extensions = &quot;*&quot;, terminal = true, command = &quot;コマンド&quot; } の配列。1 項目を 1 行に。</translation>
+    </message>
+    <message>
         <source>타입: { extensions = &quot;확장자, 확장자&quot;, color = &quot;#RRGGBB&quot; }의 배열. 한 항목은 한 줄에.</source>
         <translation>型: { extensions = &quot;拡張子, 拡張子&quot;, color = &quot;#RRGGBB&quot; } の配列。1 項目は 1 行に。</translation>
     </message>
@@ -1054,6 +1024,22 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>変更</translation>
     </message>
     <message>
+        <source>예: jpg,png,pdf · *: 모든 항목. 선택한 항목 모두가 맞을 때만 표시합니다.</source>
+        <translation>例: jpg,png,pdf · *: すべての項目。選択した項目すべてが一致する場合だけ表示します。</translation>
+    </message>
+    <message>
+        <source>확장자:</source>
+        <translation>拡張子:</translation>
+    </message>
+    <message>
+        <source>codex 예시</source>
+        <translation>codex の例</translation>
+    </message>
+    <message>
+        <source>claude 예시</source>
+        <translation>claude の例</translation>
+    </message>
+    <message>
         <source>D2Coding (기본)</source>
         <translation>D2Coding（標準）</translation>
     </message>
@@ -1114,10 +1100,6 @@ command 内のプレースホルダは実行時に置き換えられます (各�
     <message>
         <source>%1의 id는 기본 명령 하나씩에만 씁니다 (%2)</source>
         <translation>%1 の id は標準コマンドごとに 1 つだけ使えます (%2)</translation>
-    </message>
-    <message>
-        <source>타입: { label = &quot;메뉴 이름&quot;, key = &quot;글자&quot;, terminal = true, command = &quot;명령&quot; }의 배열. 한 항목은 한 줄에.</source>
-        <translation>型: { label = &quot;メニュー名&quot;, key = &quot;文字&quot;, terminal = true, command = &quot;コマンド&quot; } の配列。1 項目は 1 行に。</translation>
     </message>
     <message>
         <source>단축키 재지정</source>
@@ -1298,6 +1280,28 @@ command 内のプレースホルダは実行時に置き換えられます (各�
     <message>
         <source>터미널 글꼴 이름 (예: &quot;JetBrains Mono&quot;, &quot;Menlo&quot;). 빈 문자열이면 앱에 든 D2Coding (네이버, SIL Open Font License).</source>
         <translation>ターミナルのフォント名（例: &quot;JetBrains Mono&quot;、&quot;Menlo&quot;）。空文字列ならアプリ同梱の D2Coding（NAVER、SIL Open Font License）。</translation>
+    </message>
+    <message>
+        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들로…&quot; 메뉴에 나오는 명령들 (위에서부터 순서대로).
+한 항목은 한 줄의 { } 이고, 쓸 수 있는 키는 다음과 같습니다:
+  label    메뉴에 보일 이름 (필수)
+  command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법
+  key      메뉴가 열려 있을 때 이 글자 하나를 누르면 바로 실행 (A-Z 또는 0-9, 생략 가능)
+  extensions 쉼표로 이은 확장자 (예: &quot;jpg,png&quot;). 기본값 &quot;*&quot;: 모든 항목. 선택한 항목 모두가 맞아야 표시
+  terminal true: 아래쪽 터미널을 열고 거기서 실행해 출력을 보여 줌.
+           false: 터미널 없이 조용히 실행하고, 실패하면 오류만 알림 (생략하면 true)
+  id       기본 명령의 표시 (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;). 기본 명령은 고칠 수는 있어도 지울 수 없어서,
+           빠져 있으면 기본값으로 다시 생깁니다. 직접 추가하는 명령에는 쓰지 않습니다.
+           &quot;ai&quot;에서 claude 대신 codex 등을 쓰려면 그 command를 고치세요.
+command 안의 자리표시자는 실행할 때 바뀝니다 (각 경로는 셸에 맞게 따옴표로 감쌈: 공백·한글·따옴표 안전):
+  {files}  선택한 항목의 절대 경로들
+  {names}  {dir} 기준 경로들 (같은 폴더면 이름)
+  {dir}    첫 번째 항목이 있는 폴더 (선택이 없으면 지금 보고 있는 폴더)
+  {prompt} 실행할 때 한 줄 입력을 받아 그 글로 바꿈 (메뉴 이름 뒤에 …가 붙음)
+여러 항목은 macOS·Linux에서 공백으로, Windows(PowerShell)에서 쉼표로 이어집니다 (배열).
+셸 스크립트도 됩니다. 예:
+  { label = &quot;이미지 줄이기&quot;, key = &quot;R&quot;, terminal = false, command = &quot;~/bin/shrink.sh {files}&quot; }</source>
+        <translation></translation>
     </message>
     <message>
         <source>폴더와 확장자 색을 모두 기본값으로 되돌릴까요? 직접 바꾼 색은 사라집니다.</source>

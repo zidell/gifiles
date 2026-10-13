@@ -278,6 +278,9 @@ QPushButton:hover { background: {selInactive}; }
 QPushButton:default, QPushButton#primary { background: {accent}; color: {selText}; }
 QPushButton#primary:hover { background: {accent}; }
 QPushButton[small="true"] { padding: 2px 10px; min-width: 0; border-radius: 5px; font-size: 11px; }
+QPushButton[link="true"] { background: transparent; color: {accent}; border: 1px solid transparent; border-radius: 2px; padding: 0 2px; min-width: 0; font-size: 11px; text-decoration: underline; }
+QPushButton[link="true"]:hover { background: transparent; color: {accent}; }
+QPushButton[link="true"]:focus { border-color: {accent}; }
 QLineEdit { background: {inputBg}; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; selection-background-color: {accent}; }
 QLineEdit:focus { border: 1px solid {accent}; }
 QLineEdit#renameEdit { padding: 0; border-radius: 4px; }

@@ -1025,7 +1025,7 @@ void MainWindow::askLine(const QString &placeholder, const QString &note, std::f
 
 void MainWindow::runSelectionCommand(const QVariantMap &command, const QStringList &paths)
 {
-    if (paths.isEmpty())
+    if (!Settings::selectionCommandMatches(command, paths))
         return;
     const QString label = command.value(QStringLiteral("label")).toString();
     QString shown = command.value(QStringLiteral("command")).toString();
@@ -2133,13 +2133,15 @@ void MainWindow::showContextMenu(const QPoint &globalPos, bool onItem)
         const QVariantList commands = Settings::instance()->value(Settings::SelectionCommands).toList();
         for (const QVariant &c : commands) {
             const QVariantMap m = c.toMap();
+            if (!Settings::selectionCommandMatches(m, tab()->selectedPaths()))
+                continue;
             const QString label = m.value(QStringLiteral("label")).toString(), cmd = m.value(QStringLiteral("command")).toString();
             QAction *a = with->addAction(label + (cmd.contains(QLatin1String("{prompt}")) ? QStringLiteral("…") : QString()), this,
                                          [this, m] { runSelectionCommand(m, tab()->selectedPaths()); });
             if (const QString k = m.value(QStringLiteral("key")).toString().toUpper(); k.size() == 1)
                 letter(a, k[0].toLatin1(), false);
         }
-        if (!commands.isEmpty())
+        if (!with->actions().isEmpty())
             with->addSeparator();
         auto *edit = with->addAction(Gifiles::tr("메뉴 편집…"), this, [this] { SettingsDialog::showSingleton(this, Gifiles::tr("선택 항목 메뉴")); });
         edit->setObjectName(QStringLiteral("선택 명령 편집…"));

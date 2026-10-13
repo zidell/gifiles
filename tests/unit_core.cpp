@@ -558,6 +558,9 @@ private slots:
 
         const QString cmds = QStringLiteral("[selection_menu]\ncommands = %1\n");
         QTest::newRow("commands empty") << cmds.arg(QStringLiteral("[]")) << none;
+        QTest::newRow("command extensions") << cmds.arg(QStringLiteral("[{ label = \"L\", command = \"c\", extensions = \"jpg,png\" }]")) << none;
+        QTest::newRow("command extensions wrong type") << cmds.arg(QStringLiteral("[{ label = \"L\", command = \"c\", extensions = false }]"))
+                                                    << QStringList{QStringLiteral("extensions는 쉼표로")};
         QTest::newRow("commands ok") << cmds.arg(QStringLiteral("[\n { label = \"L\", key = \"a\", terminal = false, command = \"c\" },\n"
                                                                 " { id = \"zip\", label = \"Z\", command = \"z\" },\n { label = \"M\", key = \"9\", command = \"m\" },\n]"))
                                      << none;
@@ -857,7 +860,8 @@ private slots:
         const QString nasty = QStringLiteral("a \"q\" \\ $x `y` \n\t #h 한글");
         const QVariantList commands{
             QVariantMap{{QStringLiteral("label"), nasty}, {QStringLiteral("key"), QStringLiteral("Q")}, {QStringLiteral("terminal"), false},
-                        {QStringLiteral("command"), QStringLiteral("echo \"{files}\" '{names}' # \\n")}},
+                        {QStringLiteral("command"), QStringLiteral("echo \"{files}\" '{names}' # \\n")},
+                        {QStringLiteral("extensions"), QStringLiteral("txt,md")}},
             QVariantMap{{QStringLiteral("id"), QStringLiteral("ai")}, {QStringLiteral("label"), QStringLiteral("AI")},
                         {QStringLiteral("key"), QStringLiteral("A")}, {QStringLiteral("terminal"), true}, {QStringLiteral("command"), QStringLiteral("codex {prompt}")}},
         };
@@ -985,6 +989,31 @@ private slots:
         QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults()); // a save may land on a retry (Windows)
         QCOMPARE(keys, QStringList{QStringLiteral("F3")});
         QCOMPARE(kept, QStringLiteral("/Apps/Edit.app"));
+    }
+
+    void selectionCommandExtensionFilter()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const auto p = [&dir](const char *name) { return dir.filePath(QString::fromLatin1(name)); };
+        QVariantMap command;
+        const QString jpg = p("photo.JPG"), png = p("photo.png"), txt = p("note.txt");
+        QVERIFY(QDir().mkpath(p("folder.jpg")));
+        const QStringList images{jpg, png};
+        QVERIFY(Settings::selectionCommandMatches(command, {jpg, txt, p("folder.jpg")}));
+        QVERIFY(!Settings::selectionCommandMatches(command, {}));
+        command.insert(QStringLiteral("extensions"), QStringLiteral(" jpg, .PNG "));
+        QVERIFY(Settings::selectionCommandMatches(command, images));
+        QVERIFY(!Settings::selectionCommandMatches(command, {jpg, txt}));
+        QVERIFY(!Settings::selectionCommandMatches(command, {jpg, p("folder.jpg")}));
+        QVERIFY(!Settings::selectionCommandMatches(command, {p("README")}));
+        command.insert(QStringLiteral("extensions"), QStringLiteral("*.jpg,tar.gz"));
+        QVERIFY(Settings::selectionCommandMatches(command, {jpg, p("archive.TAR.GZ")}));
+        QVERIFY(!Settings::selectionCommandMatches(command, {png}));
+        command.insert(QStringLiteral("extensions"), QStringLiteral("*"));
+        QVERIFY(Settings::selectionCommandMatches(command, {jpg, txt, p("folder.jpg")}));
+        command.insert(QStringLiteral("extensions"), QString());
+        QVERIFY(Settings::selectionCommandMatches(command, {txt}));
     }
 
     void selectionCommandsEmptyListKeepsBuiltins()

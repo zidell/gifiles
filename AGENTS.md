@@ -105,8 +105,11 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   preview, terminal, sidebar, search, path, rename, menu). Conflict detection respects those contexts.
   Defaults follow macOS, with ⌘ represented by Ctrl on Windows/Linux, on every platform (Windows
   too: Return renames, Ctrl+Down opens — no Windows-only keys). A ` key also answers to ₩.
-- **"선택한 항목들로…" commands:** config.toml `[selection_menu] commands`, each `{ id?, label, key, terminal,
-  command }` (per-platform defaults in `Settings.cpp`: `new_folder` and `zip` quiet, `ai` in the terminal). The
+- **"선택한 항목들로…" commands:** config.toml `[selection_menu] commands`, each `{ id?, label, key, extensions?, terminal,
+  command }` (per-platform defaults in `Settings.cpp`: `new_folder` and `zip` quiet, `ai` in the terminal).
+  `extensions` is a comma-separated list (case-insensitive; optional leading `.` / `*.`); omitted, blank or `*`
+  allows every item including folders. Otherwise every selected item must match (ordinary folders never match).
+  `Settings::selectionCommandMatches` governs both menu visibility and execution. The
   built-in ones (with `id`) can be edited but not removed (`withBuiltins` puts a missing one back; the page's
   삭제 is disabled for them). `MainWindow::runSelectionCommand` → `runCommandNow`: `terminal = true` →
   `runInTerminal` (same never-clobber rule), `false` → `runQuietly` (QProcess: login shell `-l -c`;

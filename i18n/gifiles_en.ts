@@ -755,44 +755,6 @@ Example: { extensions = &quot;psd, ai, sketch&quot;, color = &quot;#FFB347&quot;
         <translation>When you cd in the terminal, the list moves to that folder too.</translation>
     </message>
     <message>
-        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들로…&quot; 메뉴에 나오는 명령들 (위에서부터 순서대로).
-한 항목은 한 줄의 { } 이고, 쓸 수 있는 키는 다음과 같습니다:
-  label    메뉴에 보일 이름 (필수)
-  command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법
-  key      메뉴가 열려 있을 때 이 글자 하나를 누르면 바로 실행 (A-Z 또는 0-9, 생략 가능)
-  terminal true: 아래쪽 터미널을 열고 거기서 실행해 출력을 보여 줌.
-           false: 터미널 없이 조용히 실행하고, 실패하면 오류만 알림 (생략하면 true)
-  id       기본 명령의 표시 (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;). 기본 명령은 고칠 수는 있어도 지울 수 없어서,
-           빠져 있으면 기본값으로 다시 생깁니다. 직접 추가하는 명령에는 쓰지 않습니다.
-           &quot;ai&quot;에서 claude 대신 codex 등을 쓰려면 그 command를 고치세요.
-command 안의 자리표시자는 실행할 때 바뀝니다 (각 경로는 셸에 맞게 따옴표로 감쌈: 공백·한글·따옴표 안전):
-  {files}  선택한 항목의 절대 경로들
-  {names}  {dir} 기준 경로들 (같은 폴더면 이름)
-  {dir}    첫 번째 항목이 있는 폴더 (선택이 없으면 지금 보고 있는 폴더)
-  {prompt} 실행할 때 한 줄 입력을 받아 그 글로 바꿈 (메뉴 이름 뒤에 …가 붙음)
-여러 항목은 macOS·Linux에서 공백으로, Windows(PowerShell)에서 쉼표로 이어집니다 (배열).
-셸 스크립트도 됩니다. 예:
-  { label = &quot;이미지 줄이기&quot;, key = &quot;R&quot;, terminal = false, command = &quot;~/bin/shrink.sh {files}&quot; }</source>
-        <translation>Commands in the &quot;With Selected Items…&quot; menu (select items in the list, then right-click or ⌘↓), top to bottom.
-One item is one line of { }, with these keys:
-  label    name shown in the menu (required)
-  command  shell command to run (required). macOS·Linux: the terminal&apos;s shell (zsh/bash); Windows: PowerShell syntax
-  key      press this one letter while the menu is open to run it at once (A-Z or 0-9, optional)
-  terminal true: open the terminal below and run it there, showing the output.
-           false: run quietly without a terminal and report only errors (default true)
-  id       marks a built-in command (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;). Built-in commands can be changed but not removed;
-           one that is missing comes back with its default. Don&apos;t use it for your own commands.
-           To use codex etc. instead of claude in &quot;ai&quot;, change its command.
-Placeholders in command are replaced when it runs (each path quoted for the shell: safe with spaces, non-ASCII and quotes):
-  {files}  absolute paths of the selected items
-  {names}  paths relative to {dir} (names, when in the same folder)
-  {dir}    the folder of the first item (the current folder when nothing is selected)
-  {prompt} asks for one line when run and puts it here (the menu name gets a …)
-Several items are joined by spaces on macOS·Linux and by commas on Windows (PowerShell, an array).
-Shell scripts work too. Example:
-  { label = &quot;Shrink images&quot;, key = &quot;R&quot;, terminal = false, command = &quot;~/bin/shrink.sh {files}&quot; }</translation>
-    </message>
-    <message>
         <source>사이드바 &apos;즐겨찾기&apos;에 보일 폴더 경로들 (순서대로).</source>
         <translation>Folder paths shown under &apos;Favorites&apos; in the sidebar (in order).</translation>
     </message>
@@ -835,6 +797,14 @@ an entry starting with /, ~ or a drive letter leaves out that one path (&quot;~/
 Desktop, Documents and Downloads are included only after you have opened them in the app once (so macOS doesn&apos;t ask for permission).</translation>
     </message>
     <message>
+        <source>Set-Location -LiteralPath {dir}; %1 ({prompt} + &quot;`n`n대상 파일:`n&quot; + (@({files}) -join &quot;`n&quot;))</source>
+        <translation>Set-Location -LiteralPath {dir}; %1 ({prompt} + &quot;`n`nTarget files:`n&quot; + (@({files}) -join &quot;`n&quot;))</translation>
+    </message>
+    <message>
+        <source>cd {dir} &amp;&amp; %1 &quot;$(printf &apos;%s\n\n대상 파일:\n&apos; {prompt}; printf &apos;%s\n&apos; {files})&quot;</source>
+        <translation>cd {dir} &amp;&amp; %1 &quot;$(printf &apos;%s\n\nTarget files:\n&apos; {prompt}; printf &apos;%s\n&apos; {files})&quot;</translation>
+    </message>
+    <message>
         <source>Set-Location -LiteralPath {dir}; $d = &apos;새 폴더&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;새 폴더 $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</source>
         <translation>Set-Location -LiteralPath {dir}; $d = &apos;New Folder&apos;; $n = 2; while (Test-Path -LiteralPath $d) { $d = &quot;New Folder $n&quot;; $n++ }; New-Item -ItemType Directory -Path $d | Out-Null; Move-Item -LiteralPath {names} -Destination $d</translation>
     </message>
@@ -851,20 +821,12 @@ Desktop, Documents and Downloads are included only after you have opened them in
         <translation>Run with AI</translation>
     </message>
     <message>
-        <source>Set-Location -LiteralPath {dir}; claude -p ({prompt} + &quot;`n`n대상 파일:`n&quot; + (@({files}) -join &quot;`n&quot;))</source>
-        <translation>Set-Location -LiteralPath {dir}; claude -p ({prompt} + &quot;`n`nFiles:`n&quot; + (@({files}) -join &quot;`n&quot;))</translation>
-    </message>
-    <message>
         <source>cd {dir} &amp;&amp; d=&apos;새 폴더&apos; &amp;&amp; n=2 &amp;&amp; while [ -e &quot;$d&quot; ]; do d=&quot;새 폴더 $n&quot;; n=$((n+1)); done &amp;&amp; mkdir -- &quot;$d&quot; &amp;&amp; mv -n -- {names} &quot;$d&quot;/</source>
         <translation>cd {dir} &amp;&amp; d=&apos;New Folder&apos; &amp;&amp; n=2 &amp;&amp; while [ -e &quot;$d&quot; ]; do d=&quot;New Folder $n&quot;; n=$((n+1)); done &amp;&amp; mkdir -- &quot;$d&quot; &amp;&amp; mv -n -- {names} &quot;$d&quot;/</translation>
     </message>
     <message>
         <source>cd {dir} &amp;&amp; f=&apos;압축 파일.zip&apos; &amp;&amp; n=2 &amp;&amp; while [ -e &quot;$f&quot; ]; do f=&quot;압축 파일 $n.zip&quot;; n=$((n+1)); done &amp;&amp; zip -r -y -q &quot;$f&quot; {names}</source>
         <translation>cd {dir} &amp;&amp; f=&apos;Archive.zip&apos; &amp;&amp; n=2 &amp;&amp; while [ -e &quot;$f&quot; ]; do f=&quot;Archive $n.zip&quot;; n=$((n+1)); done &amp;&amp; zip -r -y -q &quot;$f&quot; {names}</translation>
-    </message>
-    <message>
-        <source>cd {dir} &amp;&amp; claude -p &quot;$(printf &apos;%s\n\n대상 파일:\n&apos; {prompt}; printf &apos;%s\n&apos; {files})&quot;</source>
-        <translation>cd {dir} &amp;&amp; claude -p &quot;$(printf &apos;%s\n\nFiles:\n&apos; {prompt}; printf &apos;%s\n&apos; {files})&quot;</translation>
     </message>
     <message>
         <source>%1: true 또는 false여야 합니다</source>
@@ -889,6 +851,10 @@ Desktop, Documents and Downloads are included only after you have opened them in
     <message>
         <source>%1: [ { label = &quot;…&quot;, command = &quot;…&quot; }, ... ] 배열이어야 합니다</source>
         <translation>%1: must be an array [ { label = &quot;…&quot;, command = &quot;…&quot; }, ... ]</translation>
+    </message>
+    <message>
+        <source>%1의 extensions는 쉼표로 이은 확장자 문자열이어야 합니다 (전체: *)</source>
+        <translation>%1: extensions must be a comma-separated string of extensions (all: *)</translation>
     </message>
     <message>
         <source>%1: [ { extensions = &quot;…&quot;, color = &quot;#RRGGBB&quot; }, ... ] 배열이어야 합니다</source>
@@ -991,6 +957,10 @@ Desktop, Documents and Downloads are included only after you have opened them in
         <translation>Type: array of strings. Default: %1.</translation>
     </message>
     <message>
+        <source>타입: { label = &quot;메뉴 이름&quot;, key = &quot;글자&quot;, extensions = &quot;*&quot;, terminal = true, command = &quot;명령&quot; }의 배열. 한 항목은 한 줄에.</source>
+        <translation>Type: array of { label = &quot;Menu name&quot;, key = &quot;Letter&quot;, extensions = &quot;*&quot;, terminal = true, command = &quot;Command&quot; }. One entry per line.</translation>
+    </message>
+    <message>
         <source>타입: { extensions = &quot;확장자, 확장자&quot;, color = &quot;#RRGGBB&quot; }의 배열. 한 항목은 한 줄에.</source>
         <translation>Type: array of { extensions = &quot;ext, ext&quot;, color = &quot;#RRGGBB&quot; }. One entry per line.</translation>
     </message>
@@ -1055,6 +1025,22 @@ Desktop, Documents and Downloads are included only after you have opened them in
         <translation>Change</translation>
     </message>
     <message>
+        <source>예: jpg,png,pdf · *: 모든 항목. 선택한 항목 모두가 맞을 때만 표시합니다.</source>
+        <translation>Example: jpg,png,pdf · *: all items. Shown only when every selected item matches.</translation>
+    </message>
+    <message>
+        <source>확장자:</source>
+        <translation>Extensions:</translation>
+    </message>
+    <message>
+        <source>codex 예시</source>
+        <translation>codex example</translation>
+    </message>
+    <message>
+        <source>claude 예시</source>
+        <translation>claude example</translation>
+    </message>
+    <message>
         <source>D2Coding (기본)</source>
         <translation>D2Coding (default)</translation>
     </message>
@@ -1115,10 +1101,6 @@ Inside a string write &quot; as \&quot; and \ as \\.</translation>
     <message>
         <source>%1의 id는 기본 명령 하나씩에만 씁니다 (%2)</source>
         <translation>The id of %1 is only for one built-in command each (%2)</translation>
-    </message>
-    <message>
-        <source>타입: { label = &quot;메뉴 이름&quot;, key = &quot;글자&quot;, terminal = true, command = &quot;명령&quot; }의 배열. 한 항목은 한 줄에.</source>
-        <translation>Type: an array of { label = &quot;menu name&quot;, key = &quot;letter&quot;, terminal = true, command = &quot;command&quot; }. One item per line.</translation>
     </message>
     <message>
         <source>단축키 재지정</source>
@@ -1299,6 +1281,28 @@ Changing it with + / − (⌘+ / ⌘−) while Quick Look is open remembers it. 
     <message>
         <source>터미널 글꼴 이름 (예: &quot;JetBrains Mono&quot;, &quot;Menlo&quot;). 빈 문자열이면 앱에 든 D2Coding (네이버, SIL Open Font License).</source>
         <translation>Terminal font name (e.g. &quot;JetBrains Mono&quot;, &quot;Menlo&quot;). An empty string uses D2Coding, bundled with the app (NAVER, SIL Open Font License).</translation>
+    </message>
+    <message>
+        <source>목록에서 항목을 고르고 오른쪽 클릭(또는 ⌘↓) → &quot;선택한 항목들로…&quot; 메뉴에 나오는 명령들 (위에서부터 순서대로).
+한 항목은 한 줄의 { } 이고, 쓸 수 있는 키는 다음과 같습니다:
+  label    메뉴에 보일 이름 (필수)
+  command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법
+  key      메뉴가 열려 있을 때 이 글자 하나를 누르면 바로 실행 (A-Z 또는 0-9, 생략 가능)
+  extensions 쉼표로 이은 확장자 (예: &quot;jpg,png&quot;). 기본값 &quot;*&quot;: 모든 항목. 선택한 항목 모두가 맞아야 표시
+  terminal true: 아래쪽 터미널을 열고 거기서 실행해 출력을 보여 줌.
+           false: 터미널 없이 조용히 실행하고, 실패하면 오류만 알림 (생략하면 true)
+  id       기본 명령의 표시 (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;). 기본 명령은 고칠 수는 있어도 지울 수 없어서,
+           빠져 있으면 기본값으로 다시 생깁니다. 직접 추가하는 명령에는 쓰지 않습니다.
+           &quot;ai&quot;에서 claude 대신 codex 등을 쓰려면 그 command를 고치세요.
+command 안의 자리표시자는 실행할 때 바뀝니다 (각 경로는 셸에 맞게 따옴표로 감쌈: 공백·한글·따옴표 안전):
+  {files}  선택한 항목의 절대 경로들
+  {names}  {dir} 기준 경로들 (같은 폴더면 이름)
+  {dir}    첫 번째 항목이 있는 폴더 (선택이 없으면 지금 보고 있는 폴더)
+  {prompt} 실행할 때 한 줄 입력을 받아 그 글로 바꿈 (메뉴 이름 뒤에 …가 붙음)
+여러 항목은 macOS·Linux에서 공백으로, Windows(PowerShell)에서 쉼표로 이어집니다 (배열).
+셸 스크립트도 됩니다. 예:
+  { label = &quot;이미지 줄이기&quot;, key = &quot;R&quot;, terminal = false, command = &quot;~/bin/shrink.sh {files}&quot; }</source>
+        <translation></translation>
     </message>
     <message>
         <source>폴더와 확장자 색을 모두 기본값으로 되돌릴까요? 직접 바꾼 색은 사라집니다.</source>

@@ -1548,6 +1548,41 @@ private slots:
                     return qobject_cast<QDialog *>(w);
             return nullptr;
         };
+        // Examples replace only the command and enable the terminal; saving still needs OK.
+        list->setCurrentRow(2); // built-in AI
+        const QVariantMap originalAi = st->value(Settings::SelectionCommands).toList().at(2).toMap();
+        const QString claudeExample = originalAi.value(QStringLiteral("command")).toString();
+        dlg->findChild<QPushButton *>(QStringLiteral("commandEdit"))->click();
+        QPointer<QDialog> exampleEditor;
+        QTRY_VERIFY((exampleEditor = editor()));
+        auto *exampleText = exampleEditor->findChild<QPlainTextEdit *>(QStringLiteral("commandText"));
+        auto *exampleTerminal = exampleEditor->findChild<QCheckBox *>(QStringLiteral("commandTerminal"));
+        auto *codexButton = exampleEditor->findChild<QPushButton *>(QStringLiteral("commandCodexExample"));
+        auto *claudeButton = exampleEditor->findChild<QPushButton *>(QStringLiteral("commandClaudeExample"));
+        QVERIFY(exampleText && exampleTerminal && codexButton && claudeButton);
+        exampleTerminal->setChecked(false);
+        codexButton->click();
+        const QString codexExample = exampleText->toPlainText();
+        QVERIFY(codexExample.contains(QStringLiteral("codex exec --skip-git-repo-check --sandbox workspace-write")));
+        for (const char *placeholder : {"{dir}", "{prompt}", "{files}"})
+            QVERIFY(codexExample.contains(QString::fromLatin1(placeholder)));
+        QVERIFY(exampleTerminal->isChecked());
+        QCOMPARE(st->value(Settings::SelectionCommands).toList().at(2).toMap(), originalAi);
+        claudeButton->click();
+        QCOMPARE(exampleText->toPlainText(), claudeExample);
+        codexButton->click();
+        shot(QStringLiteral("command-ai-examples"), exampleEditor);
+        buttonNamed(exampleEditor, QStringLiteral("확인"))->click();
+        QTRY_VERIFY(!exampleEditor);
+        QVariantMap expectedAi = originalAi;
+        expectedAi.insert(QStringLiteral("command"), codexExample);
+        QCOMPARE(st->value(Settings::SelectionCommands).toList().at(2).toMap(), expectedAi);
+        dlg->findChild<QPushButton *>(QStringLiteral("commandEdit"))->click();
+        QTRY_VERIFY((exampleEditor = editor()));
+        exampleEditor->findChild<QPushButton *>(QStringLiteral("commandClaudeExample"))->click();
+        buttonNamed(exampleEditor, QStringLiteral("취소"))->click();
+        QTRY_VERIFY(!exampleEditor);
+        QCOMPARE(st->value(Settings::SelectionCommands).toList().at(2).toMap(), expectedAi);
         dlg->findChild<QPushButton *>(QStringLiteral("commandAdd"))->click();
         QPointer<QDialog> ed;
         QTRY_VERIFY((ed = editor()));
@@ -1555,6 +1590,10 @@ private slots:
         auto *letter = ed->findChild<QLineEdit *>(QStringLiteral("commandKey"));
         auto *text = ed->findChild<QPlainTextEdit *>(QStringLiteral("commandText"));
         auto *terminal = ed->findChild<QCheckBox *>(QStringLiteral("commandTerminal"));
+        auto *extensions = ed->findChild<QLineEdit *>(QStringLiteral("commandExtensions"));
+        QVERIFY(extensions);
+        QCOMPARE(extensions->text(), QStringLiteral("*"));
+        extensions->setText(QStringLiteral("txt,md"));
         QPushButton *ok = buttonNamed(ed, QStringLiteral("확인"));
         QVERIFY(label && letter && text && terminal && ok);
         label->clear();
@@ -1571,6 +1610,7 @@ private slots:
         const QVariantMap mine = st->value(Settings::SelectionCommands).toList().last().toMap();
         QCOMPARE(mine.value(QStringLiteral("label")).toString(), QStringLiteral("내 명령"));
         QCOMPARE(mine.value(QStringLiteral("key")).toString(), QStringLiteral("Q"));
+        QCOMPARE(mine.value(QStringLiteral("extensions")).toString(), QStringLiteral("txt,md"));
         QCOMPARE(mine.value(QStringLiteral("terminal")).toBool(), false);
         QCOMPARE(mine.value(QStringLiteral("command")).toString(), QStringLiteral("echo {names}"));
         QCOMPARE(list->currentRow(), builtins);
@@ -1581,6 +1621,7 @@ private slots:
         dlg->findChild<QPushButton *>(QStringLiteral("commandEdit"))->click();
         QTRY_VERIFY((ed = editor()));
         ed->findChild<QLineEdit *>(QStringLiteral("commandLabel"))->setText(QStringLiteral("고친 명령"));
+        QCOMPARE(ed->findChild<QLineEdit *>(QStringLiteral("commandExtensions"))->text(), QStringLiteral("txt,md"));
         buttonNamed(ed, QStringLiteral("확인"))->click();
         QTRY_VERIFY(!ed);
         QCOMPARE(labels().last(), QStringLiteral("고친 명령"));
