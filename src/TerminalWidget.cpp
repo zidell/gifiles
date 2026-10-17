@@ -268,7 +268,14 @@ struct TerminalCallbacks {
                 t->m_markedAt = t->m_cursor;
             break;
         case VTERM_PROP_CURSORSHAPE: t->m_cursorShape = val->number; break;
-        case VTERM_PROP_ALTSCREEN: t->m_altScreen = val->boolean; t->m_scrollOffset = 0; break;
+        case VTERM_PROP_ALTSCREEN:
+            t->m_altScreen = val->boolean;
+            t->m_scrollOffset = 0;
+            if (!t->m_altScreen) { // the program that announced drag zones is gone
+                t->m_dragZones.clear();
+                t->m_dragZonesSet = false;
+            }
+            break;
         case VTERM_PROP_MOUSE: t->m_mouseMode = val->number; break;
         case VTERM_PROP_TITLE: {
             QByteArray &buf = t->m_titleBuf;
@@ -335,6 +342,23 @@ struct TerminalCallbacks {
                                   .arg(c.green() * 257, 4, 16, QLatin1Char('0'))
                                   .arg(c.blue() * 257, 4, 16, QLatin1Char('0'))
                                   .toLatin1();
+            return 1;
+        }
+        // OSC 7790 "x,y,w,h;…": drag zones (tuidock's sequence; see m_dragZones). Empty clears them.
+        if (command == 7790) {
+            TerminalWidget *t = w(u);
+            if (frag.initial)
+                t->m_dragZoneBuf.clear();
+            t->m_dragZoneBuf.append(frag.str, int(frag.len));
+            if (frag.final) {
+                t->m_dragZones.clear();
+                for (const QByteArray &zone : t->m_dragZoneBuf.split(';')) {
+                    const QList<QByteArray> n = zone.split(',');
+                    if (n.size() == 4 && n[2].toInt() > 0 && n[3].toInt() > 0)
+                        t->m_dragZones.append(QRect(n[0].toInt(), n[1].toInt(), n[2].toInt(), n[3].toInt()));
+                }
+                t->m_dragZonesSet = true;
+            }
             return 1;
         }
         if (command != 7)
@@ -1295,7 +1319,7 @@ void TerminalWidget::mousePressEvent(QMouseEvent *e)
     // Shift-right-click keeps the menu below (복사·붙여넣기) over a program that takes the mouse.
     if (m_mouseMode != VTERM_PROP_MOUSE_NONE && m_scrollOffset == 0 && !(button == 3 && (e->modifiers() & Qt::ShiftModifier))) {
         const QPoint c = cellFromPos(e->position().toPoint());
-        if (button == 1 && !(e->modifiers() & Qt::AltModifier)) {
+        if (button == 1 && !(e->modifiers() & Qt::AltModifier) && !programTakesDrag(c, e->modifiers())) {
             m_pendingPress = true;
             m_pressCell = c;
             m_pressMods = mouseMods(e->modifiers());
@@ -1324,6 +1348,17 @@ void TerminalWidget::mousePressEvent(QMouseEvent *e)
         m_selecting = true;
         update();
     }
+}
+
+// programTakesDrag: a left press here goes to the program at once, drags included — inside the drag zones a
+// full-screen program that follows drags announced (Shift selects here).
+bool TerminalWidget::programTakesDrag(const QPoint &cell, Qt::KeyboardModifiers mods) const
+{
+    if (!m_altScreen || m_mouseMode < VTERM_PROP_MOUSE_DRAG || !m_dragZonesSet)
+        return false;
+    const QPoint screen(cell.x(), cell.y() - int(m_scrollback.size()));
+    return !(mods & Qt::ShiftModifier)
+        && std::any_of(m_dragZones.cbegin(), m_dragZones.cend(), [&](const QRect &r) { return r.contains(screen); });
 }
 
 void TerminalWidget::mouseMoveEvent(QMouseEvent *e)

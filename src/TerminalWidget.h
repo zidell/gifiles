@@ -163,6 +163,14 @@ private:
     QPoint m_pressCell;
     int m_pressMods = 0;
     int m_buttonToProgram = 0; // the button sent at once and not released yet
+    // Drag zones a full-screen program announced with OSC 7790 "x,y,w,h;…" (screen cells; tuidock's own sequence,
+    // Ginote's sidebar border and note text). Once announced, only a left drag pressed inside one goes to the
+    // program (Shift selects here); elsewhere a drag selects here. Cleared when the program leaves the
+    // alternate screen.
+    QList<QRect> m_dragZones;
+    bool m_dragZonesSet = false;
+    QByteArray m_dragZoneBuf;
+    bool programTakesDrag(const QPoint &cell, Qt::KeyboardModifiers mods) const;
 
     // Command-line tracking for the browser integration.
     QString m_typed;      // what the user typed since the last Enter (best effort)

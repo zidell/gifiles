@@ -175,6 +175,10 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   The IME's composing text is drawn at the cursor's last *shown* position (`m_markedAt`): Bubble Tea hides the
   cursor while repainting changed cells, and following it would flash the text in the sidebar. A click commits
   the composing text itself (`commitPreedit`) and drops the IME's late commit of the same text (Gureum's is async).
+  A full-screen program that follows drags and announces drag zones with OSC 7790 `x,y,w,h;…` (screen cells, empty
+  clears; tuidock's sequence — Ginote TUI sends its sidebar border and open note's text) gets the left drags pressed
+  inside them at once (Shift selects here); elsewhere a drag selects here. Leaving the alternate screen forgets the
+  zones (`m_dragZones`, `programTakesDrag`).
 - **AI:** there is no toolbar button any more (removed at the user's request); AI is the selection
   menu's built-in `ai` command. `{prompt}` is asked in a small one-line box centered on the window
   (`askLine`).

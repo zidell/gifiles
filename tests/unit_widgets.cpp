@@ -1114,6 +1114,45 @@ private slots:
         QVERIFY2(got.count("^[[M0") == 1 && got.count("^[[M3") == 1, got.constData()); // Ctrl: press 0|16, release 3|16
     }
 
+    // A program that announces drag zones (OSC 7790, Ginote's sidebar border) gets only the drags pressed inside
+    // them; a drag elsewhere selects here. Leaving the alternate screen forgets the zones.
+    void terminalDragZones()
+    {
+        useTestShell();
+        TerminalWidget term;
+        term.resize(1200, 300);
+        term.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&term));
+        term.start(m_tmp.path());
+        QTRY_VERIFY2_WITH_TIMEOUT(term.isReady(), qPrintable(term.screenText()), 15000);
+        term.setFocus();
+        auto *pty = term.findChild<Pty *>();
+        QVERIFY(pty);
+        QFile::remove(p("zones.txt"));
+        QTest::keyClicks(&term, "cat -v > zones.txt");
+        QTest::keyClick(&term, Qt::Key_Return);
+        QTRY_VERIFY(term.isBusy());
+        pty->dataReceived(QByteArray("\x1b[?1049h\x1b[?1002h\x1b[HHELLO WORLD\x1b]7790;0,0,2,1\x07"));
+        QTest::mousePress(&term, Qt::LeftButton, {}, QPoint(3, 3)); // in the zone: to the program
+        QTest::mouseMove(&term, QPoint(300, 3));
+        QTest::mouseRelease(&term, Qt::LeftButton, {}, QPoint(300, 3));
+        QGuiApplication::clipboard()->setText(QStringLiteral("-"));
+        QTest::mousePress(&term, Qt::LeftButton, {}, QPoint(40, 3)); // outside: a selection here
+        QTest::mouseMove(&term, QPoint(300, 3));
+        QTest::mouseRelease(&term, Qt::LeftButton, {}, QPoint(300, 3));
+        QTest::keyClick(&term, Qt::Key_C, Qt::ControlModifier);
+        QTRY_VERIFY2(QGuiApplication::clipboard()->text().contains(QStringLiteral("WORLD")),
+                     qPrintable(QGuiApplication::clipboard()->text()));
+        pty->dataReceived(QByteArray("\x1b[?1002l\x1b[?1049l"));
+        QTest::keyClick(&term, Qt::Key_Return);
+        QTest::keyClick(&term, Qt::Key_D, kTerminalMods);
+        QTRY_VERIFY(!term.isBusy());
+        QFile f(p("zones.txt"));
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        const QByteArray got = f.readAll();
+        QVERIFY2(got.count("^[[M") == 3, got.constData()); // press, a move with the button held, release; nothing outside
+    }
+
     // The composing text stays where the cursor was last shown while a program repaints with the cursor hidden
     // (Bubble Tea does, every frame). A click commits it once, even when the IME commits it again afterwards.
     void terminalComposingTextFollowsTheShownCursor()
