@@ -1872,10 +1872,15 @@ private slots:
         QCOMPARE(all.size(), 4);
         QCOMPARE(all.first().toMap().value(QStringLiteral("label")).toString(), QStringLiteral("내 스크립트"));
         QVERIFY(!s->selectionCommand(QStringLiteral("ai")).isEmpty());
-        QFile cfg(Settings::configPath());
-        QVERIFY(cfg.open(QIODevice::ReadOnly));
-        const QString text = QString::fromUtf8(cfg.readAll());
-        QVERIFY(text.contains(QStringLiteral("{ label = \"내 스크립트\", key = \"R\", terminal = false, command = \"echo {files}\" }")));
+        // Windows may refuse to replace the file for a moment (a scanner still has it open); Settings::save then
+        // writes again shortly after, so wait for it.
+        QString text;
+        QTRY_VERIFY2(([&] {
+                         QFile cfg(Settings::configPath());
+                         text = cfg.open(QIODevice::ReadOnly) ? QString::fromUtf8(cfg.readAll()) : QString();
+                         return text.contains(QStringLiteral("{ label = \"내 스크립트\", key = \"R\", terminal = false, command = \"echo {files}\" }"));
+                     }()),
+                     qPrintable(text));
         QVERIFY(Settings::check(text).isEmpty());
         QVERIFY(!Settings::check(QStringLiteral("[selection_menu]\ncommands = [ { label = \"a\", key = \"ab\", command = \"x\" } ]\n")).isEmpty());
         QVERIFY(!Settings::check(QStringLiteral("[selection_menu]\ncommands = [ { id = \"nope\", label = \"a\", command = \"x\" } ]\n")).isEmpty());
