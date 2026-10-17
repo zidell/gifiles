@@ -65,6 +65,16 @@ public:
     }
 
 protected:
+    void keyboardSearch(const QString &search) override
+    {
+        // QTreeView searches the current column. A click on Size/Kind/Date leaves that
+        // column current even though the whole row is selected; search file names.
+        const QModelIndex current = currentIndex();
+        if (current.isValid() && current.column() != ColName)
+            selectionModel()->setCurrentIndex(current.siblingAtColumn(ColName), QItemSelectionModel::NoUpdate);
+        QTreeView::keyboardSearch(search);
+    }
+
     // Stripes are painted here as full-width rounded rows, so folder rows (with a disclosure
     // chevron) and file rows look the same.
     void drawRow(QPainter *p, const QStyleOptionViewItem &option, const QModelIndex &index) const override

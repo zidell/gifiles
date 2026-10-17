@@ -378,6 +378,23 @@ private slots:
         shot("1-list");
     }
 
+    void listTypingSelectsMatchingName()
+    {
+        tab()->selectPaths({p("Alpha")});
+        QTRY_COMPARE(tab()->selectedPaths(), QStringList{p("Alpha")});
+        type("file1");
+        QTRY_COMPARE(tab()->selectedPaths(), QStringList{p("file1.go")});
+        QTest::qWait(1100); // let Qt's incremental-search prefix expire
+        type("beta");
+        QTRY_COMPARE(tab()->selectedPaths(), QStringList{p("Beta")});
+        auto *tree = qobject_cast<QTreeView *>(tab()->view());
+        const QModelIndex size = tree->model()->index(0, ColSize, tree->rootIndex());
+        tree->selectionModel()->setCurrentIndex(size, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        QTest::qWait(1100);
+        type("beta");
+        QTRY_COMPARE(tab()->selectedPaths(), QStringList{p("Beta")});
+    }
+
     void keyboardSelectionAndViews()
     {
         tab()->selectPaths({p("Alpha")});
