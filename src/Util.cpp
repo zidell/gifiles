@@ -17,6 +17,10 @@
 #include <sys/mount.h>
 #endif
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 namespace util {
 
 QString humanSize(qint64 n)
@@ -297,6 +301,47 @@ Command revealCommand(const QString &path)
              QStringLiteral("--type=method_call"), QStringLiteral("/org/freedesktop/FileManager1"),
              fi.isDir() ? QStringLiteral("org.freedesktop.FileManager1.ShowFolders") : QStringLiteral("org.freedesktop.FileManager1.ShowItems"),
              QStringLiteral("array:string:") + url, QStringLiteral("string:")}};
+#endif
+}
+
+bool canEject(const QStorageInfo &si)
+{
+    const QString root = si.rootPath();
+#if defined(Q_OS_MACOS)
+    // A drive or share the user mounted: what 위치 lists but the system drive, and any image in /Volumes
+    // (a nobrowse one too, though 위치 doesn't list it).
+    return si.isValid() && si.isReady() && root != QLatin1String("/") &&
+           (root.startsWith(QLatin1String("/Volumes/")) || isUserVolume(si));
+#elif defined(Q_OS_WIN)
+    if (!isUserVolume(si))
+        return false;
+    const UINT type = GetDriveTypeW(reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(root).utf16()));
+    return type == DRIVE_REMOVABLE || type == DRIVE_CDROM || type == DRIVE_REMOTE;
+#else
+    return isUserVolume(si) && (root.startsWith(QLatin1String("/media/")) || root.startsWith(QLatin1String("/run/media/")));
+#endif
+}
+
+Command ejectCommand(const QStorageInfo &si)
+{
+    const QString root = si.rootPath();
+#if defined(Q_OS_MACOS)
+    // diskutil eject needs a disk; a network share is only unmounted.
+    static const QStringList network = {QStringLiteral("smbfs"), QStringLiteral("afpfs"), QStringLiteral("nfs"),
+                                        QStringLiteral("webdav"), QStringLiteral("ftp")};
+    const bool share = network.contains(QString::fromLatin1(si.fileSystemType()));
+    return {QStringLiteral("/usr/sbin/diskutil"), {share ? QStringLiteral("unmount") : QStringLiteral("eject"), root}};
+#elif defined(Q_OS_WIN)
+    const QString drive = QDir::toNativeSeparators(root).left(2); // "E:"
+    if (GetDriveTypeW(reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(root).utf16())) == DRIVE_REMOTE)
+        return {QStringLiteral("net.exe"), {QStringLiteral("use"), drive, QStringLiteral("/delete"), QStringLiteral("/y")}};
+    // Explorer's own Eject verb (it gives no exit code: the caller checks that the drive went away).
+    return {QStringLiteral("powershell.exe"),
+            {QStringLiteral("-NoProfile"), QStringLiteral("-NonInteractive"), QStringLiteral("-Command"),
+             QStringLiteral("(New-Object -ComObject Shell.Application).Namespace(17).ParseName('%1').InvokeVerb('Eject')").arg(drive)}};
+#else
+    return {QStringLiteral("/bin/sh"),
+            {QStringLiteral("-c"), QStringLiteral("gio mount -e \"$1\" || umount \"$1\""), QStringLiteral("sh"), root}};
 #endif
 }
 

@@ -38,6 +38,8 @@ signals:
 
 protected:
     void resizeEvent(QResizeEvent *e) override;
+    void showEvent(QShowEvent *e) override;
+    void hideEvent(QHideEvent *e) override;
     bool eventFilter(QObject *obj, QEvent *ev) override;
 
 private:
@@ -79,6 +81,11 @@ public:
     void togglePlay();
     bool isPlayingMedia() const;
     bool isAudio() const; // sound (no picture) is shown
+    // Quick Look shows a web page (.html, .htm, .xhtml) rendered by the system's preview, as Finder
+    // does; this switches between that and its source (the pane always shows the source).
+    // False when the file isn't a web page.
+    bool toggleWebSource();
+    bool showsWebSource() const { return m_webSource; }
     void seekBy(qint64 ms); // sound/video: moves the playing position
     // The image/video's largest fitted scale (Quick Look: the size it chose for the window).
     void setFitLimit(qreal maxScale);
@@ -118,6 +125,7 @@ private:
 
     Style m_style;
     QString m_path;
+    bool m_webSource = false; // Quick Look: a web page's source instead of the page, until it closes
     int m_generation = 0;
 
     QStackedWidget *m_stack;

@@ -72,6 +72,12 @@ bool isDocument(const QString &path)
     return doc.contains(suffix);
 }
 
+bool isWebPage(const QString &path)
+{
+    static const QStringList web = {QStringLiteral("html"), QStringLiteral("htm"), QStringLiteral("xhtml")};
+    return web.contains(QFileInfo(path).suffix().toLower());
+}
+
 // Quick Look scales the text with its window (+ / −, preview.quick_look_doc_scale).
 QFont textFont(bool document, bool quickLook)
 {
@@ -304,11 +310,15 @@ bool ZoomArea::canPan() const
     return horizontalScrollBar()->maximum() > 0 || verticalScrollBar()->maximum() > 0;
 }
 
+// Only a shown area carries the magnifier. On macOS Qt applies a cursor set on a hidden Qt::Tool
+// window (Quick Look after closing) at once when the pointer is inside its old frame, so a late
+// relayout (an image decoded after closing, the next file loaded before showing) put the
+// magnifier back over the browser window, where it stayed.
 void ZoomArea::updateCursor()
 {
     if (m_panned)
         return;
-    if (isZoomable()) {
+    if (isVisible() && isZoomable()) {
         const qreal t = clickTarget();
         const QCursor c = magnifierCursor((t > 0 ? t : fitScale()) > scale());
         viewport()->setCursor(c);
@@ -323,6 +333,20 @@ void ZoomArea::resizeEvent(QResizeEvent *e)
 {
     QScrollArea::resizeEvent(e);
     relayout();
+}
+
+void ZoomArea::showEvent(QShowEvent *e)
+{
+    QScrollArea::showEvent(e);
+    updateCursor();
+}
+
+void ZoomArea::hideEvent(QHideEvent *e)
+{
+    m_pressed = m_panned = false;
+    viewport()->unsetCursor();
+    m_content->unsetCursor();
+    QScrollArea::hideEvent(e);
 }
 
 // A click toggles fit / 100%; at 100% dragging pans.
@@ -660,6 +684,12 @@ void PreviewWidget::setPath(const QString &path)
         emit naturalSizeChanged(QSize());
         return;
     }
+    // Rendered by the system (JavaScript off, local images and styles in); the source where
+    // there is no system preview (Linux), in the pane, or after toggleWebSource.
+    if (m_style == QuickLook && !m_webSource && isWebPage(path) && fi.isFile() && showSystem(path)) {
+        emit naturalSizeChanged(QSize());
+        return;
+    }
     const QString mname = path.isEmpty() || fi.isDir() ? QString() : QMimeDatabase().mimeTypeForFile(fi).name();
     if (mname.startsWith(QLatin1String("video/"))) {
         showMedia(path, true); // reports its size with the first frame
@@ -684,6 +714,17 @@ void PreviewWidget::setPath(const QString &path)
     else if (!showText(path) && !showSystem(path))
         showInfo();
     emit naturalSizeChanged(QSize());
+}
+
+bool PreviewWidget::toggleWebSource()
+{
+    if (!isWebPage(m_path))
+        return false;
+    m_webSource = !m_webSource;
+    const QString path = m_path;
+    m_path.clear(); // shown again, the other way
+    setPath(path);
+    return true;
 }
 
 // Word, Excel, Pages, …: the system's preview (macOS Quick Look, a Windows preview handler);
@@ -1457,6 +1498,8 @@ bool QuickLookWindow::handleKey(QKeyEvent *e)
         }
         return true;
     }
+    if (matches("퀵 뷰어 페이지·소스 전환") && m_preview->toggleWebSource())
+        return true;
     if (matches("미디어 재생·일시정지")) {
         m_preview->togglePlay();
         return true;
@@ -1467,6 +1510,8 @@ bool QuickLookWindow::handleKey(QKeyEvent *e)
 void QuickLookWindow::closeEvent(QCloseEvent *e)
 {
     m_preview->stopMedia();
+    if (m_preview->showsWebSource())
+        m_preview->toggleWebSource(); // the next time, the page again
     QWidget::closeEvent(e);
     emit closed();
 }

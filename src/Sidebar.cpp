@@ -529,12 +529,16 @@ void Sidebar::contextMenuEvent(QContextMenuEvent *e)
     QTreeWidgetItem *it = itemAt(e->pos());
     const bool favorite = it && it->parent() == m_favorites;
     const bool recent = it && m_recent && it->parent() == m_recent;
-    if (!favorite && !recent)
+    const bool volume = it && it->parent() == m_locations;
+    if (!favorite && !recent && !volume)
         return;
     const QString path = it->data(0, PathRole).toString();
     QMenu menu(this);
     menu.addAction(Gifiles::tr("새로운 탭에서 열기"), this, [this, path] { emit openInNewTab(path); });
-    if (favorite) {
+    if (volume) {
+        if (util::canEject(QStorageInfo(path)))
+            menu.addAction(Gifiles::tr("추출"), this, [this, path] { emit ejectRequested(path); });
+    } else if (favorite) {
         menu.addAction(Gifiles::tr("사이드바에서 제거"), this, [this, path] {
             QStringList favs = favorites();
             favs.removeAll(path);

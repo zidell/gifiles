@@ -1361,6 +1361,20 @@ private slots:
 #endif
     }
 
+    void ejectCommand()
+    {
+        // The system drive is never offered for 추출; a drive is ejected, a network share unmounted.
+        QVERIFY(!util::canEject(QStorageInfo(QDir::rootPath())));
+#if defined(Q_OS_MACOS)
+        const util::Command c = util::ejectCommand(QStorageInfo(QDir::rootPath()));
+        QCOMPARE(c.program, QStringLiteral("/usr/sbin/diskutil"));
+        QCOMPARE(c.args, (QStringList{QStringLiteral("eject"), QStringLiteral("/")}));
+#elif !defined(Q_OS_WIN)
+        const util::Command c = util::ejectCommand(QStorageInfo(QDir::rootPath()));
+        QCOMPARE(c.args.last(), QStringLiteral("/"));
+#endif
+    }
+
     void translationsLoad()
     {
         // Korean is the source text; the other languages come from the committed .qm files, which
@@ -1871,6 +1885,7 @@ private slots:
         QCOMPARE(code, 0);
         QCOMPARE(out, prompt + QStringLiteral("\n\n대상 파일:\n") + paths.join(QLatin1Char('\n')));
     }
+
 
     // The built-in "새로운 폴더" command moves every selected item, whatever its name, into a new folder.
     void builtinNewFolderCommand()

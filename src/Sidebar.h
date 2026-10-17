@@ -22,6 +22,7 @@ signals:
     void placeActivated(const QString &path);
     void rightPressed(); // → moves the keyboard to the file view
     void openInNewTab(const QString &path);
+    void ejectRequested(const QString &root); // 추출 on a drive in 위치 (util::canEject)
     // mods: the keys held at the drop (it is handled later, when they may be up already).
     void dropRequested(const QList<QUrl> &urls, const QString &targetDir, Qt::DropAction action, Qt::KeyboardModifiers mods);
 

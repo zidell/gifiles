@@ -288,12 +288,40 @@ Windows: Gifiles.exe 旁边，Linux AppImage: --appimage-extract 后的 squashfs
         <translation>命令以错误结束 (退出代码 %1)。</translation>
     </message>
     <message>
+        <source>&apos;%1&apos; 추출 중…</source>
+        <translation>正在推出“%1”…</translation>
+    </message>
+    <message>
+        <source>&apos;%1&apos; 추출 실패</source>
+        <translation>无法推出“%1”</translation>
+    </message>
+    <message>
+        <source>추출</source>
+        <translation>推出</translation>
+    </message>
+    <message>
+        <source>&apos;%1&apos;을(를) 추출하지 못했습니다. 이 드라이브를 쓰는 프로그램이 있는지 확인하세요.</source>
+        <translation>无法推出“%1”。请检查是否有程序仍在使用此驱动器。</translation>
+    </message>
+    <message>
+        <source>&apos;%1&apos; 추출됨</source>
+        <translation>已推出“%1”</translation>
+    </message>
+    <message>
+        <source>실행하지 못했습니다: %1</source>
+        <translation>无法运行：%1</translation>
+    </message>
+    <message>
         <source>터미널 접기</source>
         <translation>收起终端</translation>
     </message>
     <message>
         <source>터미널 펼치기</source>
         <translation>展开终端</translation>
+    </message>
+    <message>
+        <source>이 탭의 터미널에서 프로그램이 실행 중입니다. 탭을 닫으면 함께 종료됩니다.</source>
+        <translation>此标签页的终端中有程序正在运行。关闭标签页会将其一并结束。</translation>
     </message>
     <message>
         <source>%1개 항목</source>
@@ -1780,6 +1808,10 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
     <message>
         <source>미디어 앞으로 탐색</source>
         <translation>向前跳转</translation>
+    </message>
+    <message>
+        <source>퀵 뷰어 페이지·소스 전환</source>
+        <translation>切换快速查看页面/源代码</translation>
     </message>
     <message>
         <source>미디어 재생·일시정지</source>

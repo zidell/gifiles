@@ -302,8 +302,13 @@ struct TerminalCallbacks {
     {
         TerminalWidget *t = w(u);
         t->m_scrollback.append(TerminalWidget::Line(cells, cells + cols));
-        if (t->m_scrollback.size() > kMaxScrollback)
+        if (t->m_scrollback.size() > kMaxScrollback) {
             t->m_scrollback.removeFirst();
+            if (t->m_selStart.y() >= 0) { // the selection stays on its text
+                t->m_selStart.ry() = qMax(0, t->m_selStart.y() - 1);
+                t->m_selEnd.ry() = qMax(0, t->m_selEnd.y() - 1);
+            }
+        }
         if (t->m_scrollOffset > 0) // keep the history view still while output arrives (a full history too)
             t->m_scrollOffset = qMin(t->m_scrollOffset + 1, int(t->m_scrollback.size()));
         return 1;
@@ -411,6 +416,15 @@ TerminalWidget::TerminalWidget(QWidget *parent) : QWidget(parent)
         if (key == QLatin1String(Settings::TermFontFamily) || key == QLatin1String(Settings::TermFontSize)
             || key == QLatin1String(Settings::TermLineHeight))
             updateFont();
+    });
+    m_dragScroll.setInterval(50);
+    connect(&m_dragScroll, &QTimer::timeout, this, [this] {
+        if (!m_selecting || m_altScreen)
+            return m_dragScroll.stop();
+        const QPoint pos = mapFromGlobal(QCursor::pos());
+        const int by = pos.y() < 0 ? 1 + -pos.y() / m_cellH : pos.y() >= height() ? -1 - (pos.y() - height()) / m_cellH : 0;
+        m_scrollOffset = qBound(0, m_scrollOffset + by, int(m_scrollback.size()));
+        extendSelection(pos);
     });
     m_poll.setInterval(400);
     connect(&m_poll, &QTimer::timeout, this, [this] {
@@ -904,7 +918,8 @@ bool TerminalWidget::event(QEvent *e)
         if (!mine) {
             mine = true;
             for (const QString &id : {QStringLiteral("터미널 펼치기"), QStringLiteral("다음 탭 보기"), QStringLiteral("이전 탭 보기"),
-                                     QStringLiteral("설정…"), QStringLiteral("사이드바로 이동"), QStringLiteral("파일뷰로 이동"), QStringLiteral("터미널로 이동")})
+                                     QStringLiteral("설정…"), QStringLiteral("사이드바로 이동"), QStringLiteral("파일뷰로 이동"), QStringLiteral("터미널로 이동"),
+                                     QStringLiteral("글꼴 크게"), QStringLiteral("글꼴 작게"), QStringLiteral("기본 글꼴 크기")})
                 if (Shortcuts::instance()->matches(id, ke))
                     mine = false;
 #ifdef Q_OS_MACOS
@@ -1195,11 +1210,17 @@ void TerminalWidget::paintEvent(QPaintEvent *)
 #endif
             // Text too close to its background is moved until readable, like Terminal.app does in dark mode
             // (256-color 235 #262626 drawn as #717171, measured): TUIs pick such faint colors for their lines.
-            const quint64 key = quint64(fg.rgb() & 0xFFFFFF) << 24 | (bg.rgb() & 0xFFFFFF);
-            auto it = m_readable.constFind(key);
-            if (it == m_readable.cend())
-                it = m_readable.insert(key, readable(fg, bg, 3.0).rgb());
-            fg = QColor::fromRgb(*it);
+            // Box-drawing lines (U+2500-257F) painted in direct RGB are the app's chosen faint lines and stay as
+            // they are; only palette-colored lines (calendar-tui's 235) are brightened.
+            const bool rgbLine = cell.chars[0] >= 0x2500 && cell.chars[0] <= 0x257F && !cell.attrs.reverse
+                && VTERM_COLOR_IS_RGB(&cell.fg) && !VTERM_COLOR_IS_DEFAULT_FG(&cell.fg);
+            if (!rgbLine) {
+                const quint64 key = quint64(fg.rgb() & 0xFFFFFF) << 24 | (bg.rgb() & 0xFFFFFF);
+                auto it = m_readable.constFind(key);
+                if (it == m_readable.cend())
+                    it = m_readable.insert(key, readable(fg, bg, 3.0).rgb());
+                fg = QColor::fromRgb(*it);
+            }
             const int x = kPad + col * m_cellW;
             const int w = m_cellW * qMax(1, int(cell.width));
             if (isSelected(line, col))
@@ -1316,10 +1337,16 @@ void TerminalWidget::mousePressEvent(QMouseEvent *e)
     setFocus();
     commitPreedit();
     const int button = e->button() == Qt::RightButton ? 3 : e->button() == Qt::MiddleButton ? 2 : 1;
+    // A full-screen program that follows drags (Claude Code) selects and scrolls its own text: it gets the left
+    // button at once, and Option-drag selects here instead. Elsewhere a left press waits for its release.
+    const bool alt = e->modifiers() & Qt::AltModifier;
+    const bool programDrags = programTakesDrag(cellFromPos(e->position().toPoint()), e->modifiers() & ~Qt::AltModifier);
+    const bool selectHere = button == 1 && alt && programDrags;
     // Shift-right-click keeps the menu below (복사·붙여넣기) over a program that takes the mouse.
-    if (m_mouseMode != VTERM_PROP_MOUSE_NONE && m_scrollOffset == 0 && !(button == 3 && (e->modifiers() & Qt::ShiftModifier))) {
+    if (m_mouseMode != VTERM_PROP_MOUSE_NONE && m_scrollOffset == 0 && !selectHere
+        && !(button == 3 && (e->modifiers() & Qt::ShiftModifier))) {
         const QPoint c = cellFromPos(e->position().toPoint());
-        if (button == 1 && !(e->modifiers() & Qt::AltModifier) && !programTakesDrag(c, e->modifiers())) {
+        if (button == 1 && !alt && !programDrags) {
             m_pendingPress = true;
             m_pressCell = c;
             m_pressMods = mouseMods(e->modifiers());
@@ -1350,12 +1377,14 @@ void TerminalWidget::mousePressEvent(QMouseEvent *e)
     }
 }
 
-// programTakesDrag: a left press here goes to the program at once, drags included — inside the drag zones a
-// full-screen program that follows drags announced (Shift selects here).
+// programTakesDrag: a left press here goes to the program at once, drags included — over a full-screen program that
+// follows drags, inside its announced drag zones if it announced any (Shift selects here).
 bool TerminalWidget::programTakesDrag(const QPoint &cell, Qt::KeyboardModifiers mods) const
 {
-    if (!m_altScreen || m_mouseMode < VTERM_PROP_MOUSE_DRAG || !m_dragZonesSet)
+    if (!m_altScreen || m_mouseMode < VTERM_PROP_MOUSE_DRAG)
         return false;
+    if (!m_dragZonesSet)
+        return true;
     const QPoint screen(cell.x(), cell.y() - int(m_scrollback.size()));
     return !(mods & Qt::ShiftModifier)
         && std::any_of(m_dragZones.cbegin(), m_dragZones.cend(), [&](const QRect &r) { return r.contains(screen); });
@@ -1379,9 +1408,17 @@ void TerminalWidget::mouseMoveEvent(QMouseEvent *e)
         m_selecting = true;
     }
     if (m_selecting) {
-        m_selEnd = cellFromPos(e->position().toPoint());
-        update();
+        extendSelection(e->position().toPoint());
+        const bool past = e->position().y() < 0 || e->position().y() >= height();
+        if (past && !m_altScreen && !m_dragScroll.isActive())
+            m_dragScroll.start();
     }
+}
+
+void TerminalWidget::extendSelection(const QPoint &pos)
+{
+    m_selEnd = cellFromPos(pos);
+    update();
 }
 
 void TerminalWidget::mouseReleaseEvent(QMouseEvent *e)
@@ -1398,12 +1435,16 @@ void TerminalWidget::mouseReleaseEvent(QMouseEvent *e)
         return;
     }
     m_selecting = false;
+    m_dragScroll.stop();
 }
 
 void TerminalWidget::mouseDoubleClickEvent(QMouseEvent *e)
 {
     // A program that takes the mouse gets the second click as a click (Qt sends no press for it).
-    if (m_mouseMode != VTERM_PROP_MOUSE_NONE && m_scrollOffset == 0)
+    // Option over a full-screen program that follows drags selects here, as its drag does.
+    const bool selectHere = (e->modifiers() & Qt::AltModifier)
+        && programTakesDrag(cellFromPos(e->position().toPoint()), e->modifiers() & ~Qt::AltModifier);
+    if (m_mouseMode != VTERM_PROP_MOUSE_NONE && m_scrollOffset == 0 && !selectHere)
         return mousePressEvent(e);
     // Select the word (run of non-space characters) under the pointer.
     const QPoint c = cellFromPos(e->position().toPoint());
@@ -1436,6 +1477,10 @@ void TerminalWidget::wheelEvent(QWheelEvent *e)
         return;
     if (m_altScreen) {
         // Full-screen programs (less, vim): send arrow keys, or wheel buttons if they track the mouse.
+        // The program moves its text under a selection made here, which would then cover other text.
+        m_selStart = m_selEnd = QPoint(-1, -1);
+        m_selecting = false;
+        update();
         for (int i = 0; i < qAbs(whole); ++i) {
             if (m_mouseMode != VTERM_PROP_MOUSE_NONE) {
                 vterm_mouse_button(m_vt, whole > 0 ? 4 : 5, true, VTERM_MOD_NONE);
@@ -1448,6 +1493,8 @@ void TerminalWidget::wheelEvent(QWheelEvent *e)
         return;
     }
     m_scrollOffset = qBound(0, m_scrollOffset + whole, int(m_scrollback.size()));
+    if (m_selecting) // a drag goes on over the lines scrolled in
+        extendSelection(e->position().toPoint());
     update();
 }
 

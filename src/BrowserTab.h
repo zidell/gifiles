@@ -3,6 +3,8 @@
 #include <QModelIndex>
 #include <QUrl>
 #include <QElapsedTimer>
+#include <QPointer>
+#include <QStackedWidget>
 #include <QWidget>
 
 #include <optional>
@@ -12,7 +14,6 @@ class QColumnView;
 class QFileSystemModel;
 class QFileSystemWatcher;
 class QListView;
-class QStackedWidget;
 class QTreeView;
 class QTimer;
 class FileProxy;
@@ -63,6 +64,13 @@ public:
     QAbstractItemView *view() const;
     void focusView(bool selectFirstIfEmpty = false);
 
+    // The tab's own terminal tabs: MainWindow's panel shows the current tab's stack (one TerminalWidget
+    // per terminal tab) and unfolds it as this tab last had it. They go wherever the tab goes.
+    QStackedWidget *terminals() const { return m_terminals; }
+    void setTerminals(QStackedWidget *stack) { m_terminals = stack; }
+    bool terminalOpen() const { return m_terminalOpen; }
+    void setTerminalOpen(bool open) { m_terminalOpen = open; }
+
 signals:
     void pathChanged(const QString &path);
     void modeChanged();
@@ -112,6 +120,8 @@ private:
 
     Mode m_mode = List;
     QString m_path;
+    QPointer<QStackedWidget> m_terminals;
+    bool m_terminalOpen = false;
     QStringList m_history;
     int m_histIndex = -1;
     QStringList m_pending;

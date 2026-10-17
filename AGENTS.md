@@ -144,11 +144,19 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   quoted paths (selecting alone never touches the command line, and the drop is always a copy
   action so the list never moves the files); the shell's own cd moves the browser. Never send
   input that could clobber a half-typed command (`m_typed`, `Pty::isShellIdle`).
-- **Terminal tabs:** the panel's bar holds Chrome-like tabs (`m_termTabs` + `m_termStack`, same
-  order). The browser's folder changes go to the current tab (`MainWindow::terminalFollow`): idle →
+- **Terminal tabs belong to a browser tab** (`BrowserTab::terminals()`, a stack of `TerminalWidget`s, and
+  `terminalOpen()`): the panel's `m_termStacks` shows the current browser tab's stack and `m_termTabs` mirrors
+  it (`showTerminalsOf`, rebuilt on every browser-tab switch with signals blocked). Switching browser tabs
+  never types a cd nor opens a terminal tab, and restores that tab's folded/unfolded state (the height is the
+  window's). One shared set of terminal tabs per window used to be cd'd on every browser-tab switch and, with
+  a program running, sprouted a new terminal tab each time. A tab moved between windows takes its stack along
+  (`takeTab` / `connectTab` → `connectTerminal`); closing a tab whose terminal is busy asks first (`closeTab`,
+  non-modal box `closeBusyTab`). The session saves each tab's `terminals` (open) flag.
+- **Terminal tabs:** the panel's bar holds Chrome-like tabs (`m_termTabs` + the browser tab's stack, same
+  order). A browser tab's folder changes go to its current terminal tab (`MainWindow::terminalFollow`): idle →
   cd; a program running in it (`TerminalWidget::isBusy`, after the shell's first prompt) → a new
   tab opens at the folder; only a half-typed line → wait (never a new tab: the drag-paths workflow
-  types a command, then browses). Tabs opened for the browser never take the keyboard. Switching
+  types a command, then browses). Tabs opened for the browser never take the keyboard. Switching terminal
   tabs moves the browser to that shell's folder; only the current tab's own cd moves the browser.
   ⌘T/⌘W/⌃Tab act on terminal tabs while the terminal has focus (Ctrl+T/W inside the
   terminal on Windows/Linux, matching the Mac defaults; users can reassign them). `Pty` closes the master before
@@ -171,14 +179,17 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
   press is held until release — released in the same cell it goes as press + release with its modifiers, dragged
   to another cell it becomes a text selection (Shift no longer means "select": Shift-click reaches the program,
   e.g. Ginote's range selection). Option, right and middle presses go at once (Option also passes drags);
-  Shift-right-click still opens the 복사·붙여넣기 menu. The report has no ⌘ bit, so ⌘-click goes as Ctrl-click.
+  Shift-right-click still opens the 복사·붙여넣기 menu. **Exception:** a full-screen (alternate screen) program that
+  asks for drags (1002/1003, Claude Code's `tui = "fullscreen"`) gets the left button at once, drags included: it
+  selects and scrolls its own text, and a selection drawn here can't follow its scrolling (the user chose this,
+  2026-10-08); Option-drag selects here there, and the wheel sent to such a program clears that selection. A program that
+  announces drag zones with OSC 7790 `x,y,w,h;…` (screen cells, empty clears; tuidock's sequence — Ginote TUI sends its
+  sidebar border and open note's text) gets only the left drags pressed inside them (Shift or Option selects); everywhere
+  else a drag selects here. Leaving the alternate screen forgets the zones (`m_dragZones`, `programTakesDrag`). In the
+  history, a dragged selection follows the wheel and scrolls by itself past the top/bottom edge (`m_dragScroll`). The report has no ⌘ bit, so ⌘-click goes as Ctrl-click.
   The IME's composing text is drawn at the cursor's last *shown* position (`m_markedAt`): Bubble Tea hides the
   cursor while repainting changed cells, and following it would flash the text in the sidebar. A click commits
   the composing text itself (`commitPreedit`) and drops the IME's late commit of the same text (Gureum's is async).
-  A full-screen program that follows drags and announces drag zones with OSC 7790 `x,y,w,h;…` (screen cells, empty
-  clears; tuidock's sequence — Ginote TUI sends its sidebar border and open note's text) gets the left drags pressed
-  inside them at once (Shift selects here); elsewhere a drag selects here. Leaving the alternate screen forgets the
-  zones (`m_dragZones`, `programTakesDrag`).
 - **AI:** there is no toolbar button any more (removed at the user's request); AI is the selection
   menu's built-in `ai` command. `{prompt}` is asked in a small one-line box centered on the window
   (`askLine`).

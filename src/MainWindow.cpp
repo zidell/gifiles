@@ -24,6 +24,7 @@
 #include <QCheckBox>
 #include <QClipboard>
 #include <QCloseEvent>
+#include <QDeadlineTimer>
 #include <QDesktopServices>
 #include <QDialog>
 #include <QDir>
@@ -75,6 +76,36 @@ constexpr int kTitleBarHeight = 46;
 #endif
 
 const QString kCutMime = QStringLiteral("application/x-gifiles-cut");
+
+// The AI CLI runs its own commands, so Gifiles cannot see a command failure inside it. Give that
+// CLI the failure signal and the recovery command for the platform it is running on.
+QString aiMissingToolRecovery()
+{
+#ifdef Q_OS_WIN
+    return QStringLiteral("\n\nOn Windows PowerShell, a missing program fails with CommandNotFoundException "
+                          "or 'The term ... is not recognized'. Only after this failure, find the exact WinGet "
+                          "package ID and run winget install --id <ID> -e "
+                          "(for ffmpeg: winget install --id Gyan.FFmpeg -e). "
+                          "Refresh PATH or open a new shell if needed, then retry the failed command. "
+                          "If WinGet is unavailable, use the program's official Windows installer. "
+                          "Report installation failures; do not precheck every command.");
+#elif defined(Q_OS_MACOS)
+    return QStringLiteral("\n\nOn macOS, a missing program usually fails with 'command not found' "
+                          "(exit 127). Only after this failure, identify its Homebrew formula and run "
+                          "brew install <formula> (for ffmpeg: brew install ffmpeg), then retry the failed "
+                          "command. If Homebrew is unavailable, use the program's official macOS installer. "
+                          "Report installation failures; do not precheck every command.");
+#else
+    return QStringLiteral("\n\nOn Linux, a missing program usually fails with 'command not found' "
+                          "(exit 127). Only after this failure, identify its package and distribution: "
+                          "Debian/Ubuntu: sudo apt install <package>; Fedora: sudo dnf install <package>; "
+                          "Arch: sudo pacman -S <package>; Alpine: apk add <package> as root "
+                          "(or use doas/sudo if available). For ffmpeg on Ubuntu: sudo apt install ffmpeg. "
+                          "Retry the failed command after installation. "
+                          "If no package is available, use the program's official Linux installer. "
+                          "Report installation failures; do not precheck every command.");
+#endif
+}
 
 // Whether the left button is down now, also while the system moves a window (Qt gets no release then).
 bool leftButtonDown()
@@ -214,7 +245,7 @@ MainWindow::MainWindow(const QStringList &tabPaths, QWidget *parent) : QMainWind
     termAdd->setToolTip(Gifiles::tr("새로운 터미널 탭 (터미널에서 Ctrl+Shift+T)"));
 #endif
     connect(termAdd, &QToolButton::clicked, this, [this] {
-        addTerminal(tab()->path());
+        addTerminal(tab(), tab()->path());
         setTerminalVisible(true);
     });
     m_themed << qMakePair(QPointer<QToolButton>(termAdd), QStringLiteral("plus"));
@@ -227,16 +258,16 @@ MainWindow::MainWindow(const QStringList &tabPaths, QWidget *parent) : QMainWind
     m_themed << qMakePair(QPointer<QToolButton>(m_termToggle), QStringLiteral("chevron-up-small"));
     hl->addWidget(m_termToggle);
     tl->addWidget(termHeader);
-    m_termStack = new QStackedWidget(m_termPanel);
-    m_termStack->setObjectName(QStringLiteral("termStack"));
-    m_termStack->hide();
-    tl->addWidget(m_termStack, 1);
+    m_termStacks = new QStackedWidget(m_termPanel);
+    m_termStacks->setObjectName(QStringLiteral("termStacks"));
+    m_termStacks->hide();
+    tl->addWidget(m_termStacks, 1);
     tl->addStretch(); // keeps the bar on top while the terminal is folded
     connect(m_termTabs, &QTabBar::currentChanged, this, [this](int i) {
         if (i < 0)
             return;
         const bool focus = terminalHasFocus(); // a tab opened for the browser never takes the keyboard
-        m_termStack->setCurrentIndex(i);
+        tab()->terminals()->setCurrentIndex(i);
         TerminalWidget *t = term();
         if (focus)
             t->setFocus();
@@ -245,12 +276,15 @@ MainWindow::MainWindow(const QStringList &tabPaths, QWidget *parent) : QMainWind
             tab()->navigate(t->shellCwd());
     });
     connect(m_termTabs, &QTabBar::tabMoved, this, [this](int from, int to) {
-        QWidget *w = m_termStack->widget(from);
-        m_termStack->removeWidget(w);
-        m_termStack->insertWidget(to, w);
-        m_termStack->setCurrentIndex(m_termTabs->currentIndex());
+        QStackedWidget *stack = tab()->terminals();
+        QWidget *w = stack->widget(from);
+        stack->removeWidget(w);
+        stack->insertWidget(to, w);
+        stack->setCurrentIndex(m_termTabs->currentIndex());
     });
-    connect(m_termTabs, &QTabBar::tabCloseRequested, this, &MainWindow::closeTerminal);
+    connect(m_termTabs, &QTabBar::tabCloseRequested, this, [this](int i) {
+        closeTerminal(tab(), qobject_cast<TerminalWidget *>(tab()->terminals()->widget(i)));
+    });
     connect(m_termTabs, &QTabBar::tabBarClicked, this, [this](int i) {
         if (i < 0)
             return;
@@ -302,13 +336,14 @@ MainWindow::MainWindow(const QStringList &tabPaths, QWidget *parent) : QMainWind
     connect(Theme::instance(), &Theme::changed, this, &MainWindow::refreshIcons);
 
     connect(m_tabs, &QTabWidget::currentChanged, this, &MainWindow::onTabChanged);
-    connect(m_tabs, &QTabWidget::tabCloseRequested, this, &MainWindow::closeTab);
+    connect(m_tabs, &QTabWidget::tabCloseRequested, this, [this](int i) { closeTab(i); });
     connect(m_sidebar, &Sidebar::rightPressed, this, [this] { tab()->focusView(); });
     connect(m_sidebar, &Sidebar::placeActivated, this, [this](const QString &p) {
         go(p);
         tab()->focusView();
     });
     connect(m_sidebar, &Sidebar::openInNewTab, this, [this](const QString &p) { addTab(p); });
+    connect(m_sidebar, &Sidebar::ejectRequested, this, &MainWindow::eject);
     connect(m_sidebar, &Sidebar::dropRequested, this, &MainWindow::handleDrop);
     connect(m_pathBar, &PathBar::pathActivated, this, &MainWindow::go);
     connect(m_pathBar, &PathBar::editingFinished, this, [this] { tab()->focusView(); });
@@ -374,7 +409,7 @@ void MainWindow::createActions()
     // ⌘T / ⌘W / tab switching act on the terminal's tabs while it has the keyboard.
     m_newTabAct = act(QStringLiteral("새로운 탭"), [this] {
         if (terminalHasFocus())
-            addTerminal(tab()->path())->setFocus();
+            addTerminal(tab(), tab()->path())->setFocus();
         else
             addTab(tab()->path());
     });
@@ -397,7 +432,7 @@ void MainWindow::createActions()
                             if (closeFrontWindow())
                                 return;
                             if (terminalHasFocus())
-                                closeTerminal(m_termTabs->currentIndex());
+                                closeTerminal(tab(), term());
                             else
                                 closeTab(m_tabs->currentIndex());
                         });
@@ -479,9 +514,17 @@ void MainWindow::createActions()
         else if (term())
             term()->setFocus();
     });
-    // ⌘+ / ⌘− / ⌘0: the file views' text size (config.toml view.font_size, 0 = system size).
-    auto fontStep = [](int by) {
+    // ⌘+ / ⌘− / ⌘0: the file views' text size (config.toml view.font_size, 0 = system size);
+    // with the terminal focused, the terminal's (terminal.font_size, 9–24, ⌘0 = its default).
+    auto fontStep = [this](int by) {
         Settings *s = Settings::instance();
+        if (terminalHasFocus()) {
+            if (by == 0)
+                s->remove(Settings::TermFontSize);
+            else
+                s->setValue(Settings::TermFontSize, qBound(9, s->value(Settings::TermFontSize).toInt() + by, 24));
+            return;
+        }
         const int cur = s->value(Settings::FontSize).toInt();
         const int base = cur > 0 ? cur : QApplication::font().pointSize();
         s->setValue(Settings::FontSize, by == 0 ? 0 : qBound(9, base + by, 32));
@@ -887,15 +930,24 @@ void MainWindow::connectTab(BrowserTab *t)
 {
     for (QAction *a : {m_renameAct, m_quickLookAct, m_openAct, m_folderTreeAct})
         t->addAction(a);
+    if (!t->terminals()) {
+        auto *stack = new QStackedWidget(m_termStacks);
+        stack->setObjectName(QStringLiteral("termStack"));
+        t->setTerminals(stack);
+        connect(t, &QObject::destroyed, stack, &QObject::deleteLater); // its shells end with the tab
+    }
+    m_termStacks->addWidget(t->terminals()); // a tab from another window brings its shells along
+    for (TerminalWidget *term : t->terminals()->findChildren<TerminalWidget *>())
+        connectTerminal(t, term);
     auto current = [this, t] { return t == tab(); };
     connect(t, &BrowserTab::pathChanged, this, [this, t, current] {
         Log::write("navigate", QStringLiteral("%1 (%2)").arg(t->path(), current() ? QStringLiteral("current tab") : QStringLiteral("other tab")));
         FolderTree::instance()->noteVisit(t->path());
         updateTabTitle(t);
+        terminalFollow(t, t->path());
         if (current()) {
             updateNav();
             updateStatus();
-            terminalFollow(t->path());
             forgetPlaybackOutside(t->path());
         }
     });
@@ -962,7 +1014,7 @@ void MainWindow::onTabChanged()
     updateStatus();
     if (m_previewPane->isVisible())
         m_previewPane->setPath(t->currentItemPath().isEmpty() ? t->path() : t->currentItemPath());
-    terminalFollow(t->path());
+    showTerminalsOf(t);
     forgetPlaybackOutside(t->path());
 }
 
@@ -1041,7 +1093,10 @@ void MainWindow::runCommandNow(const QVariantMap &command, const QStringList &pa
 {
     const QString label = command.value(QStringLiteral("label")).toString();
     const QString dir = tab()->path();
-    const QString line = TerminalWidget::expandCommand(command.value(QStringLiteral("command")).toString(), paths, prompt, dir);
+    QString request = prompt;
+    if (command.value(QStringLiteral("id")).toString() == QLatin1String("ai") && !request.isEmpty())
+        request += aiMissingToolRecovery();
+    const QString line = TerminalWidget::expandCommand(command.value(QStringLiteral("command")).toString(), paths, request, dir);
     const bool terminal = command.value(QStringLiteral("terminal"), true).toBool();
     Log::write("command", QStringLiteral("%1 on %2 item(s), %3").arg(label).arg(paths.size()).arg(terminal ? "terminal" : "quiet"));
     RecentFolders::instance()->note(paths.isEmpty() ? dir : QFileInfo(paths.first()).absolutePath());
@@ -1112,12 +1167,83 @@ void MainWindow::runQuietly(const QString &label, const QString &command, const 
     proc->start();
 }
 
+// Finder's 추출: whatever of Gifiles is on the drive leaves it first (browser tabs of every window go
+// home, idle shells cd there — an open folder or a shell's cwd keeps the drive busy), then the
+// system ejects it in the background. Only a failure is reported.
+void MainWindow::eject(const QString &root)
+{
+    const QStorageInfo volume(root);
+    if (!util::canEject(volume))
+        return;
+    const QString home = QDir::homePath();
+    const QString name = util::displayName(root);
+    Log::write("eject", root);
+    QList<TerminalWidget *> leaving;
+    for (QWidget *w : QApplication::topLevelWidgets())
+        if (auto *mw = qobject_cast<MainWindow *>(w)) {
+            for (int i = 0; i < mw->m_tabs->count(); ++i)
+                if (auto *t = qobject_cast<BrowserTab *>(mw->m_tabs->widget(i)); t && util::isInside(t->path(), root))
+                    t->navigate(home);
+            for (TerminalWidget *t : mw->m_termStacks->findChildren<TerminalWidget *>())
+                if (util::isInside(t->shellCwd(), root) && !t->isBusy()) {
+                    t->followFolder(home);
+                    leaving << t;
+                }
+        }
+    showMessage(Gifiles::tr("'%1' 추출 중…").arg(name), 30000);
+    auto report = [this, name](const QString &output) {
+        showMessage(Gifiles::tr("'%1' 추출 실패").arg(name), 5000);
+        auto *box = new QMessageBox(QMessageBox::Warning, Gifiles::tr("추출"),
+                                    Gifiles::tr("'%1'을(를) 추출하지 못했습니다. 이 드라이브를 쓰는 프로그램이 있는지 확인하세요.").arg(name),
+                                    QMessageBox::Ok, this);
+        box->setAttribute(Qt::WA_DeleteOnClose);
+        box->setInformativeText(output.right(1500));
+        box->open();
+    };
+    // The shells report their new folder once the cd has run; give them a moment (at most 2 s).
+    auto *wait = new QTimer(this);
+    wait->setInterval(100);
+    const QDeadlineTimer deadline(2000);
+    QList<QPointer<TerminalWidget>> shells(leaving.begin(), leaving.end());
+    connect(wait, &QTimer::timeout, this, [this, wait, deadline, shells, root, volume, name, report] {
+        for (const QPointer<TerminalWidget> &t : shells)
+            if (t && util::isInside(t->shellCwd(), root) && !deadline.hasExpired())
+                return;
+        wait->deleteLater();
+        const util::Command c = util::ejectCommand(volume);
+        auto *proc = new QProcess(this);
+        proc->setProcessChannelMode(QProcess::MergedChannels);
+        connect(proc, &QProcess::finished, this, [this, proc, root, name, report](int code, QProcess::ExitStatus status) {
+            const QString out = QString::fromUtf8(proc->readAll()).trimmed();
+            proc->deleteLater();
+            Log::write("eject", QStringLiteral("%1 finished, exit %2: %3").arg(root).arg(code).arg(out));
+            if (status != QProcess::NormalExit || code != 0)
+                return report(out);
+            // Some ways of ejecting give no exit code (Windows' Eject verb): see that the drive went away.
+            QTimer::singleShot(1500, this, [this, root, name, report, out] {
+                const QStorageInfo after(root);
+                if (after.isValid() && after.isReady() && after.rootPath() == root)
+                    return report(out);
+                showMessage(Gifiles::tr("'%1' 추출됨").arg(name), 3000);
+            });
+        });
+        connect(proc, &QProcess::errorOccurred, this, [this, proc, c, report](QProcess::ProcessError e) {
+            if (e != QProcess::FailedToStart)
+                return;
+            report(Gifiles::tr("실행하지 못했습니다: %1").arg(c.program));
+            proc->deleteLater();
+        });
+        proc->start(c.program, c.args);
+    });
+    wait->start();
+}
+
 void MainWindow::runInTerminal(const QString &command)
 {
     setTerminalVisible(true); // shows the run; starts the shell if needed
     TerminalWidget *t = term();
     if (t->isBusy()) // a program is running there: run beside it
-        t = addTerminal(tab()->path());
+        t = addTerminal(tab(), tab()->path());
     t->runCommand(command);
     // A closing popup hands focus back to the list afterwards; take it for the terminal.
     QTimer::singleShot(0, this, [this] {
@@ -1135,10 +1261,11 @@ void MainWindow::setTerminalHeight(int h)
     m_vsplit->setSizes({total - h, h});
 }
 
-void MainWindow::setTerminalVisible(bool visible, bool keepHeight)
+void MainWindow::setTerminalVisible(bool visible, bool keepHeight, bool takeFocus)
 {
     const bool wasOpen = m_termOpen;
     m_termOpen = visible;
+    tab()->setTerminalOpen(visible);
     m_terminalAct->setChecked(visible);
     m_terminalAct->setText(visible ? Gifiles::tr("터미널 접기") : Gifiles::tr("터미널 펼치기"));
     m_termToggle->setToolTip(m_terminalAct->text());
@@ -1154,14 +1281,16 @@ void MainWindow::setTerminalVisible(bool visible, bool keepHeight)
             return;
         if (const int h = m_vsplit->sizes().value(1); h >= 80)
             m_termHeight = h; // a drag down to the bar doesn't count
-        m_termStack->hide();
+        const bool hadFocus = terminalHasFocus();
+        m_termStacks->hide();
         setTerminalHeight(kTermHeaderHeight);
-        tab()->focusView();
+        if (takeFocus || hadFocus)
+            tab()->focusView();
         return;
     }
-    if (m_termTabs->count() == 0)
-        addTerminal(tab()->path());
-    m_termStack->show();
+    if (tab()->terminals()->count() == 0)
+        addTerminal(tab(), tab()->path());
+    m_termStacks->show();
     if (!keepHeight && (!wasOpen || m_vsplit->sizes().value(1) < 80)) {
         const int total = m_vsplit->sizes().value(0) + m_vsplit->sizes().value(1);
         setTerminalHeight(m_termHeight >= 80 ? qMin(m_termHeight, total - 120) : qMax(160, total / 3));
@@ -1170,74 +1299,127 @@ void MainWindow::setTerminalVisible(bool visible, bool keepHeight)
     if (!t->isRunning())
         t->start(tab()->path());
     else
-        terminalFollow(tab()->path());
-    term()->setFocus();
+        terminalFollow(tab(), tab()->path());
+    if (takeFocus)
+        term()->setFocus();
 }
 
 TerminalWidget *MainWindow::term() const
 {
-    return static_cast<TerminalWidget *>(m_termStack->currentWidget());
+    BrowserTab *t = tab();
+    return t && t->terminals() ? static_cast<TerminalWidget *>(t->terminals()->currentWidget()) : nullptr;
 }
 
 bool MainWindow::terminalHasFocus() const
 {
     const QWidget *f = QApplication::focusWidget();
-    return f && m_termStack->isVisible() && m_termStack->isAncestorOf(f);
+    return f && m_termStacks->isVisible() && m_termStacks->isAncestorOf(f);
 }
 
-TerminalWidget *MainWindow::addTerminal(const QString &cwd)
+// The current browser tab changed (or came from another window): the panel shows its terminals,
+// folded or unfolded as that tab last had it. Nothing is typed into any shell.
+void MainWindow::showTerminalsOf(BrowserTab *t)
 {
-    auto *t = new TerminalWidget(m_termStack);
+    QStackedWidget *stack = t->terminals();
+    if (!stack)
+        return; // a tab shown while being added: connectTab gives it its stack, then this runs again
+    m_termStacks->setCurrentWidget(stack);
+    {
+        QSignalBlocker block(m_termTabs); // rebuilding the bar must not move the list
+        while (m_termTabs->count() > 0)
+            m_termTabs->removeTab(0);
+        for (int i = 0; i < stack->count(); ++i) {
+            auto *term = static_cast<TerminalWidget *>(stack->widget(i));
+            m_termTabs->addTab(term->tabTitle());
+            m_termTabs->setTabToolTip(i, term->title());
+        }
+        m_termTabs->setCurrentIndex(stack->currentIndex());
+    }
+    m_termTabs->setVisible(stack->count() > 0);
+    m_termTitle->setVisible(stack->count() == 0);
+    if (t->terminalOpen() != m_termOpen)
+        setTerminalVisible(t->terminalOpen(), false, false);
+    else if (m_termOpen && stack->count() == 0)
+        setTerminalVisible(true, true, false); // starts this tab's first shell
+}
+
+TerminalWidget *MainWindow::addTerminal(BrowserTab *owner, const QString &cwd)
+{
+    QStackedWidget *stack = owner->terminals();
+    auto *t = new TerminalWidget(stack);
+    connectTerminal(owner, t);
+    t->start(cwd);
+    const int i = stack->currentIndex() + 1; // next to the current one, like Chrome
+    stack->insertWidget(i, t);
+    stack->setCurrentIndex(i);
+    if (owner == tab()) {
+        {
+            QSignalBlocker block(m_termTabs); // the shell is already in that folder
+            m_termTabs->insertTab(i, t->tabTitle());
+            m_termTabs->setCurrentIndex(i);
+        }
+        m_termTabs->show();
+        m_termTitle->hide();
+        updateTerminalTab(t);
+    }
+    return t;
+}
+
+void MainWindow::connectTerminal(BrowserTab *owner, TerminalWidget *t)
+{
+    QPointer<BrowserTab> tabOf(owner);
     connect(t, &TerminalWidget::titleChanged, this, [this, t] { updateTerminalTab(t); });
     connect(t, &TerminalWidget::commandEntered, this, [t](const QString &line) { RecentFolders::instance()->noteCommand(t->shellCwd(), line); });
-    // The shell's own cd's move the browser too (the "terminal ↔ files" link); only the shown tab's.
-    connect(t, &TerminalWidget::cwdChanged, this, [this, t](const QString &dir) {
+    // The shell's own cd's move its browser tab too (the "terminal ↔ files" link); only that tab's shown terminal's.
+    connect(t, &TerminalWidget::cwdChanged, this, [this, t, tabOf](const QString &dir) {
         updateTerminalTab(t);
-        if (t != term() || !Settings::instance()->flag(Settings::TermSyncBack))
+        if (!tabOf || tabOf->terminals()->currentWidget() != t || !Settings::instance()->flag(Settings::TermSyncBack))
             return;
-        if (QFileInfo(dir).canonicalFilePath() != QFileInfo(tab()->path()).canonicalFilePath()) {
+        if (QFileInfo(dir).canonicalFilePath() != QFileInfo(tabOf->path()).canonicalFilePath()) {
             Log::write("terminal", QStringLiteral("shell cd → list follows: %1").arg(dir));
-            tab()->navigate(dir);
+            tabOf->navigate(dir);
         }
     });
-    connect(t, &TerminalWidget::newTabRequested, this, [this] { addTerminal(tab()->path())->setFocus(); });
-    connect(t, &TerminalWidget::closeRequested, this, [this, t] { closeTerminal(m_termStack->indexOf(t)); });
-    t->start(cwd);
-    const int i = m_termTabs->currentIndex() + 1; // next to the current one, like Chrome
-    m_termStack->insertWidget(i, t);
-    m_termTabs->insertTab(i, t->tabTitle());
-    m_termTabs->show();
-    m_termTitle->hide();
-    updateTerminalTab(t);
-    m_termTabs->setCurrentIndex(i);
-    m_termStack->setCurrentIndex(i); // also when it is the first tab (no currentChanged from -1 → 0 before insert)
-    return t;
+    connect(t, &TerminalWidget::newTabRequested, this, [this, tabOf] {
+        if (tabOf)
+            addTerminal(tabOf, tabOf->path())->setFocus();
+    });
+    connect(t, &TerminalWidget::closeRequested, this, [this, t, tabOf] {
+        if (tabOf)
+            closeTerminal(tabOf, t);
+    });
 }
 
 void MainWindow::updateTerminalTab(TerminalWidget *t)
 {
-    const int i = m_termStack->indexOf(t);
+    const int i = tab()->terminals()->indexOf(t);
     if (i < 0)
-        return;
+        return; // another browser tab's: its bar is rebuilt when that tab is shown
     m_termTabs->setTabText(i, t->tabTitle());
     m_termTabs->setTabToolTip(i, t->title());
 }
 
-void MainWindow::closeTerminal(int index)
+void MainWindow::closeTerminal(BrowserTab *owner, TerminalWidget *t)
 {
-    QWidget *w = m_termStack->widget(index);
-    if (!w)
+    QStackedWidget *stack = owner->terminals();
+    const int index = t ? stack->indexOf(t) : -1;
+    if (index < 0)
         return;
-    const bool hadFocus = terminalHasFocus();
-    m_termStack->removeWidget(w);
-    m_termTabs->removeTab(index); // its currentChanged picks the neighbour
-    w->deleteLater();             // ends that shell
-    if (m_termTabs->count() == 0) {
+    const bool shown = owner == tab();
+    const bool hadFocus = shown && terminalHasFocus();
+    stack->removeWidget(t);
+    if (shown)
+        m_termTabs->removeTab(index); // its currentChanged picks the neighbour
+    t->deleteLater();                 // ends that shell
+    if (stack->count() > 0) {
+        if (hadFocus)
+            term()->setFocus();
+    } else if (shown) {
         m_termTabs->hide();
         m_termTitle->show();
         setTerminalVisible(false);
-    } else if (hadFocus) {
-        term()->setFocus();
+    } else {
+        owner->setTerminalOpen(false);
     }
 }
 
@@ -1255,14 +1437,15 @@ QString MainWindow::debugState() const
              m_termOpen ? QStringLiteral("open") : QStringLiteral("folded"));
 }
 
-void MainWindow::terminalFollow(const QString &path)
+void MainWindow::terminalFollow(BrowserTab *owner, const QString &path)
 {
-    TerminalWidget *t = term();
+    QStackedWidget *stack = owner->terminals();
+    auto *t = stack ? static_cast<TerminalWidget *>(stack->currentWidget()) : nullptr;
     if (!t || !Settings::instance()->flag(Settings::TermFollowFolder))
         return;
     if (t->isBusy() && !t->isAt(path)) {
         Log::write("terminal", QStringLiteral("busy → new terminal tab at %1").arg(path));
-        addTerminal(path); // the running program keeps its tab
+        addTerminal(owner, path); // the running program keeps its tab
         return;
     }
     if (!t->isAt(path))
@@ -1270,15 +1453,38 @@ void MainWindow::terminalFollow(const QString &path)
     t->followFolder(path); // now, or once the half-typed line is run or cleared
 }
 
-void MainWindow::closeTab(int index)
+void MainWindow::closeTab(int index, bool confirmed)
 {
+    auto *t = qobject_cast<BrowserTab *>(m_tabs->widget(index));
+    if (!t)
+        return;
+    bool busy = false;
+    for (TerminalWidget *term : t->terminals()->findChildren<TerminalWidget *>())
+        busy = busy || term->isBusy();
+    if (busy && !confirmed) {
+        // A program running in the tab's terminal (an AI session, a server) ends with it: ask first.
+        auto *box = new QMessageBox(QMessageBox::Question, Gifiles::tr("탭 닫기"),
+                                    Gifiles::tr("이 탭의 터미널에서 프로그램이 실행 중입니다. 탭을 닫으면 함께 종료됩니다."),
+                                    QMessageBox::Cancel, this);
+        box->setObjectName(QStringLiteral("closeBusyTab"));
+        QPushButton *closeButton = box->addButton(Gifiles::tr("닫기"), QMessageBox::DestructiveRole);
+        box->setDefaultButton(closeButton);
+        box->setAttribute(Qt::WA_DeleteOnClose);
+        QPointer<BrowserTab> which(t);
+        connect(box, &QMessageBox::buttonClicked, this, [this, which, closeButton](QAbstractButton *b) {
+            if (b == closeButton && which)
+                closeTab(m_tabs->indexOf(which), true);
+        });
+        box->open();
+        return;
+    }
+    Log::write("tabs", QStringLiteral("close tab %1%2").arg(t->path(), busy ? QStringLiteral(" (program in its terminal ended)") : QString()));
     if (m_tabs->count() <= 1) {
         close();
         return;
     }
-    QWidget *w = m_tabs->widget(index);
     m_tabs->removeTab(index);
-    w->deleteLater();
+    t->deleteLater();
 }
 
 // ---------------------------------------------------------------------------
@@ -1288,8 +1494,11 @@ BrowserTab *MainWindow::takeTab(int index)
 {
     auto *t = static_cast<BrowserTab *>(m_tabs->widget(index));
     disconnect(t, nullptr, this, nullptr); // connectTab's connections; the new window makes its own
+    for (TerminalWidget *term : t->terminals()->findChildren<TerminalWidget *>())
+        disconnect(term, nullptr, this, nullptr); // so are connectTerminal's
     for (QAction *a : {m_renameAct, m_quickLookAct, m_openAct, m_folderTreeAct})
         t->removeAction(a);
+    m_termStacks->removeWidget(t->terminals()); // adoptTab puts it in the other window's panel
     m_tabs->removeTab(index);
     return t;
 }
@@ -2210,14 +2419,16 @@ void MainWindow::showContextMenu(const QPoint &globalPos, bool onItem)
 QVariantMap MainWindow::saveState() const
 {
     QStringList paths;
-    QVariantList modes;
+    QVariantList modes, terminals;
     for (int i = 0; i < m_tabs->count(); ++i) {
         auto *t = static_cast<BrowserTab *>(m_tabs->widget(i));
         paths << t->path();
         modes << int(t->mode());
+        terminals << t->terminalOpen();
     }
     return {{QStringLiteral("tabs"), paths},
             {QStringLiteral("modes"), modes},
+            {QStringLiteral("terminals"), terminals}, // each tab's terminal unfolded or not
             {QStringLiteral("current"), m_tabs->currentIndex()},
             {QStringLiteral("geometry"), saveGeometry()},
             {QStringLiteral("splitter"), m_splitter->saveState()},
@@ -2234,6 +2445,11 @@ void MainWindow::restoreState(const QVariantMap &s)
     for (int i = 0; i < m_tabs->count() && i < modes.size(); ++i)
         static_cast<BrowserTab *>(m_tabs->widget(i))->setMode(BrowserTab::Mode(modes[i].toInt()));
     m_tabs->setCurrentIndex(qBound(0, s.value(QStringLiteral("current")).toInt(), m_tabs->count() - 1));
+    // The other tabs' terminals unfold when the tab is shown (their shells start then); the current one's below.
+    const QVariantList terminals = s.value(QStringLiteral("terminals")).toList();
+    for (int i = 0; i < m_tabs->count() && i < terminals.size(); ++i)
+        if (i != m_tabs->currentIndex())
+            static_cast<BrowserTab *>(m_tabs->widget(i))->setTerminalOpen(terminals[i].toBool());
     restoreGeometry(s.value(QStringLiteral("geometry")).toByteArray());
     m_splitter->restoreState(s.value(QStringLiteral("splitter")).toByteArray());
     const bool sidebar = s.value(QStringLiteral("sidebar"), true).toBool();

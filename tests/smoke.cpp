@@ -66,6 +66,7 @@
 #include <QWheelEvent>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QStorageInfo>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -265,6 +266,13 @@ class Smoke : public QObject {
         return f.open(QIODevice::ReadOnly) ? QString::fromUtf8(f.readAll()) : QString();
     }
 
+    // The terminal tabs the panel shows: the current browser tab's stack.
+    QStackedWidget *termStack() const
+    {
+        auto *stacks = m_win->findChild<QStackedWidget *>(QStringLiteral("termStacks"));
+        return stacks ? qobject_cast<QStackedWidget *>(stacks->currentWidget()) : nullptr;
+    }
+
     static void useTestShell()
     {
 #if defined(Q_OS_MACOS)
@@ -326,9 +334,18 @@ private slots:
     {
         // Failed terminal tests must not leave a typed line, running program or open
         // panel for the next test, which shares this window.
+        // Every browser tab has its own terminals; the bar shows the current tab's.
+        if (auto *box = m_win->findChild<QMessageBox *>(QStringLiteral("closeBusyTab")))
+            box->reject();
         auto *bar = m_win->findChild<QTabBar *>(QStringLiteral("termTabs"));
-        while (bar && bar->count() > 0)
-            emit bar->tabCloseRequested(bar->currentIndex());
+        auto *tabs = m_win->findChild<QTabWidget *>();
+        const int shown = tabs->currentIndex();
+        for (int i = 0; i < tabs->count(); ++i) {
+            tabs->setCurrentIndex(i);
+            while (bar && bar->count() > 0)
+                emit bar->tabCloseRequested(bar->currentIndex());
+        }
+        tabs->setCurrentIndex(shown);
         QTRY_VERIFY(m_win->findChildren<TerminalWidget *>().isEmpty());
         Settings::instance()->setValue(Settings::TermShell, QString());
     }
@@ -899,7 +916,7 @@ private slots:
         constexpr Qt::KeyboardModifiers kTabMods = Qt::ControlModifier; // ⌘ on macOS, Ctrl elsewhere
         auto canon = [](const QString &x) { return QFileInfo(x).canonicalFilePath(); };
         auto current = [this] {
-            auto *stack = m_win->findChild<QStackedWidget *>(QStringLiteral("termStack"));
+            QStackedWidget *stack = termStack();
             return stack ? qobject_cast<TerminalWidget *>(stack->currentWidget()) : nullptr;
         };
         auto *bar = m_win->findChild<QTabBar *>(QStringLiteral("termTabs"));
@@ -968,19 +985,135 @@ private slots:
         Settings::instance()->setValue(Settings::TermShell, QString());
     }
 
+    // Terminals belong to the browser tab they were opened in: switching browser tabs shows that tab's
+    // terminals, folded or unfolded as it had them, and never types a cd or opens a terminal tab (a busy
+    // one used to sprout a new tab on every switch). Closing a tab whose terminal runs a program asks
+    // first; a tab moved to another window takes its shells along.
+    void terminalsBelongToTheirBrowserTab()
+    {
+        useTestShell();
+        auto canon = [](const QString &x) { return QFileInfo(x).canonicalFilePath(); };
+        auto current = [this] {
+            QStackedWidget *stack = termStack();
+            return stack ? qobject_cast<TerminalWidget *>(stack->currentWidget()) : nullptr;
+        };
+        auto *bar = m_win->findChild<QTabBar *>(QStringLiteral("termTabs"));
+        auto *tabs = m_win->findChild<QTabWidget *>();
+        const int before = tabs->count();
+        QPointer<MainWindow> other;
+        const auto restore = qScopeGuard([&] {
+            if (other)
+                other->close();
+            while (tabs->count() > before)
+                emit tabs->tabCloseRequested(tabs->count() - 1);
+            if (auto *box = m_win->findChild<QMessageBox *>(QStringLiteral("closeBusyTab")))
+                box->reject();
+            tab()->navigate(m_tmp.path());
+            m_win->activateWindow();
+            (void)QTest::qWaitForWindowActive(m_win);
+        });
+        BrowserTab *a = tab();
+        a->navigate(p("Alpha"));
+        key(Qt::Key_QuoteLeft, kTerminalMods);
+        QPointer<TerminalWidget> first = current();
+        QTRY_VERIFY(first && first->isVisible());
+        QTRY_VERIFY2_WITH_TIMEOUT(first->isReady(), qPrintable(first->screenText()), 15000);
+        first->setFocus();
+#ifdef Q_OS_WIN
+        QTest::keyClicks(first, "ping -n 30 127.0.0.1 > $null");
+#else
+        QTest::keyClicks(first, "sleep 30");
+#endif
+        QTest::keyClick(first, Qt::Key_Return);
+        QTRY_VERIFY2(first->isBusy(), qPrintable(first->screenText()));
+
+        // A new browser tab has no terminal yet: the panel folds and its bar is empty.
+        BrowserTab *b = m_win->addTab(p("Beta"));
+        QTRY_COMPARE(tab(), b);
+        QTRY_VERIFY(!first->isVisible());
+        QCOMPARE(bar->count(), 0);
+        QCOMPARE(m_win->findChildren<TerminalWidget *>().size(), 1); // nothing opened for the busy one
+        key(Qt::Key_QuoteLeft, kTerminalMods); // this tab's own terminal
+        QPointer<TerminalWidget> second = current();
+        QTRY_VERIFY(second && second != first && second->isVisible());
+        QTRY_VERIFY2_WITH_TIMEOUT(second->isReady(), qPrintable(second->screenText()), 15000);
+        QTRY_COMPARE(canon(second->shellCwd()), canon(p("Beta")));
+        QCOMPARE(bar->count(), 1);
+
+        // Back and forth: each tab shows its own shell, unfolded as it was; no cd, no new tabs.
+        for (int round = 0; round < 2; ++round) {
+            tabs->setCurrentWidget(a);
+            QTRY_VERIFY(first->isVisible());
+            QCOMPARE(current(), first.data());
+            QVERIFY(first->isBusy());
+            tabs->setCurrentWidget(b);
+            QTRY_VERIFY(second->isVisible());
+            QCOMPARE(current(), second.data());
+        }
+        QCOMPARE(m_win->findChildren<TerminalWidget *>().size(), 2);
+        QCOMPARE(canon(a->path()), canon(p("Alpha")));
+        QCOMPARE(canon(second->shellCwd()), canon(p("Beta")));
+
+        // Folded in B stays folded in B; A still opens unfolded.
+        key(Qt::Key_QuoteLeft, kTerminalMods);
+        QTRY_VERIFY(!second->isVisible());
+        tabs->setCurrentWidget(a);
+        QTRY_VERIFY(first->isVisible());
+        tabs->setCurrentWidget(b);
+        QTRY_VERIFY(!second->isVisible() && !first->isVisible());
+
+        // B's browser moves: only B's shell follows.
+        b->navigate(m_tmp.path());
+        QTRY_COMPARE(canon(second->shellCwd()), canon(m_tmp.path()));
+        QVERIFY(first->isBusy());
+
+        // A tab moved to another window brings its shells; they keep running.
+        other = App::instance()->newWindow({m_tmp.path()}, m_win);
+        QVERIFY(QTest::qWaitForWindowExposed(other));
+        m_win->moveTabTo(tabs->indexOf(b), other);
+        QCOMPARE(other->tab(), b);
+        QVERIFY(second && second->window() == other.data());
+        QCOMPARE(other->findChild<QTabBar *>(QStringLiteral("termTabs"))->count(), 1);
+        other->moveTabTo(other->findChild<QTabWidget *>()->indexOf(b), m_win);
+        QCOMPARE(tab(), b);
+        QVERIFY(second && second->window() == m_win);
+
+        // Closing A, whose terminal runs a program, asks first; 취소 keeps it, 닫기 ends both.
+        tabs->setCurrentWidget(a);
+        emit tabs->tabCloseRequested(tabs->indexOf(a));
+        QPointer<QMessageBox> box;
+        QTRY_VERIFY((box = m_win->findChild<QMessageBox *>(QStringLiteral("closeBusyTab"))) && box->isVisible());
+        box->button(QMessageBox::Cancel)->click();
+        QTRY_VERIFY(!box);
+        QVERIFY(tabs->indexOf(a) >= 0 && first);
+        emit tabs->tabCloseRequested(tabs->indexOf(a));
+        QTRY_VERIFY((box = m_win->findChild<QMessageBox *>(QStringLiteral("closeBusyTab"))) && box->isVisible());
+        QPushButton *close = nullptr;
+        for (QAbstractButton *btn : box->buttons())
+            if (box->buttonRole(btn) == QMessageBox::DestructiveRole)
+                close = qobject_cast<QPushButton *>(btn);
+        QVERIFY(close);
+        close->click();
+        QTRY_VERIFY(!first);
+        QCOMPARE(tabs->count(), before); // B stays, in A's place
+        QVERIFY(second);
+        Settings::instance()->setValue(Settings::TermShell, QString());
+    }
+
     void aiRequestRunsInTerminal()
     {
-        // "AI로 실행" asks for the request first; here a stand-in for claude -p that just
-        // prints what it receives.
+        // "AI로 실행" asks for the request first; save the complete prompt, since the terminal
+        // only shows the tail of a long platform-specific instruction.
         QVariantList commands = Settings::instance()->value(Settings::SelectionCommands).toList();
         for (QVariant &c : commands) {
             QVariantMap m = c.toMap();
             if (m.value(QStringLiteral("id")).toString() != QLatin1String("ai"))
                 continue;
 #ifdef Q_OS_WIN
-            m.insert(QStringLiteral("command"), QStringLiteral("Write-Output ('AI<' + {prompt} + '>'); Write-Output ('AI<' + {files} + '>')"));
+            m.insert(QStringLiteral("command"), QStringLiteral("[IO.File]::WriteAllText((Join-Path {dir} 'ai-prompt.txt'), "
+                                                                "{prompt}, [Text.Encoding]::UTF8); Write-Output ('AI<' + {files} + '>')"));
 #else
-            m.insert(QStringLiteral("command"), QStringLiteral("printf 'AI<%s>\\n' {prompt} {files}"));
+            m.insert(QStringLiteral("command"), QStringLiteral("printf '%s' {prompt} > {dir}/ai-prompt.txt; printf 'AI<%s>\\n' {files}"));
 #endif
             c = m;
         }
@@ -997,7 +1130,29 @@ private slots:
         TerminalWidget *term = m_win->findChild<TerminalWidget *>();
         QTRY_VERIFY(term && term->isVisible()); // the terminal unfolds to show the run
         auto screen = [&term] { return term->screenText().remove(QLatin1Char('\n')); };
-        QTRY_VERIFY2(screen().contains(QStringLiteral("AI<it's \"fine\"")), qPrintable(term->screenText())); // quotes survive
+        QTRY_VERIFY(QFileInfo::exists(p("ai-prompt.txt")));
+        QFile promptFile(p("ai-prompt.txt"));
+        QVERIFY(promptFile.open(QIODevice::ReadOnly));
+        QByteArray promptBytes = promptFile.readAll();
+        if (promptBytes.startsWith("\xef\xbb\xbf")) // Windows PowerShell may write a UTF-8 BOM.
+            promptBytes.remove(0, 3);
+        const QString request = QString::fromUtf8(promptBytes);
+        QVERIFY(request.startsWith(QStringLiteral("it's \"fine\"\n\n"))); // quotes survive
+#ifdef Q_OS_WIN
+        QVERIFY(request.contains(QStringLiteral("CommandNotFoundException")));
+        QVERIFY(request.contains(QStringLiteral("winget install --id <ID> -e")));
+        QVERIFY(request.contains(QStringLiteral("winget install --id Gyan.FFmpeg -e")));
+#elif defined(Q_OS_MACOS)
+        QVERIFY(request.contains(QStringLiteral("exit 127")));
+        QVERIFY(request.contains(QStringLiteral("brew install ffmpeg")));
+#else
+        QVERIFY(request.contains(QStringLiteral("exit 127")));
+        for (const char *install : {"sudo apt install", "sudo dnf install", "sudo pacman -S", "apk add"})
+            QVERIFY(request.contains(QString::fromLatin1(install)));
+        QVERIFY(request.contains(QStringLiteral("sudo apt install ffmpeg")));
+#endif
+        QVERIFY(request.contains(QStringLiteral("do not precheck every command")));
+        QVERIFY(request.contains(QStringLiteral("retry the failed command"), Qt::CaseInsensitive));
         QTRY_VERIFY(screen().contains(np("photo.png") + QStringLiteral(">")));  // the selected path follows
         Settings::instance()->remove(Settings::SelectionCommands);
         QTRY_VERIFY(!prompt); // the popup closed (and went away) on Enter
@@ -1231,11 +1386,11 @@ private slots:
         // The capture window and the rebinding rules: unit_widgets shortcutsCanBeRebound.
         Shortcuts *sc = Shortcuts::instance();
         const auto restore = qScopeGuard([sc] { sc->reset(QStringLiteral("열기")); });
-        sc->assign(QStringLiteral("열기"), QKeySequence(QStringLiteral("Ctrl+J")));
+        sc->assign(QStringLiteral("열기"), QKeySequence(QStringLiteral("Ctrl+Shift+J")));
         // Saved in config.toml, active in the window: the new key opens, the old one no longer does.
         auto saved = [] {
             QFile cfg(Settings::configPath());
-            return cfg.open(QIODevice::ReadOnly) && QString::fromUtf8(cfg.readAll()).contains(QStringLiteral("\"열기\" = [\"Ctrl+J\"]"));
+            return cfg.open(QIODevice::ReadOnly) && QString::fromUtf8(cfg.readAll()).contains(QStringLiteral("\"열기\" = [\"Ctrl+Shift+J\"]"));
         };
         QTRY_VERIFY(saved()); // a busy file on Windows is saved on a retry
         m_win->activateWindow();
@@ -1243,7 +1398,7 @@ private slots:
         tab()->focusView();
         tab()->selectPaths({p("Alpha")});
         QTRY_COMPARE(tab()->selectedPaths().size(), 1);
-        key(Qt::Key_J, Qt::ControlModifier);
+        key(Qt::Key_J, Qt::ControlModifier | Qt::ShiftModifier);
         QTRY_COMPARE(tab()->path(), p("Alpha"));
         tab()->navigate(m_tmp.path());
         tab()->focusView();
@@ -1914,6 +2069,24 @@ private slots:
         QTRY_COMPARE(v->font().pointSize(), base);
         QCOMPARE(Settings::instance()->value(Settings::FontSize).toInt(), 0);
         QCOMPARE(v->sizeHintForRow(0), rowBefore);
+
+        // With the terminal focused the same keys size the terminal's text, not the list's.
+        key(Qt::Key_QuoteLeft, kTerminalMods);
+        TerminalWidget *term = nullptr;
+        QTRY_VERIFY((term = m_win->findChild<TerminalWidget *>()) && term->isVisible());
+        term->setFocus();
+        QTRY_VERIFY(term->hasFocus());
+        Settings *s = Settings::instance();
+        const int termBase = s->value(Settings::TermFontSize).toInt();
+        key(Qt::Key_Equal, Qt::ControlModifier);
+        QTRY_COMPARE(s->value(Settings::TermFontSize).toInt(), termBase + 1);
+        key(Qt::Key_Minus, Qt::ControlModifier);
+        key(Qt::Key_Minus, Qt::ControlModifier);
+        QTRY_COMPARE(s->value(Settings::TermFontSize).toInt(), termBase - 1);
+        key(Qt::Key_0, Qt::ControlModifier);
+        QTRY_VERIFY(!s->contains(Settings::TermFontSize));
+        QCOMPARE(s->value(Settings::FontSize).toInt(), 0); // the list's size stayed
+        key(Qt::Key_QuoteLeft, kTerminalMods); // fold again
     }
 
     void terminalAddButtonOnlyWhenOpen()
@@ -1935,6 +2108,22 @@ private slots:
         QTRY_VERIFY(add->isVisible());
         toggle->trigger();
         QTRY_VERIFY(!add->isVisible());
+        tab()->focusView();
+    }
+
+    void cmdJTogglesTerminal()
+    {
+        // ⌘J (Ctrl+J on Windows/Linux) unfolds and folds the terminal, also with the terminal focused.
+        TerminalWidget *term = m_win->findChild<TerminalWidget *>();
+        if (term && term->isVisible())
+            key(Qt::Key_QuoteLeft, kTerminalMods); // fold first
+        tab()->focusView();
+        key(Qt::Key_J, Qt::ControlModifier);
+        QTRY_VERIFY((term = m_win->findChild<TerminalWidget *>()) && term->isVisible());
+        term->setFocus();
+        QTRY_VERIFY(term->hasFocus());
+        key(Qt::Key_J, Qt::ControlModifier);
+        QTRY_VERIFY(!term->isVisible());
         tab()->focusView();
     }
 
@@ -2337,6 +2526,95 @@ private slots:
         QTRY_COMPARE(shown(), native({B, C, p("fav/note.txt")}));
         QVERIFY(!Sidebar::favorites().contains(A));
         QVERIFY(QDir(A).exists()); // only the favorite went away
+    }
+
+    void sidebarEjectsADrive()
+    {
+        // 위치 → right-click a drive → 추출: the tabs on it go home first (an open folder keeps the drive
+        // busy), then it is ejected. The system drive offers no 추출. Tried with a disk image on macOS.
+#ifndef Q_OS_MACOS
+        QSKIP("needs hdiutil (macOS)");
+#else
+        auto *sb = m_win->findChild<Sidebar *>();
+        QVERIFY(sb);
+        QTemporaryDir img;
+        const QString dmg = QDir(img.path()).filePath(QStringLiteral("eject.dmg"));
+        auto run = [](const QStringList &args) {
+            QProcess pr;
+            pr.start(QStringLiteral("/usr/bin/hdiutil"), args);
+            pr.waitForFinished(60000);
+            return pr.exitCode() == 0 ? QString::fromUtf8(pr.readAllStandardOutput()) : QString();
+        };
+        if (run({QStringLiteral("create"), QStringLiteral("-size"), QStringLiteral("2m"), QStringLiteral("-fs"), QStringLiteral("HFS+"),
+                 QStringLiteral("-volname"), QStringLiteral("GifilesEject"), dmg}).isNull())
+            QSKIP("hdiutil create failed");
+        // -nobrowse: mounted in /Volumes but not shown in Finder.
+        const QString attached = run({QStringLiteral("attach"), QStringLiteral("-nobrowse"), dmg});
+        const QString root = attached.trimmed().section(QLatin1Char('\t'), -1).trimmed();
+        if (!root.startsWith(QLatin1String("/Volumes/")))
+            QSKIP("hdiutil attach failed");
+        const auto restore = qScopeGuard([this, root, run] {
+            if (QFileInfo::exists(root))
+                run({QStringLiteral("detach"), QStringLiteral("-force"), root});
+            emit Theme::instance()->changed();
+            tab()->navigate(m_tmp.path());
+        });
+        QVERIFY(QDir().mkpath(root + QStringLiteral("/inner/deeper")));
+        tab()->navigate(root + QStringLiteral("/inner"));
+        QTRY_COMPARE(tab()->path(), root + QStringLiteral("/inner"));
+        BrowserTab *other = m_win->addTab(root, false);
+        QTest::qWait(300); // the folders get listed (and watched)
+
+        emit Theme::instance()->changed(); // rebuilds the sidebar: the new volume is listed
+        auto menuOn = [&](const QString &path, const QString &item) {
+            QTreeWidgetItem *row = nullptr;
+            for (int i = 0; i < sb->topLevelItemCount(); ++i)
+                for (int j = 0; j < sb->topLevelItem(i)->childCount(); ++j)
+                    if (sb->topLevelItem(i)->child(j)->toolTip(0) == path)
+                        row = sb->topLevelItem(i)->child(j);
+            if (!row)
+                return QStringList{QStringLiteral("no row")};
+            QStringList offered;
+            QTimer::singleShot(50, this, [&] {
+                if (auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget())) {
+                    for (QAction *a : menu->actions()) {
+                        offered << a->text();
+                        if (a->text() == item)
+                            a->trigger();
+                    }
+                    menu->close();
+                }
+            });
+            sb->scrollToItem(row);
+            const QPoint at = sb->visualItemRect(row).center();
+            QContextMenuEvent e(QContextMenuEvent::Mouse, at, sb->viewport()->mapToGlobal(at));
+            QApplication::sendEvent(sb->viewport(), &e);
+            return offered;
+        };
+        QCOMPARE(menuOn(QStringLiteral("/"), QString()), QStringList{QStringLiteral("새로운 탭에서 열기")});
+        // A -nobrowse image isn't among Qt's mounted volumes (so not in the sidebar): ask as its 추출 does.
+        QVERIFY(util::canEject(QStorageInfo(root)));
+        {
+            // A file open on it: the system refuses, and that is reported.
+            QFile held(root + QStringLiteral("/held.txt"));
+            QVERIFY(held.open(QIODevice::WriteOnly));
+            emit sb->ejectRequested(root);
+            QTRY_VERIFY_WITH_TIMEOUT(qobject_cast<QMessageBox *>(QApplication::activeModalWidget()), 20000);
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box->text().contains(QStringLiteral("추출하지 못했습니다")));
+            box->close();
+            QVERIFY(QFileInfo::exists(root));
+        }
+        tab()->navigate(root + QStringLiteral("/inner"));
+        QTRY_COMPARE(tab()->path(), root + QStringLiteral("/inner"));
+        emit sb->ejectRequested(root);
+        QCOMPARE(tab()->path(), QDir::homePath());
+        QCOMPARE(other->path(), QDir::homePath());
+        QTRY_VERIFY_WITH_TIMEOUT(!QFileInfo::exists(root), 20000);
+        QVERIFY(!QApplication::activeModalWidget()); // no failure reported
+        auto *tabs = m_win->findChild<QTabWidget *>();
+        emit tabs->tabCloseRequested(tabs->indexOf(other));
+#endif
     }
 
     void sidebarKeyboardOpensPlacesAndVolumes()
@@ -3466,7 +3744,7 @@ private slots:
     {
         useTestShell();
         auto *bar = m_win->findChild<QTabBar *>(QStringLiteral("termTabs"));
-        auto *stack = m_win->findChild<QStackedWidget *>(QStringLiteral("termStack"));
+        QStackedWidget *stack = termStack();
         QVERIFY(bar && stack);
         tab()->navigate(p("Alpha"));
         key(Qt::Key_QuoteLeft, kTerminalMods);

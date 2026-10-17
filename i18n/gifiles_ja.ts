@@ -288,12 +288,40 @@ Windows: Gifiles.exe の隣、Linux AppImage: --appimage-extract 後の squashfs
         <translation>コマンドがエラーで終了しました (終了コード %1)。</translation>
     </message>
     <message>
+        <source>&apos;%1&apos; 추출 중…</source>
+        <translation>「%1」を取り出し中…</translation>
+    </message>
+    <message>
+        <source>&apos;%1&apos; 추출 실패</source>
+        <translation>「%1」を取り出せませんでした</translation>
+    </message>
+    <message>
+        <source>추출</source>
+        <translation>取り出す</translation>
+    </message>
+    <message>
+        <source>&apos;%1&apos;을(를) 추출하지 못했습니다. 이 드라이브를 쓰는 프로그램이 있는지 확인하세요.</source>
+        <translation>「%1」を取り出せませんでした。このドライブを使用中のプログラムがないか確認してください。</translation>
+    </message>
+    <message>
+        <source>&apos;%1&apos; 추출됨</source>
+        <translation>「%1」を取り出しました</translation>
+    </message>
+    <message>
+        <source>실행하지 못했습니다: %1</source>
+        <translation>実行できませんでした: %1</translation>
+    </message>
+    <message>
         <source>터미널 접기</source>
         <translation>ターミナルをたたむ</translation>
     </message>
     <message>
         <source>터미널 펼치기</source>
         <translation>ターミナルを広げる</translation>
+    </message>
+    <message>
+        <source>이 탭의 터미널에서 프로그램이 실행 중입니다. 탭을 닫으면 함께 종료됩니다.</source>
+        <translation>このタブのターミナルでプログラムが実行中です。タブを閉じると一緒に終了します。</translation>
     </message>
     <message>
         <source>%1개 항목</source>
@@ -1780,6 +1808,10 @@ command 内のプレースホルダは実行時に置き換えられます (各�
     <message>
         <source>미디어 앞으로 탐색</source>
         <translation>再生位置を進める</translation>
+    </message>
+    <message>
+        <source>퀵 뷰어 페이지·소스 전환</source>
+        <translation>クイックルックのページ／ソースを切り替え</translation>
     </message>
     <message>
         <source>미디어 재생·일시정지</source>

@@ -82,7 +82,7 @@ private:
     void updateStatus();
     void updateTabTitle(BrowserTab *t);
     void updateUndoActions();
-    void closeTab(int index);
+    void closeTab(int index, bool confirmed = false); // a program running in its terminals asks first
     void go(const QString &path);
     void setMode(BrowserTab::Mode m);
     void focusSidebar();
@@ -107,21 +107,26 @@ private:
     void toggleFolderTree(); // ` : the NCD-style tree of every folder
     void placeFolderTree();
     // keepHeight: unfolding by dragging the edge, the panel keeps the dragged height.
-    void setTerminalVisible(bool visible, bool keepHeight = false);
+    // takeFocus: unfolding gives the terminal the keyboard, folding gives it to the list.
+    void setTerminalVisible(bool visible, bool keepHeight = false, bool takeFocus = true);
     QString debugState() const; // one line for the debug log: folder, view, selection, focus
-    // Terminal tabs (Chrome-like, in the panel's bar). term() is the current one, or none yet.
+    // Terminal tabs (Chrome-like, in the panel's bar) belong to a browser tab (BrowserTab::terminals());
+    // the panel shows the current browser tab's. term() is its current one, or none yet.
     TerminalWidget *term() const;
-    TerminalWidget *addTerminal(const QString &cwd);
-    void closeTerminal(int index);
+    TerminalWidget *addTerminal(BrowserTab *owner, const QString &cwd);
+    void connectTerminal(BrowserTab *owner, TerminalWidget *t);
+    void closeTerminal(BrowserTab *owner, TerminalWidget *t);
+    void showTerminalsOf(BrowserTab *t); // the panel's stack, bar and fold state become this tab's
     void updateTerminalTab(TerminalWidget *t);
     bool terminalHasFocus() const;
-    // The browser moved: the current terminal cd's along when idle; when a program is running in
-    // it, a new terminal tab opens at the folder instead.
-    void terminalFollow(const QString &path);
+    // A browser tab moved: its current terminal cd's along when idle; when a program is running in
+    // it, a new terminal tab of that browser tab opens at the folder instead.
+    void terminalFollow(BrowserTab *owner, const QString &path);
     // AI button: asks for a one-line request and runs the configured CLI (claude -p, codex exec)
     // in the terminal panel with the request and the selected items' paths.
     void runCommandNow(const QVariantMap &command, const QStringList &paths, const QString &prompt);
     void runQuietly(const QString &label, const QString &command, const QString &dir);
+    void eject(const QString &root);
     bool closeFrontWindow();
     // One line of input in a small popup under `anchor`; `done` gets the text on Enter.
     void askLine(const QString &placeholder, const QString &note, std::function<void(const QString &)> done);
@@ -144,15 +149,15 @@ private:
     QList<QMenu *> m_menus;
     QSplitter *m_vsplit = nullptr;       // file views above, terminal below
     QWidget *m_termPanel = nullptr;
-    QStackedWidget *m_termStack = nullptr; // one TerminalWidget per tab, same order as m_termTabs
-    QTabBar *m_termTabs = nullptr;
+    QStackedWidget *m_termStacks = nullptr; // each browser tab's terminals() stack; the current tab's is shown
+    QTabBar *m_termTabs = nullptr;          // mirrors the current browser tab's stack, same order
     QLabel *m_termTitle = nullptr; // "터미널" until the first shell starts
     QWidget *m_termHeader = nullptr;
     QToolButton *m_termToggle = nullptr;
     QToolButton *m_termAdd = nullptr; // "+": hidden while the terminal is folded
     QToolButton *m_updateButton = nullptr; // shown once a new version is downloaded and ready
     int m_termHeight = 0; // last unfolded height of the terminal panel
-    bool m_termOpen = false;
+    bool m_termOpen = false; // the panel as shown; each browser tab remembers its own (terminalOpen())
     void setTerminalHeight(int h);
     static constexpr int kTermHeaderHeight = 28;
     QAction *m_terminalAct = nullptr;

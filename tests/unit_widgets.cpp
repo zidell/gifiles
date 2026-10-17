@@ -538,6 +538,58 @@ private slots:
         pw.setPath(QString());
     }
 
+    // Quick Look shows a web page through the system's preview and ⌘U switches to its source; with
+    // no system preview (Linux, the offscreen tests) the source is shown either way.
+    void webPageSourceToggle()
+    {
+        write(QStringLiteral("page.html"), "<html><body><h1>Hello</h1></body></html>");
+        const auto restore = qScopeGuard([this] { QFile::remove(p("page.html")); });
+        PreviewWidget pw(PreviewWidget::QuickLook);
+        pw.resize(600, 400);
+        auto *text = pw.findChild<QPlainTextEdit *>();
+        QVERIFY(text);
+        pw.setPath(p("page.html"));
+        QTRY_VERIFY(text->toPlainText().contains(QStringLiteral("<h1>Hello</h1>")));
+        QVERIFY(!pw.showsWebSource());
+        QVERIFY(pw.toggleWebSource());
+        QVERIFY(pw.showsWebSource());
+        QCOMPARE(pw.path(), p("page.html"));
+        QVERIFY(text->toPlainText().contains(QStringLiteral("<h1>Hello</h1>")));
+        pw.setPath(p("missing.txt")); // stays on source for the next page, does nothing for others
+        QVERIFY(!pw.toggleWebSource());
+        QVERIFY(pw.showsWebSource());
+        pw.setPath(QString());
+    }
+
+    // The magnifier is on the picture only while it is shown: a cursor set on a hidden Quick Look
+    // window still reaches the screen on macOS and stayed over the browser after closing.
+    void zoomCursorOnlyWhileShown()
+    {
+        QImage big(2000, 1000, QImage::Format_RGB32);
+        big.fill(Qt::darkGreen);
+        QVERIFY(big.save(p("zoom.png")));
+        const auto restore = qScopeGuard([this] { QFile::remove(p("zoom.png")); });
+        PreviewWidget pw(PreviewWidget::QuickLook);
+        pw.resize(300, 200);
+        auto *area = pw.findChild<ZoomArea *>();
+        QVERIFY(area);
+        auto hasCursor = [area] { return area->viewport()->testAttribute(Qt::WA_SetCursor) || area->widget()->testAttribute(Qt::WA_SetCursor); };
+        pw.setPath(p("zoom.png"));
+        QTRY_VERIFY(!area->widget()->property("pixmap").value<QPixmap>().isNull());
+        QVERIFY(area->isZoomable());
+        QVERIFY(!hasCursor()); // loaded while hidden
+        pw.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&pw));
+        QVERIFY(hasCursor());
+        pw.hide();
+        QVERIFY(!hasCursor());
+        pw.setPath(QString());
+        pw.setPath(p("zoom.png")); // the next file, loaded before Quick Look appears again
+        QTRY_VERIFY(!area->widget()->property("pixmap").value<QPixmap>().isNull());
+        QVERIFY(!hasCursor());
+        pw.setPath(QString());
+    }
+
     // Gallery thumbnails: made in the background, at most 256 px a side, a PDF's first page on white;
     // a file that can't be read is tried once; a changed file (new mtime) gets a new one.
     void thumbnailsInTheBackground()
@@ -843,6 +895,35 @@ private slots:
 #endif
     }
 
+    void terminalDrawsColors()
+    {
+#ifndef Q_OS_WIN
+        // Colored output (palette and direct RGB) is drawn in its colors, not in the default foreground.
+        useTestShell();
+        TerminalWidget term;
+        term.resize(600, 200);
+        term.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&term));
+        term.start(m_tmp.path());
+        QTRY_VERIFY2_WITH_TIMEOUT(term.isReady(), qPrintable(term.screenText()), 15000);
+        term.setFocus();
+        QTest::keyClicks(&term, "clear; printf '\\033[31m\\342\\226\\210\\342\\226\\210\\342\\226\\210\\033[0m\\033[38;2;0;0;255m\\342\\226\\210\\342\\226\\210\\342\\226\\210\\033[0m\\n'; sleep 5");
+        QTest::keyClick(&term, Qt::Key_Return);
+        QTRY_VERIFY2(term.screenText().startsWith(QStringLiteral("██████")), qPrintable(term.screenText()));
+        QTest::qWait(100);
+        const QImage img = term.grab().toImage();
+        bool red = false, blue = false;
+        for (int y = 0; y < img.height() / 2; ++y)
+            for (int x = 0; x < img.width() / 2; ++x) {
+                const QColor c = img.pixelColor(x, y);
+                red = red || (c.red() > 150 && c.green() < 100 && c.blue() < 100);
+                blue = blue || (c.blue() > 150 && c.red() < 100 && c.green() < 100);
+            }
+        QVERIFY2(red, "palette red not drawn");
+        QVERIFY2(blue, "RGB blue not drawn");
+#endif
+    }
+
     void terminalBrightensFaintText()
     {
         // 256-color 235 (#262626) on the dark background is moved until readable; readable colors stay.
@@ -1114,6 +1195,46 @@ private slots:
         QVERIFY2(got.count("^[[M0") == 1 && got.count("^[[M3") == 1, got.constData()); // Ctrl: press 0|16, release 3|16
     }
 
+    // A full-screen program that follows drags (Claude Code: it selects and scrolls its own text) gets the whole
+    // drag; Option-drag selects here instead.
+    void terminalFullScreenProgramsGetDrags()
+    {
+        useTestShell();
+        TerminalWidget term;
+        term.resize(1200, 300);
+        term.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&term));
+        term.start(m_tmp.path());
+        QTRY_VERIFY2_WITH_TIMEOUT(term.isReady(), qPrintable(term.screenText()), 15000);
+        term.setFocus();
+        auto *pty = term.findChild<Pty *>();
+        QVERIFY(pty);
+        QFile::remove(p("drag.txt"));
+        QTest::keyClicks(&term, "cat -v > drag.txt");
+        QTest::keyClick(&term, Qt::Key_Return);
+        QTRY_VERIFY(term.isBusy());
+        pty->dataReceived(QByteArray("\x1b[?1049h\x1b[?1002h\x1b[HHELLO WORLD"));
+        QTest::mousePress(&term, Qt::LeftButton, {}, QPoint(20, 20));
+        QTest::mouseMove(&term, QPoint(300, 20));
+        QTest::mouseRelease(&term, Qt::LeftButton, {}, QPoint(300, 20));
+        QGuiApplication::clipboard()->setText(QStringLiteral("-"));
+        QTest::mousePress(&term, Qt::LeftButton, Qt::AltModifier, QPoint(3, 3));
+        QTest::mouseMove(&term, QPoint(100, 3));
+        QTest::mouseRelease(&term, Qt::LeftButton, Qt::AltModifier, QPoint(100, 3));
+        QTest::keyClick(&term, Qt::Key_C, Qt::ControlModifier);
+        QTRY_VERIFY2(QGuiApplication::clipboard()->text().startsWith(QStringLiteral("HELLO")),
+                     qPrintable(QGuiApplication::clipboard()->text()));
+        pty->dataReceived(QByteArray("\x1b[?1002l\x1b[?1049l"));
+        QTest::keyClick(&term, Qt::Key_Return);
+        QTest::keyClick(&term, Qt::Key_D, kTerminalMods);
+        QTRY_VERIFY(!term.isBusy());
+        QFile f(p("drag.txt"));
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        const QByteArray got = f.readAll();
+        QVERIFY2(got.count("^[[M") == 3, got.constData()); // press, a move with the button held, release; nothing for Option
+        QVERIFY2(got.count("^[[M ") == 1 && got.count("^[[M@") == 1 && got.count("^[[M#") == 1, got.constData());
+    }
+
     // A program that announces drag zones (OSC 7790, Ginote's sidebar border) gets only the drags pressed inside
     // them; a drag elsewhere selects here. Leaving the alternate screen forgets the zones.
     void terminalDragZones()
@@ -1151,6 +1272,45 @@ private slots:
         QVERIFY(f.open(QIODevice::ReadOnly));
         const QByteArray got = f.readAll();
         QVERIFY2(got.count("^[[M") == 3, got.constData()); // press, a move with the button held, release; nothing outside
+    }
+
+    // A selection dragged in the history goes on over the lines the wheel scrolls in, and past the top edge
+    // the history scrolls by itself (faster the farther past it).
+    void terminalSelectionFollowsScrolling()
+    {
+        useTestShell();
+        TerminalWidget term;
+        term.resize(1200, 300);
+        term.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&term));
+        term.start(m_tmp.path());
+        QTRY_VERIFY(term.isRunning());
+        auto *pty = term.findChild<Pty *>();
+        QByteArray many;
+        for (int i = 1; i <= 200; ++i)
+            many += QStringLiteral("L%1\r\n").arg(i, 3, 10, QLatin1Char('0')).toLatin1();
+        pty->dataReceived(many);
+        const int rows = term.screenText().count(QLatin1Char('\n')) + 1;
+        auto copied = [&] {
+            QTest::keyClick(&term, Qt::Key_C, Qt::ControlModifier);
+            return QGuiApplication::clipboard()->text().count(QLatin1Char('L'));
+        };
+
+        QTest::mousePress(&term, Qt::LeftButton, {}, QPoint(3, 3));
+        QTest::mouseMove(&term, QPoint(40, 3));
+        QWheelEvent up(QPointF(40, 3), term.mapToGlobal(QPointF(40, 3)), QPoint(), QPoint(0, 120 * 10), Qt::LeftButton,
+                       Qt::NoModifier, Qt::NoScrollPhase, false);
+        QApplication::sendEvent(&term, &up); // thirty lines further up
+        QTest::mouseRelease(&term, Qt::LeftButton, {}, QPoint(40, 3));
+        QVERIFY(copied() >= 30); // one line before the fix
+
+        QTest::mousePress(&term, Qt::LeftButton, {}, QPoint(3, 3));
+        QCursor::setPos(term.mapToGlobal(QPoint(40, -80)));
+        QTest::mouseMove(&term, QPoint(40, -80));
+        QTest::qWait(500);
+        QTest::mouseRelease(&term, Qt::LeftButton, {}, QPoint(40, -80));
+        const int scrolled = copied();
+        QVERIFY2(scrolled > rows, qPrintable(QString::number(scrolled)));
     }
 
     // The composing text stays where the cursor was last shown while a program repaints with the cursor hidden
@@ -2020,20 +2180,20 @@ private slots:
         QCOMPARE(sc->keys(QStringLiteral("복제")).size(), 1);
         cap = capture();
         QVERIFY(cap);
-        QTest::keyClick(cap, Qt::Key_J, Qt::ControlModifier);
-        QTest::keyClick(cap, Qt::Key_Return); // replaces ⌘J in the box, …
-        QTest::keyClick(cap, Qt::Key_J, Qt::ControlModifier); // … and the last key pressed counts
+        QTest::keyClick(cap, Qt::Key_J, Qt::ControlModifier | Qt::ShiftModifier);
+        QTest::keyClick(cap, Qt::Key_Return); // replaces ⇧⌘J in the box, …
+        QTest::keyClick(cap, Qt::Key_J, Qt::ControlModifier | Qt::ShiftModifier); // … and the last key pressed counts
         QVERIFY(cap->isVisible());
         cap->findChild<QPushButton *>(QStringLiteral("keyCaptureOk"))->click();
         QTRY_VERIFY(!cap);
-        QCOMPARE(sc->keys(QStringLiteral("열기")), QList<QKeySequence>{QKeySequence(QStringLiteral("Ctrl+J"))});
+        QCOMPARE(sc->keys(QStringLiteral("열기")), QList<QKeySequence>{QKeySequence(QStringLiteral("Ctrl+Shift+J"))});
         QVERIFY(sc->isCustom(QStringLiteral("열기")));
         dlg->close();
         QTRY_VERIFY(!dlg);
         // Saved in config.toml (that the window's key then works: smoke reboundKeyWorksInTheWindow).
         auto saved = [] {
             QFile cfg(Settings::configPath());
-            return cfg.open(QIODevice::ReadOnly) && QString::fromUtf8(cfg.readAll()).contains(QStringLiteral("\"열기\" = [\"Ctrl+J\"]"));
+            return cfg.open(QIODevice::ReadOnly) && QString::fromUtf8(cfg.readAll()).contains(QStringLiteral("\"열기\" = [\"Ctrl+Shift+J\"]"));
         };
         QTRY_VERIFY(saved());
         // A key taken by another action moves over; resetting gives the built-in keys back.

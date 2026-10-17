@@ -89,7 +89,7 @@ const QList<Shortcuts::Entry> &Shortcuts::entries()
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "숨김 파일 보기")), view, L{"Ctrl+Shift+.", "Ctrl+Shift+>", "Ctrl+>"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "사이드바 보기")), view, mac ? L{"Ctrl+Meta+S"} : L{"Ctrl+Alt+S"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "미리보기 보기")), view, L{"Ctrl+Shift+P"}),
-            e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 펼치기")), view, mac ? L{"Meta+`"} : L{"Ctrl+`"}),
+            e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 펼치기")), view, mac ? L{"Meta+`", "Ctrl+J"} : L{"Ctrl+`", "Ctrl+J"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "사이드바로 이동")), view, L{"Alt+Left"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "파일뷰로 이동")), view, L{"Alt+Right", "Alt+Up"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널로 이동")), view, L{"Alt+Down"}),
@@ -132,6 +132,7 @@ const QList<Shortcuts::Entry> &Shortcuts::entries()
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 다음 항목")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 조작")), L{"Down", "Right"}, QStringLiteral("preview"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "미디어 뒤로 탐색")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 조작")), L{"Left"}, QStringLiteral("preview-media"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "미디어 앞으로 탐색")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 조작")), L{"Right"}, QStringLiteral("preview-media"));
+        l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 페이지·소스 전환")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 조작")), L{"Ctrl+U"}, QStringLiteral("preview"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "미디어 재생·일시정지")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 조작")), L{"Return"}, QStringLiteral("preview"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 새 탭")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 조작")), L{"Ctrl+T"}, QStringLiteral("terminal"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 탭 닫기")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 조작")), L{"Ctrl+W"}, QStringLiteral("terminal"));

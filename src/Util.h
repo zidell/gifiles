@@ -58,4 +58,10 @@ QString revealActionText(); // "Finder에서 열기", "탐색기에서 열기", 
 QString revealActionId();   // the same, untranslated: the menu action's id (Shortcuts, config.toml)
 QString revealShowText();   // "Finder에서 보기", ... for a button that shows one file
 
+// 추출 (Finder's Eject) of a drive in the sidebar's 위치: removable, external, network and disk-image
+// volumes; never the system drive or a fixed disk (Windows). The command ejects (or, for a network
+// share, unmounts) it; it exits non-zero when that fails (e.g. a program still uses the drive).
+bool canEject(const QStorageInfo &si);
+Command ejectCommand(const QStorageInfo &si);
+
 } // namespace util

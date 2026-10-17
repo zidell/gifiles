@@ -159,18 +159,22 @@ private:
     bool m_selecting = false;
     // A program that takes the mouse gets a left press only on release in the same cell (pressed with these
     // modifiers); dragging to another cell selects text instead. Option, right and middle presses go at once.
+    // A full-screen program that follows drags gets the left button at once (it selects and scrolls its own
+    // text); Option-drag selects here instead.
     bool m_pendingPress = false;
     QPoint m_pressCell;
     int m_pressMods = 0;
     int m_buttonToProgram = 0; // the button sent at once and not released yet
     // Drag zones a full-screen program announced with OSC 7790 "x,y,w,h;…" (screen cells; tuidock's own sequence,
     // Ginote's sidebar border and note text). Once announced, only a left drag pressed inside one goes to the
-    // program (Shift selects here); elsewhere a drag selects here. Cleared when the program leaves the
+    // program (Shift or Option selects here); elsewhere a drag selects here. Cleared when the program leaves the
     // alternate screen.
     QList<QRect> m_dragZones;
     bool m_dragZonesSet = false;
     QByteArray m_dragZoneBuf;
     bool programTakesDrag(const QPoint &cell, Qt::KeyboardModifiers mods) const;
+    QTimer m_dragScroll; // scrolls the history while a selection is dragged past the top or bottom edge
+    void extendSelection(const QPoint &pos);
 
     // Command-line tracking for the browser integration.
     QString m_typed;      // what the user typed since the last Enter (best effort)

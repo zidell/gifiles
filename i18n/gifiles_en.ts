@@ -289,12 +289,40 @@ GIFILES_CONFIG_DIR environment variable changes the folder. More details: the in
         <translation>The command ended with an error (exit code %1).</translation>
     </message>
     <message>
+        <source>&apos;%1&apos; 추출 중…</source>
+        <translation>Ejecting “%1”…</translation>
+    </message>
+    <message>
+        <source>&apos;%1&apos; 추출 실패</source>
+        <translation>Couldn’t eject “%1”</translation>
+    </message>
+    <message>
+        <source>추출</source>
+        <translation>Eject</translation>
+    </message>
+    <message>
+        <source>&apos;%1&apos;을(를) 추출하지 못했습니다. 이 드라이브를 쓰는 프로그램이 있는지 확인하세요.</source>
+        <translation>“%1” couldn’t be ejected. Check whether a program is still using this drive.</translation>
+    </message>
+    <message>
+        <source>&apos;%1&apos; 추출됨</source>
+        <translation>“%1” ejected</translation>
+    </message>
+    <message>
+        <source>실행하지 못했습니다: %1</source>
+        <translation>Couldn’t run: %1</translation>
+    </message>
+    <message>
         <source>터미널 접기</source>
         <translation>Collapse Terminal</translation>
     </message>
     <message>
         <source>터미널 펼치기</source>
         <translation>Expand Terminal</translation>
+    </message>
+    <message>
+        <source>이 탭의 터미널에서 프로그램이 실행 중입니다. 탭을 닫으면 함께 종료됩니다.</source>
+        <translation>A program is running in this tab&apos;s terminal. Closing the tab will end it.</translation>
     </message>
     <message>
         <source>%1개 항목</source>
@@ -1781,6 +1809,10 @@ Shell scripts work too. Example:
     <message>
         <source>미디어 앞으로 탐색</source>
         <translation>Seek Forward</translation>
+    </message>
+    <message>
+        <source>퀵 뷰어 페이지·소스 전환</source>
+        <translation>Switch Quick Look Page/Source</translation>
     </message>
     <message>
         <source>미디어 재생·일시정지</source>
