@@ -1445,6 +1445,13 @@ private slots:
         QTRY_VERIFY2(term.screenText().contains(QStringLiteral("echo menu_paste_ok")), qPrintable(term.screenText()));
         QTest::keyClick(&term, Qt::Key_Return);
         QTRY_VERIFY(term.screenText().split(QLatin1Char('\n')).contains(QStringLiteral("menu_paste_ok")));
+#ifndef Q_OS_WIN // ConPTY owns its screen; Unix can use a deterministic selection fixture.
+        // The first shell row may be blank (for example after macOS bash startup).
+        // Put known text under the click instead of depending on the prompt layout.
+        auto *pty = term.findChild<Pty *>();
+        QVERIFY(pty);
+        pty->dataReceived(QByteArray("\x1b[2J\x1b[HCOPYME menu_paste_ok\r\n"));
+#endif
         QTest::mouseDClick(&term, Qt::LeftButton, {}, QPoint(3, 3));
         QVERIFY(menu(QString()).contains(QStringLiteral("복사")));
         QGuiApplication::clipboard()->clear();
