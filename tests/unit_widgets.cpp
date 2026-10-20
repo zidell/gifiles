@@ -5,6 +5,7 @@
 // Untranslated (Korean source text), with GIFILES_CONFIG_DIR in a temporary folder.
 
 #include "Headless.h"
+#include "TestShell.h"
 
 #include "App.h"
 #include "Log.h"
@@ -163,10 +164,10 @@ class Widgets : public QObject {
     }
     static void useTestShell()
     {
-#if defined(Q_OS_MACOS)
-        Settings::instance()->setValue(Settings::TermShell, QStringLiteral("/bin/sh")); // no user rc files
-#elif !defined(Q_OS_WIN)
-        Settings::instance()->setValue(Settings::TermShell, QStringLiteral("/bin/bash")); // /bin/sh may be dash: no $'...'
+#ifndef Q_OS_WIN
+        const QString shell = gifiles_test::shell();
+        QVERIFY2(!shell.isEmpty(), "could not create the isolated test shell");
+        Settings::instance()->setValue(Settings::TermShell, shell);
 #endif
     }
 

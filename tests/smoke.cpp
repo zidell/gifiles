@@ -7,6 +7,7 @@
 //   OUT=/tmp/shots ./build/gifiles_smoke
 
 #include "Headless.h"
+#include "TestShell.h"
 
 #include "App.h"
 #include "BrowserTab.h"
@@ -56,6 +57,7 @@
 #include <QPainter>
 #include <QProcess>
 #include <QScreen>
+#include <QSysInfo>
 #include <QStyleOptionMenuItem>
 #include <QStyleFactory>
 #include <QScopeGuard>
@@ -275,10 +277,10 @@ class Smoke : public QObject {
 
     static void useTestShell()
     {
-#if defined(Q_OS_MACOS)
-        Settings::instance()->setValue(Settings::TermShell, QStringLiteral("/bin/sh")); // no user rc files
-#elif !defined(Q_OS_WIN)
-        Settings::instance()->setValue(Settings::TermShell, QStringLiteral("/bin/bash"));
+#ifndef Q_OS_WIN
+        const QString shell = gifiles_test::shell();
+        QVERIFY2(!shell.isEmpty(), "could not create the isolated test shell");
+        Settings::instance()->setValue(Settings::TermShell, shell);
 #endif
     }
 
@@ -780,11 +782,7 @@ private slots:
 
     void terminalFollowsAndTakesDroppedPaths()
     {
-#if defined(Q_OS_MACOS)
-        Settings::instance()->setValue(Settings::TermShell, QStringLiteral("/bin/sh")); // no user rc files
-#elif !defined(Q_OS_WIN)
-        Settings::instance()->setValue(Settings::TermShell, QStringLiteral("/bin/bash")); // /bin/sh may be dash: no $'...'
-#endif
+        useTestShell();
         auto canon = [](const QString &x) { return QFileInfo(x).canonicalFilePath(); };
         TerminalWidget *term = nullptr;
         auto screen = [&term] { return term->screenText().remove(QLatin1Char('\n')); }; // long paths wrap
@@ -815,7 +813,21 @@ private slots:
         tab()->selectPaths({p("Beta/inner")});
         tab()->navigate(m_tmp.path()); // waits: the command line isn't empty
         tab()->selectPaths({p("README.md"), p("photo.png")});
+#ifndef Q_OS_WIN
+        // A host-qualified local prompt must agree with the PTY's local cwd.
+        // Otherwise its UNC spelling causes a false shell cd back to Beta,
+        // replacing the browser's deferred navigation while this line is in use.
+        QUrl promptUrl = QUrl::fromLocalFile(p("Beta"));
+        for (const QString &host : {QSysInfo::machineHostName(), QStringLiteral("localhost")}) {
+            promptUrl.setHost(host);
+            pty->dataReceived("\x1b]7;" + promptUrl.toEncoded() + "\a");
+            QTest::qWait(450); // include a PTY cwd poll after the OSC 7 report
+            QCOMPARE(canon(tab()->path()), canon(m_tmp.path()));
+            QCOMPARE(canon(term->shellCwd()), canon(p("Beta")));
+        }
+#else
         QTest::qWait(300);
+#endif
         QVERIFY(!screen().contains("echo '"));
         QMimeData drag;
         drag.setUrls({QUrl::fromLocalFile(p("photo.png")), QUrl::fromLocalFile(p("README.md"))});

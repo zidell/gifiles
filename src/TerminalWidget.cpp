@@ -21,6 +21,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QUrl>
+#include <QSysInfo>
 #include <QtMath>
 #include <algorithm>
 #include <cmath>
@@ -373,10 +374,21 @@ struct TerminalCallbacks {
             buf.clear();
         buf.append(frag.str, int(frag.len));
         if (frag.final) {
-            const QString path = QUrl(QString::fromUtf8(buf)).toLocalFile();
-            if (!path.isEmpty())
+            QUrl url(QString::fromUtf8(buf));
+#ifndef Q_OS_WIN
+            const QString host = url.host();
+            // VTE's prompt reports file://hostname/path. Qt turns its authority into
+            // a UNC path, which disagrees with the local PTY cwd and can undo a
+            // browser navigation waiting for the command line to become empty.
+            if (host.compare(QLatin1String("localhost"), Qt::CaseInsensitive) == 0
+                || host.compare(QSysInfo::machineHostName(), Qt::CaseInsensitive) == 0)
+                url.setHost(QString());
+#endif // Windows uses OSC 7 itself for cwd tracking; preserve its UNC paths.
+            const QString path = url.toLocalFile();
+            if (!path.isEmpty()) {
                 w(u)->m_promptSeen = true;
-            w(u)->shellMovedTo(path);
+                w(u)->shellMovedTo(path);
+            }
         }
         return 1;
     }
