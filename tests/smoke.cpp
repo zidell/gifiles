@@ -825,6 +825,13 @@ private slots:
             QCOMPARE(canon(tab()->path()), canon(m_tmp.path()));
             QCOMPARE(canon(term->shellCwd()), canon(p("Beta")));
         }
+        const QString alias = m_cfg.filePath(QStringLiteral("shell-cwd-alias"));
+        QVERIFY(QFile::link(p("Beta"), alias));
+        pty->dataReceived("\x1b]7;" + QUrl::fromLocalFile(alias).toEncoded() + "\a");
+        QTest::qWait(450);
+        QCOMPARE(canon(tab()->path()), canon(m_tmp.path()));
+        QCOMPARE(canon(term->shellCwd()), canon(p("Beta")));
+        QVERIFY(QFile::remove(alias));
 #else
         QTest::qWait(300);
 #endif
@@ -3710,9 +3717,12 @@ private slots:
         QTRY_COMPARE(tab()->selectedPaths(), QStringList{one});
         tab()->focusView();
         key(Qt::Key_Return);
-        QTRY_VERIFY(qobject_cast<QLineEdit *>(focus()));
-        auto *le = qobject_cast<QLineEdit *>(focus());
-        QTRY_COMPARE(le->selectedText(), QStringLiteral("one"));
+        // A model refresh can replace the editor while QTRY processes events.
+        // Reacquire it each time instead of dereferencing a stale raw pointer.
+        QTRY_VERIFY(([this] {
+            auto *editor = qobject_cast<QLineEdit *>(focus());
+            return editor && editor->selectedText() == QStringLiteral("one");
+        })());
         type("uno");
         key(Qt::Key_Return);
         QTRY_VERIFY(QFile::exists(p("cols/inner/uno.txt")));

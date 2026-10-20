@@ -661,6 +661,13 @@ void TerminalWidget::shellMovedTo(const QString &cwd)
 {
     if (cwd.isEmpty() || cwd == m_cwd)
         return;
+#ifndef Q_OS_WIN
+    // The shell's PWD can use a symlink (/var on macOS), while the kernel
+    // reports its resolved path (/private/var). That is not a user cd.
+    const QString resolved = canonical(cwd);
+    if (!resolved.isEmpty() && resolved == canonical(m_cwd))
+        return;
+#endif
     m_cwd = cwd;
     emit titleChanged();
     // Directories seen while our own cd is on its way, and its arrival, aren't the user's doing.

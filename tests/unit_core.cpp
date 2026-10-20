@@ -843,9 +843,10 @@ private slots:
         QStringList apps = s->keys(QStringLiteral("open_with"));
         apps.sort();
         QCOMPARE(apps, (QStringList{QStringLiteral("md"), QStringLiteral("tar.gz")}));
+        // A Windows replace can be deferred while the watcher/scanner holds the file.
+        QTRY_VERIFY(readText(Settings::configPath()).contains(QStringLiteral("\nmd = \"/Apps/Edit.app\"\n")));
+        QTRY_VERIFY(readText(Settings::configPath()).contains(QStringLiteral("\n\"tar.gz\" = \"/Apps/Unpack.app\"\n")));
         const QString text = readText(Settings::configPath());
-        QVERIFY(text.contains(QStringLiteral("\nmd = \"/Apps/Edit.app\"\n")));
-        QVERIFY(text.contains(QStringLiteral("\n\"tar.gz\" = \"/Apps/Unpack.app\"\n")));
         QVERIFY(Settings::check(text).isEmpty());
         s->remove(QStringLiteral("open_with/md"));
         s->remove(QStringLiteral("open_with/tar.gz"));
