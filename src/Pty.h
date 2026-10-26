@@ -16,6 +16,7 @@ public:
     ~Pty() override;
 
     // program/args: e.g. "/bin/zsh" with argv0 "-zsh" for a login shell.
+    // extraEnv: "NAME=value" sets a variable on top of Gifiles' own environment; a bare "NAME" removes it.
     bool start(const QString &program, const QStringList &args, const QString &argv0, const QString &cwd,
                int cols, int rows, const QStringList &extraEnv);
     bool isRunning() const;

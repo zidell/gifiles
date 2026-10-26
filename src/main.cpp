@@ -292,6 +292,13 @@ int main(int argc, char *argv[])
             while (t.elapsed() < 1500)
                 QApplication::processEvents(QEventLoop::AllEvents, 50);
             w->grab().save(QDir(dir).filePath(QStringLiteral("terminal.png")));
+            for (QToolButton *b : w->findChildren<QToolButton *>())
+                if (b->property("terminalExpand").toBool()) {
+                    b->click();
+                    QApplication::processEvents();
+                    w->grab().save(QDir(dir).filePath(QStringLiteral("terminal-expanded.png")));
+                    b->click();
+                }
             auto settle = [](int ms) {
                 QElapsedTimer t;
                 t.start();
@@ -346,6 +353,9 @@ int main(int argc, char *argv[])
             SettingsDialog::showSingleton(w, Gifiles::tr("모양 및 색상"));
             settle(500);
             save(settings, "settings-colors");
+            SettingsDialog::showSingleton(w, Gifiles::tr("터미널"));
+            settle(500);
+            save(settings, "settings-terminal");
             SettingsDialog::showSingleton(w, Gifiles::tr("단축키"));
             settle(500);
             save(settings, "settings-shortcuts");

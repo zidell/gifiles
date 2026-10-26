@@ -19,6 +19,7 @@
 #include "Sidebar.h"
 #include "SystemPreview.h"
 #include "TerminalWidget.h"
+#include "TerminalLauncher.h"
 #include "Theme.h"
 #include "Thumbnails.h"
 #include "Util.h"
@@ -26,6 +27,7 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QFormLayout>
 #include <QClipboard>
 #include <QColorDialog>
 #include <QDialog>
@@ -202,6 +204,87 @@ private slots:
     void cleanupTestCase() { delete m_win; }
 
     void cleanup() { Settings::instance()->setValue(Settings::TermShell, QString()); }
+
+    void terminalPreferencesAndExternalArguments()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::instance()->remove(Settings::TermApp);
+            Settings::instance()->remove(Settings::TermStartupCommand);
+        });
+        Settings::instance()->setValue(Settings::TermShell, QString());
+        QWidget *dialog = settingsAt(QStringLiteral("터미널"));
+        QVERIFY(dialog);
+        auto *apps = dialog->findChild<QComboBox *>(QStringLiteral("terminalApp"));
+        auto *startup = dialog->findChild<QLineEdit *>(QStringLiteral("terminalStartupCommand"));
+        QVERIFY(apps && startup);
+        QCOMPARE(apps->currentData().toString(), QStringLiteral("internal"));
+        startup->setText(QStringLiteral("claude"));
+        emit startup->editingFinished();
+        QCOMPARE(Settings::instance()->value(Settings::TermStartupCommand).toString(), QStringLiteral("claude"));
+        Settings::instance()->setValue(Settings::TermStartupCommand, QStringLiteral("codex"));
+        QCOMPARE(startup->text(), QStringLiteral("codex"));
+        for (const auto &app : TerminalLauncher::available()) {
+            QVERIFY(apps->findData(app.id) >= 0);
+            const QString directory = p(QStringLiteral("space ' 한글"));
+            const QString line = QStringLiteral("echo 'a; $b'\nclaude");
+            const auto cmd = TerminalLauncher::command(app, directory, line);
+            QCOMPARE(cmd.directory, directory);
+            QCOMPARE(cmd.program, app.program);
+#ifdef Q_OS_WIN
+            const int encoded = cmd.arguments.indexOf(QStringLiteral("-EncodedCommand"));
+            QVERIFY(encoded >= 0);
+            const QByteArray bytes = QByteArray::fromBase64(cmd.arguments.at(encoded + 1).toLatin1());
+            QCOMPARE(bytes.size(), line.size() * 2);
+            for (qsizetype i = 0; i < line.size(); ++i)
+                QCOMPARE(quint16(quint8(bytes[2*i])) | (quint16(quint8(bytes[2*i+1])) << 8), int(line[i].unicode()));
+#else
+            QVERIFY(cmd.arguments.contains(QStringLiteral("-i")));
+            QVERIFY(cmd.arguments.last().startsWith(line + QLatin1Char('\n')));
+#endif
+            // Nothing to run: the external terminal starts its own shell.
+            if (app.id == QLatin1String("wt") || app.id == QLatin1String("wezterm"))
+                QVERIFY(!TerminalLauncher::command(app, directory, QString()).arguments.contains(TerminalLauncher::defaultShell()));
+        }
+
+        // The shell is the built-in terminal's: shown only for it, newest PowerShell by default on Windows.
+        auto *shell = dialog->findChild<QComboBox *>(QStringLiteral("terminalShell"));
+        auto *shellPath = dialog->findChild<QLineEdit *>(QStringLiteral("terminalShellPath"));
+        QVERIFY(shell && shellPath);
+        QFormLayout *form = nullptr;
+        for (auto *candidate : shell->parentWidget()->parentWidget()->findChildren<QFormLayout *>())
+            if (candidate->indexOf(shell->parentWidget()) >= 0)
+                form = candidate;
+        QVERIFY(form);
+        QVERIFY(form->isRowVisible(shell->parentWidget()));
+        const int customIndex = shell->count() - 1;
+        QCOMPARE(shell->currentIndex(), 0); // 자동
+#ifdef Q_OS_WIN
+        const auto installed = TerminalLauncher::shells();
+        QVERIFY(!installed.isEmpty());
+        QCOMPARE(TerminalLauncher::defaultShell(), installed.first().program);
+        QVERIFY(installed.last().name == QLatin1String("Windows PowerShell"));
+#endif
+        if (shell->count() > 2) {
+            shell->setCurrentIndex(1);
+            QCOMPARE(Settings::instance()->value(Settings::TermShell).toString(), shell->itemData(1).toString());
+            QCOMPARE(TerminalLauncher::defaultShell(), shell->itemData(1).toString());
+        }
+        Settings::instance()->setValue(Settings::TermShell, QStringLiteral("/opt/own/shell"));
+        QCOMPARE(shell->currentIndex(), customIndex);
+        QVERIFY(!shellPath->isHidden());
+        QCOMPARE(shellPath->text(), QStringLiteral("/opt/own/shell"));
+        shell->setCurrentIndex(0);
+        QVERIFY(shellPath->isHidden());
+        QVERIFY(Settings::instance()->value(Settings::TermShell).toString().isEmpty());
+        if (apps->count() > 1) {
+            apps->setCurrentIndex(1);
+            QVERIFY(!form->isRowVisible(shell->parentWidget()));
+            apps->setCurrentIndex(0);
+            QVERIFY(form->isRowVisible(shell->parentWidget()));
+        }
+        shot(QStringLiteral("settings-terminal"), dialog);
+        dialog->close();
+    }
 
     void selectionHighlightUsesWindowsTone()
     {
@@ -840,6 +923,31 @@ private slots:
         QCOMPARE(TerminalWidget::incompleteUtf8Tail(s.left(9)), 2); // "←" missing its last byte
         QCOMPARE(TerminalWidget::incompleteUtf8Tail(QByteArray("abc")), 0);
         QCOMPARE(TerminalWidget::incompleteUtf8Tail(QByteArray()), 0);
+    }
+
+    void terminalDropsWhatAnAgentLeft()
+    {
+        // Gifiles relaunched by Codex or Claude Code after a build: their tool shell's NO_COLOR=1 had turned every
+        // color off in the terminal. Without an agent the same variables are the user's own and stay.
+        QProcessEnvironment env;
+        env.insert(QStringLiteral("NO_COLOR"), QStringLiteral("1"));
+        env.insert(QStringLiteral("PAGER"), QStringLiteral("cat"));
+        env.insert(QStringLiteral("GIT_PAGER"), QStringLiteral("less"));
+        env.insert(QStringLiteral("LC_ALL"), QStringLiteral("C.UTF-8"));
+        env.insert(QStringLiteral("LANG"), QStringLiteral("ko_KR.UTF-8"));
+        env.insert(QStringLiteral("PATH"), QStringLiteral("/bin"));
+        QCOMPARE(TerminalWidget::agentLeftovers(env), QStringList());
+        for (const QString &marker : {QStringLiteral("CODEX_CI"), QStringLiteral("CLAUDECODE")}) {
+            QProcessEnvironment agent = env;
+            agent.insert(marker, QStringLiteral("1"));
+            agent.insert(QStringLiteral("CLAUDE_CODE_ENTRYPOINT"), QStringLiteral("cli"));
+            QStringList left = TerminalWidget::agentLeftovers(agent);
+            left.sort();
+            QStringList expected{QStringLiteral("CLAUDE_CODE_ENTRYPOINT"), QStringLiteral("LC_ALL"), QStringLiteral("NO_COLOR"),
+                                 QStringLiteral("PAGER"), marker};
+            expected.sort();
+            QCOMPARE(left, expected);
+        }
     }
 
     void terminalKeepsFaintText()

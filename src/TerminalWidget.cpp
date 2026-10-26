@@ -4,6 +4,7 @@
 #include "Shortcuts.h"
 #include "Pty.h"
 #include "Settings.h"
+#include "TerminalLauncher.h"
 #include "Theme.h"
 
 #include <QApplication>
@@ -27,7 +28,6 @@
 #include <cmath>
 
 #ifndef Q_OS_WIN
-#include <pwd.h>
 #include <unistd.h>
 #endif
 
@@ -42,24 +42,6 @@ constexpr Qt::KeyboardModifier kCmd = Qt::ControlModifier; // ⌘
 constexpr Qt::KeyboardModifier kCtrl = Qt::ControlModifier;
 constexpr Qt::KeyboardModifier kCmd = Qt::NoModifier;
 #endif
-
-QString defaultShell()
-{
-    const QString configured = Settings::instance()->value(Settings::TermShell).toString().trimmed();
-    if (!configured.isEmpty())
-        return configured;
-#ifdef Q_OS_WIN
-    return QStringLiteral("powershell.exe");
-#else
-    QString sh = qEnvironmentVariable("SHELL");
-    if (sh.isEmpty())
-        if (const passwd *pw = getpwuid(getuid()); pw && pw->pw_shell)
-            sh = QString::fromLocal8Bit(pw->pw_shell);
-    if (sh.isEmpty())
-        sh = QStringLiteral("/bin/zsh");
-    return sh;
-#endif
-}
 
 // libvterm marks the right half of a double-width character (Hangul, CJK, emoji) with this.
 constexpr uint32_t kWideContinuation = 0xFFFFFFFFu;
@@ -121,6 +103,31 @@ double luminance(const QColor &c)
     return 0.2126 * lin(c.redF()) + 0.7152 * lin(c.greenF()) + 0.0722 * lin(c.blueF());
 }
 } // namespace
+
+QStringList TerminalWidget::agentLeftovers(const QProcessEnvironment &env)
+{
+    // Codex and Claude Code run their tools with NO_COLOR=1, PAGER=cat and LC_ALL=C.UTF-8. A Gifiles they relaunch after
+    // a build inherits that, and so did every program in its terminal: no colors anywhere (measured on Windows), and
+    // CLAUDECODE=1 makes claude refuse to start. A variable the user set without an agent around is left alone.
+    if (!env.contains(QStringLiteral("CODEX_CI")) && !env.contains(QStringLiteral("CODEX_THREAD_ID")) &&
+        !env.contains(QStringLiteral("CLAUDECODE")))
+        return {};
+    QStringList out;
+    for (const QString &name : env.keys()) {
+        const QString upper = name.toUpper();
+        if (upper.startsWith(QLatin1String("CODEX_")) || upper.startsWith(QLatin1String("CLAUDE_CODE_")) ||
+            upper == QLatin1String("CLAUDECODE") || upper == QLatin1String("CLAUDE_PID") ||
+            upper == QLatin1String("NO_COLOR"))
+            out << name;
+        else if ((upper == QLatin1String("PAGER") || upper == QLatin1String("GIT_PAGER") ||
+                  upper == QLatin1String("GH_PAGER")) && env.value(name) == QLatin1String("cat"))
+            out << name;
+        else if ((upper == QLatin1String("LANG") || upper == QLatin1String("LC_ALL") ||
+                  upper == QLatin1String("LC_CTYPE")) && env.value(name) == QLatin1String("C.UTF-8"))
+            out << name;
+    }
+    return out;
+}
 
 int TerminalWidget::incompleteUtf8Tail(const QByteArray &data)
 {
@@ -553,7 +560,7 @@ void TerminalWidget::start(const QString &cwd)
     m_lineRecalled = false;
     m_promptSeen = false;
     m_pty = new Pty(this);
-    const QString shell = defaultShell();
+    const QString shell = TerminalLauncher::defaultShell();
     QStringList args;
     QString argv0;
 #ifdef Q_OS_WIN
@@ -566,8 +573,11 @@ void TerminalWidget::start(const QString &cwd)
 #endif
     QStringList env{QStringLiteral("TERM=xterm-256color"), QStringLiteral("COLORTERM=truecolor"),
                     QStringLiteral("TERM_PROGRAM=Gifiles")};
+    const QStringList leftovers = agentLeftovers(QProcessEnvironment::systemEnvironment());
+    env << leftovers;
     // Apps started from Finder/Dock get no locale; without it shells mangle Korean file names.
-    if (qEnvironmentVariableIsEmpty("LANG") && qEnvironmentVariableIsEmpty("LC_ALL")) {
+    if ((qEnvironmentVariableIsEmpty("LANG") || leftovers.contains(QStringLiteral("LANG"))) &&
+        (qEnvironmentVariableIsEmpty("LC_ALL") || leftovers.contains(QStringLiteral("LC_ALL")))) {
         QString lang = QLocale::system().name() + QStringLiteral(".UTF-8");
 #ifndef Q_OS_WIN
         if (!QFileInfo::exists(QStringLiteral("/usr/share/locale/") + lang) &&
@@ -619,7 +629,7 @@ QString TerminalWidget::title() const
     const QString home = QDir::homePath();
     if (m_cwd.startsWith(home))
         dir = QStringLiteral("~") + QDir::toNativeSeparators(m_cwd.mid(home.size()));
-    return QFileInfo(defaultShell()).completeBaseName() + QStringLiteral(" — ") + dir;
+    return QFileInfo(TerminalLauncher::defaultShell()).completeBaseName() + QStringLiteral(" — ") + dir;
 }
 
 QString TerminalWidget::tabTitle() const
@@ -901,6 +911,9 @@ bool TerminalWidget::handleShortcut(QKeyEvent *e, bool dryRun)
     if (action("터미널 새 탭", [&] { emit newTabRequested(); })
         || action("터미널 탭 닫기", [&] { emit closeRequested(); }))
         return true;
+    for (int n = 1; n <= 9; ++n)
+        if (action(("터미널 탭 " + QByteArray::number(n)).constData(), [&] { emit tabRequested(n - 1); }))
+            return true;
     // Without a selection, Ctrl+C remains the shell's interrupt on Windows/Linux.
 #ifndef Q_OS_MACOS
     if (!selectedText().isEmpty())

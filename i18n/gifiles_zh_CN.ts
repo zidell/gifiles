@@ -228,6 +228,10 @@ Windows: Gifiles.exe 旁边，Linux AppImage: --appimage-extract 后的 squashfs
         <translation>新建终端标签页（在终端中按 Ctrl+Shift+T）</translation>
     </message>
     <message>
+        <source>터미널 전체 펼치기</source>
+        <translation>完全展开终端</translation>
+    </message>
+    <message>
         <source>파일</source>
         <translation>文件</translation>
     </message>
@@ -310,6 +314,14 @@ Windows: Gifiles.exe 旁边，Linux AppImage: --appimage-extract 后的 squashfs
     <message>
         <source>실행하지 못했습니다: %1</source>
         <translation>无法运行：%1</translation>
+    </message>
+    <message>
+        <source>선택한 터미널 앱을 실행하지 못했습니다. 환경설정에서 기본 터미널을 확인하세요.</source>
+        <translation>无法启动所选终端应用。请在设置中检查默认终端。</translation>
+    </message>
+    <message>
+        <source>터미널 원래 높이로</source>
+        <translation>恢复终端高度</translation>
     </message>
     <message>
         <source>터미널 접기</source>
@@ -754,8 +766,12 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
         <translation>txt·md 等以文字为主的文件预览的字体大小。</translation>
     </message>
     <message>
-        <source>터미널에서 실행할 셸의 경로나 이름. 빈 문자열이면 시스템 기본 셸 ($SHELL, Windows는 powershell.exe).</source>
-        <translation>终端中运行的 shell 的路径或名称。空字符串表示系统默认 shell（$SHELL，Windows 为 powershell.exe）。</translation>
+        <source>기본 터미널 앱. internal은 자체 터미널입니다. 외부 터미널은 현재 폴더에서 별도 창으로 열립니다.</source>
+        <translation>默认终端应用。internal 表示内置终端。外部终端会在当前文件夹中打开独立窗口。</translation>
+    </message>
+    <message>
+        <source>새 터미널의 셸 초기화 후 실행할 명령 (예: codex, claude). 빈 문자열이면 실행하지 않습니다. 선택 항목 명령을 실행할 때는 생략합니다.</source>
+        <translation>新终端的 shell 初始化后执行的命令（例如 codex、claude）。留空则不执行。执行所选项目命令时会跳过此命令。</translation>
     </message>
     <message>
         <source>새로 여는 터미널부터 적용됩니다.</source>
@@ -1058,6 +1074,34 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
         <translation>claude 示例</translation>
     </message>
     <message>
+        <source>자체 터미널</source>
+        <translation>内置终端</translation>
+    </message>
+    <message>
+        <source>%1 (사용 불가)</source>
+        <translation>%1（不可用）</translation>
+    </message>
+    <message>
+        <source>기본 터미널:</source>
+        <translation>默认终端：</translation>
+    </message>
+    <message>
+        <source>자동 (%1)</source>
+        <translation>自动 (%1)</translation>
+    </message>
+    <message>
+        <source>직접 입력…</source>
+        <translation>自定义…</translation>
+    </message>
+    <message>
+        <source>외부 터미널은 별도 창으로 열립니다. 폴더 동기화와 드래그 연동은 자체 터미널에서 사용할 수 있습니다.</source>
+        <translation>外部终端在独立窗口中打开。文件夹同步和拖放联动可在内置终端中使用。</translation>
+    </message>
+    <message>
+        <source>초기화 후 실행할 명령:</source>
+        <translation>初始化后执行的命令：</translation>
+    </message>
+    <message>
         <source>D2Coding (기본)</source>
         <translation>D2Coding（默认）</translation>
     </message>
@@ -1306,6 +1350,10 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
         <translation>将文件夹和所有扩展名颜色恢复为默认值</translation>
     </message>
     <message>
+        <source>자체 터미널에서 실행할 셸의 경로나 이름 (외부 터미널은 그 앱의 기본 셸). 빈 문자열이면 자동: Windows는 설치된 최신 PowerShell (7 Preview → 7 → Windows PowerShell), macOS·Linux는 로그인 셸 ($SHELL). Windows의 자체 터미널은 PowerShell만 지원합니다.</source>
+        <translation>内置终端运行的 shell 的路径或名称（外部终端使用该应用的默认 shell）。为空时自动选择：Windows 为已安装的最新 PowerShell（7 Preview → 7 → Windows PowerShell），macOS 和 Linux 为登录 shell（$SHELL）。Windows 上的内置终端仅支持 PowerShell。</translation>
+    </message>
+    <message>
         <source>터미널 글꼴 이름 (예: &quot;JetBrains Mono&quot;, &quot;Menlo&quot;). 빈 문자열이면 앱에 든 D2Coding (네이버, SIL Open Font License).</source>
         <translation>终端字体名称（例如 &quot;JetBrains Mono&quot;、&quot;Menlo&quot;）。空字符串则使用应用自带的 D2Coding（NAVER，SIL Open Font License）。</translation>
     </message>
@@ -1316,7 +1364,7 @@ color 中写 &quot;#RRGGBB&quot; 颜色。扩展名不区分大小写,不写开�
   command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법
   key      메뉴가 열려 있을 때 이 글자 하나를 누르면 바로 실행 (A-Z 또는 0-9, 생략 가능)
   extensions 쉼표로 이은 확장자 (예: &quot;jpg,png&quot;). 기본값 &quot;*&quot;: 모든 항목. 선택한 항목 모두가 맞아야 표시
-  terminal true: 아래쪽 터미널을 열고 거기서 실행해 출력을 보여 줌.
+  terminal true: 기본 터미널을 열고 거기서 실행해 출력을 보여 줌.
            false: 터미널 없이 조용히 실행하고, 실패하면 오류만 알림 (생략하면 true)
   id       기본 명령의 표시 (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;). 기본 명령은 고칠 수는 있어도 지울 수 없어서,
            빠져 있으면 기본값으로 다시 생깁니다. 직접 추가하는 명령에는 쓰지 않습니다.
@@ -1335,7 +1383,7 @@ command 안의 자리표시자는 실행할 때 바뀝니다 (각 경로는 셸�
   command  要运行的 shell 命令 (必填)。macOS·Linux 使用终端的 shell (zsh/bash),Windows 使用 PowerShell 语法
   key      菜单打开时按下这个字母即可立即运行 (A-Z 或 0-9,可省略)
   extensions 以逗号分隔的扩展名 (如 &quot;jpg,png&quot;)。默认 &quot;*&quot;: 所有项目。所有选中项目都匹配时才显示
-  terminal true: 打开下方的终端并在其中运行,显示输出。
+  terminal true: 打开默认终端并在其中运行,显示输出。
            false: 不打开终端静默运行,仅在失败时提示 (省略时为 true)
   id       内置命令的标记 (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;)。内置命令可以修改但不能删除,
            缺少时会以默认值恢复。自己添加的命令不要使用。
@@ -1828,6 +1876,42 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
     <message>
         <source>터미널 탭 닫기</source>
         <translation>关闭终端标签页</translation>
+    </message>
+    <message>
+        <source>터미널 탭 1</source>
+        <translation>终端标签页 1</translation>
+    </message>
+    <message>
+        <source>터미널 탭 2</source>
+        <translation>终端标签页 2</translation>
+    </message>
+    <message>
+        <source>터미널 탭 3</source>
+        <translation>终端标签页 3</translation>
+    </message>
+    <message>
+        <source>터미널 탭 4</source>
+        <translation>终端标签页 4</translation>
+    </message>
+    <message>
+        <source>터미널 탭 5</source>
+        <translation>终端标签页 5</translation>
+    </message>
+    <message>
+        <source>터미널 탭 6</source>
+        <translation>终端标签页 6</translation>
+    </message>
+    <message>
+        <source>터미널 탭 7</source>
+        <translation>终端标签页 7</translation>
+    </message>
+    <message>
+        <source>터미널 탭 8</source>
+        <translation>终端标签页 8</translation>
+    </message>
+    <message>
+        <source>터미널 탭 9</source>
+        <translation>终端标签页 9</translation>
     </message>
     <message>
         <source>터미널 복사</source>

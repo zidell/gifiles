@@ -45,6 +45,7 @@ qt_add_library(gifiles_core STATIC
     src/Log.h src/Log.cpp
     src/Pty.h
     src/TerminalWidget.h src/TerminalWidget.cpp
+    src/TerminalLauncher.h src/TerminalLauncher.cpp
     src/OpenWith.h src/OpenWith.cpp
     src/SystemPreview.h src/SystemPreview.cpp
     src/Updater.h src/Updater.cpp
@@ -180,6 +181,12 @@ if(Qt6Test_FOUND)
         set_target_properties(gifiles_${name} PROPERTIES WIN32_EXECUTABLE FALSE) # console: test output on stdout
         add_test(NAME ${name} COMMAND gifiles_${name})
         set_tests_properties(${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+        # A windeployqt'ed folder has only qwindows.dll; without the toolchain's offscreen plugin
+        # Qt shows a "no platform plugin" message box on every run (tests/Headless.h).
+        if(WIN32 AND TARGET Qt6::QOffscreenIntegrationPlugin)
+            target_compile_definitions(gifiles_${name} PRIVATE
+                GIFILES_QT_PLATFORMS_DIR="$<TARGET_FILE_DIR:Qt6::QOffscreenIntegrationPlugin>")
+        endif()
     endforeach()
     foreach(name smoke unit_widgets)
         qt_add_resources(gifiles_${name} "test_appicon" PREFIX "/" BASE packaging/icon FILES packaging/icon/gifiles.svg)

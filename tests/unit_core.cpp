@@ -1287,6 +1287,7 @@ private slots:
     void shortcutDefaults()
     {
         const auto *sc = Shortcuts::instance();
+        QCOMPARE(sc->defaults(QStringLiteral("터미널 펼치기")), QList<QKeySequence>{QKeySequence(QStringLiteral("Ctrl+J"))});
         // Finder's keys on every platform: Return renames, Command/Ctrl+Down opens.
         QCOMPARE(sc->defaults(QStringLiteral("열기")), QList<QKeySequence>{QKeySequence(QStringLiteral("Ctrl+Down"))});
         QCOMPARE(sc->defaults(QStringLiteral("이름 변경")), QList<QKeySequence>{QKeySequence(QStringLiteral("Return"))});

@@ -1,4 +1,5 @@
 #include "Settings.h"
+#include "TerminalLauncher.h"
 #include "RecentFolders.h"
 #include "FolderTree.h"
 #include "App.h"
@@ -167,8 +168,15 @@ const QList<Item> &items()
         {Settings::PreviewDocFontSize, Type::Int, 14, Gifiles::tr("txt·md 등 글 위주 파일 미리보기의 글꼴 크기."), {}, 9, 32,
          QStringLiteral("pt")},
 
+        {Settings::TermApp, Type::Choice, QStringLiteral("internal"),
+         Gifiles::tr("기본 터미널 앱. internal은 자체 터미널입니다. 외부 터미널은 현재 폴더에서 별도 창으로 열립니다."), {}, 0, 0, {},
+         {QStringLiteral("internal"), QStringLiteral("wt"), QStringLiteral("powershell"), QStringLiteral("pwsh"),
+          QStringLiteral("pwsh-preview"), QStringLiteral("terminal"), QStringLiteral("wezterm"), QStringLiteral("alacritty"), QStringLiteral("kitty"),
+          QStringLiteral("gnome-terminal"), QStringLiteral("konsole"), QStringLiteral("xfce4-terminal"), QStringLiteral("xterm")}},
+        {Settings::TermStartupCommand, Type::String, QString(),
+         Gifiles::tr("새 터미널의 셸 초기화 후 실행할 명령 (예: codex, claude). 빈 문자열이면 실행하지 않습니다. 선택 항목 명령을 실행할 때는 생략합니다.")},
         {Settings::TermShell, Type::String, QString(),
-         Gifiles::tr("터미널에서 실행할 셸의 경로나 이름. 빈 문자열이면 시스템 기본 셸 ($SHELL, Windows는 powershell.exe)."),
+         Gifiles::tr("자체 터미널에서 실행할 셸의 경로나 이름 (외부 터미널은 그 앱의 기본 셸). 빈 문자열이면 자동: Windows는 설치된 최신 PowerShell (7 Preview → 7 → Windows PowerShell), macOS·Linux는 로그인 셸 ($SHELL). Windows의 자체 터미널은 PowerShell만 지원합니다."),
          Gifiles::tr("새로 여는 터미널부터 적용됩니다.")},
         {Settings::TermFontFamily, Type::String, QString(),
          Gifiles::tr("터미널 글꼴 이름 (예: \"JetBrains Mono\", \"Menlo\"). 빈 문자열이면 앱에 든 D2Coding (네이버, SIL Open Font License).")},
@@ -186,7 +194,7 @@ const QList<Item> &items()
                         "  command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법\n"
                         "  key      메뉴가 열려 있을 때 이 글자 하나를 누르면 바로 실행 (A-Z 또는 0-9, 생략 가능)\n"
                         "  extensions 쉼표로 이은 확장자 (예: \"jpg,png\"). 기본값 \"*\": 모든 항목. 선택한 항목 모두가 맞아야 표시\n"
-                        "  terminal true: 아래쪽 터미널을 열고 거기서 실행해 출력을 보여 줌.\n"
+                        "  terminal true: 기본 터미널을 열고 거기서 실행해 출력을 보여 줌.\n"
                         "           false: 터미널 없이 조용히 실행하고, 실패하면 오류만 알림 (생략하면 true)\n"
                         "  id       기본 명령의 표시 (\"new_folder\", \"zip\", \"ai\"). 기본 명령은 고칠 수는 있어도 지울 수 없어서,\n"
                         "           빠져 있으면 기본값으로 다시 생깁니다. 직접 추가하는 명령에는 쓰지 않습니다.\n"
@@ -1880,16 +1888,87 @@ SettingsDialog::SettingsDialog(QWidget *parent) : QDialog(parent, Qt::Window)
 
     // 터미널
     QWidget *term = page(Gifiles::tr("터미널"), &f);
-    auto *shell = new QLineEdit(Settings::instance()->value(Settings::TermShell).toString(), term);
+    auto *app = new QComboBox(term);
+    app->setObjectName(QStringLiteral("terminalApp"));
+    app->addItem(Gifiles::tr("자체 터미널"), QStringLiteral("internal"));
+    for (const auto &entry : TerminalLauncher::available())
+        app->addItem(entry.name, entry.id);
+    follow(app, Settings::TermApp, [app] {
+        const QString id = Settings::instance()->value(Settings::TermApp).toString();
+        int i = app->findData(id);
+        if (i < 0) {
+            app->addItem(Gifiles::tr("%1 (사용 불가)").arg(id), id);
+            i = app->count() - 1;
+        }
+        app->setCurrentIndex(i);
+    });
+    connect(app, &QComboBox::currentIndexChanged, this,
+            [app] { Settings::instance()->setValue(Settings::TermApp, app->currentData().toString()); });
+    f->addRow(Gifiles::tr("기본 터미널:"), app);
+    // The shell belongs to the built-in terminal; an external app brings its own.
+    auto *shellRow = new QWidget(term);
+    auto *shellLayout = new QHBoxLayout(shellRow);
+    shellLayout->setContentsMargins(0, 0, 0, 0);
+    auto *shell = new QComboBox(shellRow);
+    shell->setObjectName(QStringLiteral("terminalShell"));
+    const auto installed = TerminalLauncher::shells();
 #ifdef Q_OS_WIN
-    shell->setPlaceholderText(QStringLiteral("powershell.exe"));
+    const QString automatic = installed.isEmpty() ? QStringLiteral("Windows PowerShell") : installed.first().name;
 #else
-    shell->setPlaceholderText(qEnvironmentVariable("SHELL", QStringLiteral("/bin/zsh")));
+    const QString automatic = QFileInfo(qEnvironmentVariable("SHELL", QStringLiteral("/bin/zsh"))).fileName();
 #endif
-    shell->setMinimumWidth(240);
-    follow(shell, Settings::TermShell, [shell] { shell->setText(Settings::instance()->value(Settings::TermShell).toString()); });
-    connect(shell, &QLineEdit::editingFinished, this, [shell] { Settings::instance()->setValue(Settings::TermShell, shell->text().trimmed()); });
-    f->addRow(Gifiles::tr("셸:"), shell);
+    shell->addItem(Gifiles::tr("자동 (%1)").arg(automatic), QString());
+    for (const auto &entry : installed)
+        shell->addItem(entry.name, entry.program);
+    const int customIndex = shell->count();
+    shell->addItem(Gifiles::tr("직접 입력…"), QStringLiteral("<custom>"));
+    auto *shellPath = new QLineEdit(shellRow);
+    shellPath->setObjectName(QStringLiteral("terminalShellPath"));
+#ifdef Q_OS_WIN
+    shellPath->setPlaceholderText(QStringLiteral("C:\\Program Files\\PowerShell\\7\\pwsh.exe"));
+#else
+    shellPath->setPlaceholderText(QStringLiteral("/bin/zsh"));
+#endif
+    shellPath->setMinimumWidth(220);
+    shellLayout->addWidget(shell);
+    shellLayout->addWidget(shellPath, 1);
+    follow(shell, Settings::TermShell, [shell, shellPath, customIndex] {
+        const QString value = Settings::instance()->value(Settings::TermShell).toString().trimmed();
+        int i = shell->findData(value);
+        if (i < 0)
+            i = customIndex;
+        shell->setCurrentIndex(i);
+        shellPath->setText(i == customIndex ? value : QString());
+        shellPath->setVisible(i == customIndex);
+    });
+    connect(shell, &QComboBox::currentIndexChanged, this, [shell, shellPath, customIndex](int i) {
+        shellPath->setVisible(i == customIndex);
+        if (i == customIndex) {
+            shellPath->setFocus();
+            return; // saved when the path is entered
+        }
+        Settings::instance()->setValue(Settings::TermShell, shell->currentData().toString());
+    });
+    connect(shellPath, &QLineEdit::editingFinished, this, [shellPath] {
+        if (!shellPath->text().trimmed().isEmpty())
+            Settings::instance()->setValue(Settings::TermShell, shellPath->text().trimmed());
+    });
+    f->addRow(Gifiles::tr("셸:"), shellRow);
+    auto shellApplies = [f, app, shellRow] { f->setRowVisible(shellRow, app->currentData().toString() == QLatin1String("internal")); };
+    shellApplies();
+    connect(app, &QComboBox::currentIndexChanged, this, shellApplies);
+    f->addRow(QString(), hint(Gifiles::tr("외부 터미널은 별도 창으로 열립니다. 폴더 동기화와 드래그 연동은 자체 터미널에서 사용할 수 있습니다.")));
+    auto *startup = new QLineEdit(term);
+    startup->setObjectName(QStringLiteral("terminalStartupCommand"));
+    startup->setMinimumWidth(320);
+    startup->setPlaceholderText(QStringLiteral("codex / claude"));
+    follow(startup, Settings::TermStartupCommand, [startup] {
+        startup->setText(Settings::instance()->value(Settings::TermStartupCommand).toString());
+    });
+    connect(startup, &QLineEdit::editingFinished, this, [startup] {
+        Settings::instance()->setValue(Settings::TermStartupCommand, startup->text().trimmed());
+    });
+    f->addRow(Gifiles::tr("초기화 후 실행할 명령:"), startup);
     auto *family = new QComboBox(term);
     family->addItem(Gifiles::tr("D2Coding (기본)"), QString());
     for (const QString &name : QFontDatabase::families())

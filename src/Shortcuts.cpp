@@ -89,7 +89,8 @@ const QList<Shortcuts::Entry> &Shortcuts::entries()
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "숨김 파일 보기")), view, L{"Ctrl+Shift+.", "Ctrl+Shift+>", "Ctrl+>"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "사이드바 보기")), view, mac ? L{"Ctrl+Meta+S"} : L{"Ctrl+Alt+S"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "미리보기 보기")), view, L{"Ctrl+Shift+P"}),
-            e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 펼치기")), view, mac ? L{"Meta+`", "Ctrl+J"} : L{"Ctrl+`", "Ctrl+J"}),
+            e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 펼치기")), view, L{"Ctrl+J"}),
+            e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 전체 펼치기")), view, L{"Ctrl+Shift+J"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "사이드바로 이동")), view, L{"Alt+Left"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "파일뷰로 이동")), view, L{"Alt+Right", "Alt+Up"}),
             e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널로 이동")), view, L{"Alt+Down"}),
@@ -136,6 +137,16 @@ const QList<Shortcuts::Entry> &Shortcuts::entries()
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "미디어 재생·일시정지")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "퀵 뷰어 조작")), L{"Return"}, QStringLiteral("preview"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 새 탭")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 조작")), L{"Ctrl+T"}, QStringLiteral("terminal"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 탭 닫기")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 조작")), L{"Ctrl+W"}, QStringLiteral("terminal"));
+        // ⌘1–⌘9 (Ctrl elsewhere) pick the terminal tab while the terminal has focus; elsewhere they stay the view keys.
+        for (const char *id : {QT_TRANSLATE_NOOP("Gifiles", "터미널 탭 1"), QT_TRANSLATE_NOOP("Gifiles", "터미널 탭 2"),
+                               QT_TRANSLATE_NOOP("Gifiles", "터미널 탭 3"), QT_TRANSLATE_NOOP("Gifiles", "터미널 탭 4"),
+                               QT_TRANSLATE_NOOP("Gifiles", "터미널 탭 5"), QT_TRANSLATE_NOOP("Gifiles", "터미널 탭 6"),
+                               QT_TRANSLATE_NOOP("Gifiles", "터미널 탭 7"), QT_TRANSLATE_NOOP("Gifiles", "터미널 탭 8"),
+                               QT_TRANSLATE_NOOP("Gifiles", "터미널 탭 9")}) {
+            const QString name = QString::fromUtf8(id);
+            l << e(name, QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 조작")), L{QStringLiteral("Ctrl+") + name.right(1)},
+                   QStringLiteral("terminal"));
+        }
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 복사")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 조작")), L{"Ctrl+C"}, QStringLiteral("terminal"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 붙여넣기")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 조작")), L{"Ctrl+V"}, QStringLiteral("terminal"));
         l << e(QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 화면 지우기")), QString::fromUtf8(QT_TRANSLATE_NOOP("Gifiles", "터미널 조작")), L{"Ctrl+K"}, QStringLiteral("terminal"));

@@ -80,8 +80,8 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
 - **Shortcut keys:** in Qt, "Ctrl" is ⌘ on macOS and "Meta" is the Control key. Give every shortcut
   explicitly per platform; don't rely on `QKeySequence::StandardKey` (offscreen tests use generic
   bindings, and a sequence registered twice is treated as ambiguous and silently ignored —
-  the `shortcutsAreUnique` test guards this). The Korean input source turns \` into ₩, so the
-  terminal toggle accepts both ⌃\` and ⌃₩ (and the terminal lets both through).
+  the `shortcutsAreUnique` test guards this). The terminal toggle defaults to Cmd+J on macOS
+  and Ctrl+J on Windows/Linux.
 - **Deleting:** the app never deletes permanently. Removal goes to the trash (`QFile::moveToTrash`);
   "replace" in a name conflict trashes the old item. Every file operation records an `UndoRecord`
   (FileOps) so ⌘Z / ⇧⌘Z work; new operations must do the same (add a `Step` kind if needed, with
@@ -164,6 +164,18 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
 - **Terminal panel:** its header bar always stays at the bottom; folding hides the terminal and
   gives the space to the list (`setTerminalHeight(kTermHeaderHeight)`); dragging the folded edge
   up unfolds at that height, dragging an open one down to the bar folds it. No animation.
+  The expand button / Cmd+Shift+J (Ctrl+Shift+J elsewhere) hides the file content above the
+  terminal; returning restores the normal height (`m_termHeight`, never the full height).
+  Moving focus to files restores the content. `terminalExpanded` is saved separately in the session.
+- **Default terminal and startup:** `terminal.app` defaults to `internal`; `TerminalLauncher`
+  discovers supported installed apps and builds separate argv/cwd for each platform. External apps
+  open only on explicit requests, never on folder following or session restore. The default also
+  applies to selection commands with `terminal = true`. `terminal.startup_command` is queued through
+  the embedded terminal's ready/idle/empty-line checks once per user-created shell; unfolding never
+  reruns it. Explicit selection commands replace startup, and tabs created automatically by
+  `terminalFollow` skip startup so browsing cannot spawn repeated AI programs. Panel state APIs
+  remain embedded-only. macOS Terminal opens a quoted, owner-executable temporary `.command` file
+  that removes itself before starting the shell; no AppleScript is used.
 - **Terminal text:** libvterm marks the right half of double-width characters with 0xFFFFFFFF —
   skip those cells; macOS file names are NFD, so compose cell text to NFC before drawing.
 - **Tabs between windows** (`MainWindow::tabBarEvent`, `moveTabTo`, `detachTab`, `mergeAllWindows`): the tab bar's
@@ -400,7 +412,7 @@ again; leave out what only mattered once.
 - Windows/Linux by hand on a real desktop (see Status), the Windows preview handlers with Office, Linux
   LibreOffice conversion, a real automatic update end to end on each OS, ejecting drives on Windows/Linux.
 - macOS by real input: terminal edge drags, a click into the Quick Look system view then Space,
-  menu letters and ⌃\` under the Korean input source, BTT drags after the hit-test fix, Claude Code's faint
+  menu letters and Cmd+J under the Korean input source, BTT drags after the hit-test fix, Claude Code's faint
   text on the real screen (measured offscreen only).
 - i18n: translations were drafted by agents and need a native read (ja, zh_CN especially); dates use the
   Korean pattern in every language (`util::humanDate`).

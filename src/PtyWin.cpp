@@ -99,7 +99,10 @@ bool Pty::start(const QString &program, const QStringList &args, const QString &
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     for (const QString &kv : extraEnv) {
         const int eq = kv.indexOf(QLatin1Char('='));
-        env.insert(kv.left(eq), kv.mid(eq + 1));
+        if (eq < 0)
+            env.remove(kv);
+        else
+            env.insert(kv.left(eq), kv.mid(eq + 1));
     }
     std::wstring block;
     for (const QString &kv : env.toStringList())

@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "TerminalLauncher.h"
 #include "FolderTree.h"
 #include "App.h"
 #include "PathBar.h"
@@ -245,16 +246,31 @@ MainWindow::MainWindow(const QStringList &tabPaths, QWidget *parent) : QMainWind
     termAdd->setToolTip(Gifiles::tr("새로운 터미널 탭 (터미널에서 Ctrl+Shift+T)"));
 #endif
     connect(termAdd, &QToolButton::clicked, this, [this] {
+        if (openExternalTerminal())
+            return;
         addTerminal(tab(), tab()->path());
         setTerminalVisible(true);
     });
     m_themed << qMakePair(QPointer<QToolButton>(termAdd), QStringLiteral("plus"));
     hl->addWidget(termAdd);
     hl->addStretch(1);
+    m_termExpand = new QToolButton(termHeader);
+    m_termExpand->setObjectName(QStringLiteral("flat"));
+    m_termExpand->setProperty("terminalExpand", true);
+    m_termExpand->setFocusPolicy(Qt::NoFocus);
+    m_termExpand->setToolTip(Gifiles::tr("터미널 전체 펼치기"));
+    m_termExpand->hide();
+    connect(m_termExpand, &QToolButton::clicked, this, [this] { setTerminalExpanded(!m_termExpanded); });
+    m_themed << qMakePair(QPointer<QToolButton>(m_termExpand), QStringLiteral("expand"));
+    hl->addWidget(m_termExpand);
     m_termToggle = new QToolButton(termHeader);
     m_termToggle->setObjectName(QStringLiteral("flat"));
     m_termToggle->setFocusPolicy(Qt::NoFocus);
-    connect(m_termToggle, &QToolButton::clicked, this, [this] { setTerminalVisible(!m_terminalAct->isChecked()); });
+    connect(m_termToggle, &QToolButton::clicked, this, [this] {
+        if (!m_termOpen && openExternalTerminal())
+            return;
+        setTerminalVisible(!m_termOpen);
+    });
     m_themed << qMakePair(QPointer<QToolButton>(m_termToggle), QStringLiteral("chevron-up-small"));
     hl->addWidget(m_termToggle);
     tl->addWidget(termHeader);
@@ -300,6 +316,8 @@ MainWindow::MainWindow(const QStringList &tabPaths, QWidget *parent) : QMainWind
     // Dragging the edge of a folded terminal up unfolds it at that height; dragging an open one
     // down to the bar folds it.
     connect(m_vsplit, &QSplitter::splitterMoved, this, [this] {
+        if (m_termExpanded)
+            return;
         const int h = m_vsplit->sizes().value(1);
         if (!m_terminalAct->isChecked() && h > kTermHeaderHeight + 12)
             setTerminalVisible(true, true);
@@ -499,16 +517,25 @@ void MainWindow::createActions()
         updateStatus();
     });
     m_showPreview->setCheckable(true);
-    // The Korean input source turns the ` key into ₩; Shortcuts accepts both.
-    m_terminalAct = act(QStringLiteral("터미널 펼치기"), [this] { setTerminalVisible(m_terminalAct->isChecked()); });
+    m_terminalAct = act(QStringLiteral("터미널 펼치기"), [this] {
+        if (m_terminalAct->isChecked() && openExternalTerminal())
+            return;
+        setTerminalVisible(m_terminalAct->isChecked());
+    });
     m_terminalAct->setCheckable(true);
+    m_terminalExpandAct = act(QStringLiteral("터미널 전체 펼치기"), [this] { setTerminalExpanded(!m_termExpanded); });
     m_focusSidebarAct = act(QStringLiteral("사이드바로 이동"), [this] {
         if (!m_sidebarPanel->isVisible())
             m_showSidebar->trigger();
         focusSidebar();
     });
-    m_focusFilesAct = act(QStringLiteral("파일뷰로 이동"), [this] { tab()->focusView(); });
+    m_focusFilesAct = act(QStringLiteral("파일뷰로 이동"), [this] {
+        setTerminalExpanded(false);
+        tab()->focusView();
+    });
     m_focusTerminalAct = act(QStringLiteral("터미널로 이동"), [this] {
+        if (openExternalTerminal())
+            return;
         if (!m_termOpen)
             setTerminalVisible(true);
         else if (term())
@@ -597,7 +624,7 @@ void MainWindow::createMenus()
     QMenu *view = menuBar()->addMenu(Gifiles::tr("보기"));
     view->addActions({m_modeGallery, m_modeList, m_modeColumns});
     view->addSeparator();
-    view->addActions({m_showHidden, m_showSidebar, m_showPreview, m_terminalAct});
+    view->addActions({m_showHidden, m_showSidebar, m_showPreview, m_terminalAct, m_terminalExpandAct});
     view->addSeparator();
     view->addActions({m_focusSidebarAct, m_focusFilesAct, m_focusTerminalAct});
     view->addSeparator();
@@ -811,6 +838,12 @@ void MainWindow::placeFolderTree()
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *ev)
 {
+    // This window owns panel sizing; keep its shortcut out of the terminal's shell input.
+    if (qobject_cast<TerminalWidget *>(obj) && ev->type() == QEvent::ShortcutOverride
+        && Shortcuts::instance()->matches(QStringLiteral("터미널 전체 펼치기"), static_cast<QKeyEvent *>(ev))) {
+        ev->ignore();
+        return true;
+    }
     if (obj == m_tabs->tabBar() && tabBarEvent(ev))
         return true;
     if (obj == this && m_folderTree && m_folderTree->isVisible() && ev->type() == QEvent::Resize)
@@ -830,6 +863,8 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *ev)
     }
     if (obj == m_termHeader && ev->type() == QEvent::MouseButtonRelease
         && static_cast<QMouseEvent *>(ev)->button() == Qt::LeftButton) {
+        if (!m_termOpen && openExternalTerminal())
+            return true;
         setTerminalVisible(!m_terminalAct->isChecked());
         return true;
     }
@@ -1113,10 +1148,8 @@ void MainWindow::runQuietly(const QString &label, const QString &command, const 
     auto *proc = new QProcess(this);
     proc->setWorkingDirectory(dir);
     proc->setProcessChannelMode(QProcess::MergedChannels);
-    QString shell = Settings::instance()->value(Settings::TermShell).toString().trimmed();
+    const QString shell = TerminalLauncher::defaultShell();
 #ifdef Q_OS_WIN
-    if (shell.isEmpty())
-        shell = QStringLiteral("powershell.exe");
     // -EncodedCommand (UTF-16, base64): no command-line quoting to get wrong; stop at the first
     // error so a failure gives a non-zero exit code; UTF-8 output for the report.
     const QString script = QStringLiteral("$ErrorActionPreference = 'Stop'; [Console]::OutputEncoding = [Text.Encoding]::UTF8; ") + command;
@@ -1125,8 +1158,6 @@ void MainWindow::runQuietly(const QString &label, const QString &command, const 
     proc->setArguments({QStringLiteral("-NoProfile"), QStringLiteral("-NonInteractive"), QStringLiteral("-EncodedCommand"),
                         QString::fromLatin1(utf16.toBase64())});
 #else
-    if (shell.isEmpty())
-        shell = qEnvironmentVariable("SHELL", QStringLiteral("/bin/sh"));
     proc->setProgram(shell);
     proc->setArguments({QStringLiteral("-l"), QStringLiteral("-c"), command}); // login: the user's PATH
 #endif
@@ -1240,10 +1271,12 @@ void MainWindow::eject(const QString &root)
 
 void MainWindow::runInTerminal(const QString &command)
 {
-    setTerminalVisible(true); // shows the run; starts the shell if needed
+    if (openExternalTerminal(command))
+        return;
+    setTerminalVisible(true, false, true, false); // explicit commands replace the startup command
     TerminalWidget *t = term();
     if (t->isBusy()) // a program is running there: run beside it
-        t = addTerminal(tab(), tab()->path());
+        t = addTerminal(tab(), tab()->path(), false);
     t->runCommand(command);
     // A closing popup hands focus back to the list afterwards; take it for the terminal.
     QTimer::singleShot(0, this, [this] {
@@ -1261,8 +1294,51 @@ void MainWindow::setTerminalHeight(int h)
     m_vsplit->setSizes({total - h, h});
 }
 
-void MainWindow::setTerminalVisible(bool visible, bool keepHeight, bool takeFocus)
+bool MainWindow::openExternalTerminal(const QString &command)
 {
+    if (Settings::instance()->value(Settings::TermApp).toString() == QLatin1String("internal"))
+        return false;
+    const QString line = command.isEmpty() ? Settings::instance()->value(Settings::TermStartupCommand).toString() : command;
+    if (!TerminalLauncher::launch(tab()->path(), line))
+        QMessageBox::warning(this, Gifiles::tr("터미널"), Gifiles::tr("선택한 터미널 앱을 실행하지 못했습니다. 환경설정에서 기본 터미널을 확인하세요."));
+    m_terminalAct->setChecked(m_termOpen);
+    return true;
+}
+
+void MainWindow::setTerminalExpanded(bool expanded)
+{
+    if (expanded == m_termExpanded)
+        return;
+    if (expanded && !m_termOpen) {
+        setTerminalVisible(true);
+        if (!m_termOpen)
+            return;
+    }
+    if (expanded) {
+        m_termHeight = m_vsplit->sizes().value(1);
+        m_termExpanded = true;
+        m_vsplit->widget(0)->hide();
+    } else {
+        m_termExpanded = false;
+        m_vsplit->widget(0)->show();
+        const int total = m_vsplit->sizes().value(0) + m_vsplit->sizes().value(1);
+        setTerminalHeight(qBound(kTermHeaderHeight + 40, m_termHeight, qMax(kTermHeaderHeight + 40, total - 120)));
+    }
+    const QString glyph = expanded ? QStringLiteral("shrink") : QStringLiteral("expand");
+    m_termExpand->setToolTip(expanded ? Gifiles::tr("터미널 원래 높이로") : Gifiles::tr("터미널 전체 펼치기"));
+    m_terminalExpandAct->setText(m_termExpand->toolTip());
+    for (auto &[button, name] : m_themed)
+        if (button == m_termExpand)
+            name = glyph;
+    m_termExpand->setIcon(Theme::icon(glyph));
+    if (term())
+        term()->setFocus();
+}
+
+void MainWindow::setTerminalVisible(bool visible, bool keepHeight, bool takeFocus, bool runStartup)
+{
+    if (!visible && m_termExpanded)
+        setTerminalExpanded(false);
     const bool wasOpen = m_termOpen;
     m_termOpen = visible;
     tab()->setTerminalOpen(visible);
@@ -1274,6 +1350,7 @@ void MainWindow::setTerminalVisible(bool visible, bool keepHeight, bool takeFocu
             glyph = visible ? QStringLiteral("chevron-down-small") : QStringLiteral("chevron-up-small");
     m_termToggle->setIcon(Theme::icon(visible ? QStringLiteral("chevron-down-small") : QStringLiteral("chevron-up-small")));
     m_termAdd->setVisible(visible);
+    m_termExpand->setVisible(visible);
     if (!visible) {
         // Fold: only the bar is left, at the bottom edge. The shell keeps running and unfolding
         // resumes where it was.
@@ -1289,7 +1366,7 @@ void MainWindow::setTerminalVisible(bool visible, bool keepHeight, bool takeFocu
         return;
     }
     if (tab()->terminals()->count() == 0)
-        addTerminal(tab(), tab()->path());
+        addTerminal(tab(), tab()->path(), runStartup);
     m_termStacks->show();
     if (!keepHeight && (!wasOpen || m_vsplit->sizes().value(1) < 80)) {
         const int total = m_vsplit->sizes().value(0) + m_vsplit->sizes().value(1);
@@ -1338,17 +1415,19 @@ void MainWindow::showTerminalsOf(BrowserTab *t)
     m_termTabs->setVisible(stack->count() > 0);
     m_termTitle->setVisible(stack->count() == 0);
     if (t->terminalOpen() != m_termOpen)
-        setTerminalVisible(t->terminalOpen(), false, false);
+        setTerminalVisible(t->terminalOpen(), false, false, false); // restoring, not a user-created shell
     else if (m_termOpen && stack->count() == 0)
-        setTerminalVisible(true, true, false); // starts this tab's first shell
+        setTerminalVisible(true, true, false, false); // starts this tab's first shell
 }
 
-TerminalWidget *MainWindow::addTerminal(BrowserTab *owner, const QString &cwd)
+TerminalWidget *MainWindow::addTerminal(BrowserTab *owner, const QString &cwd, bool runStartup)
 {
     QStackedWidget *stack = owner->terminals();
     auto *t = new TerminalWidget(stack);
     connectTerminal(owner, t);
     t->start(cwd);
+    if (runStartup)
+        t->runCommand(Settings::instance()->value(Settings::TermStartupCommand).toString().trimmed());
     const int i = stack->currentIndex() + 1; // next to the current one, like Chrome
     stack->insertWidget(i, t);
     stack->setCurrentIndex(i);
@@ -1368,6 +1447,7 @@ TerminalWidget *MainWindow::addTerminal(BrowserTab *owner, const QString &cwd)
 void MainWindow::connectTerminal(BrowserTab *owner, TerminalWidget *t)
 {
     QPointer<BrowserTab> tabOf(owner);
+    t->installEventFilter(this);
     connect(t, &TerminalWidget::titleChanged, this, [this, t] { updateTerminalTab(t); });
     connect(t, &TerminalWidget::commandEntered, this, [t](const QString &line) { RecentFolders::instance()->noteCommand(t->shellCwd(), line); });
     // The shell's own cd's move its browser tab too (the "terminal ↔ files" link); only that tab's shown terminal's.
@@ -1387,6 +1467,10 @@ void MainWindow::connectTerminal(BrowserTab *owner, TerminalWidget *t)
     connect(t, &TerminalWidget::closeRequested, this, [this, t, tabOf] {
         if (tabOf)
             closeTerminal(tabOf, t);
+    });
+    connect(t, &TerminalWidget::tabRequested, this, [this, tabOf](int i) {
+        if (tabOf == tab() && i < m_termTabs->count())
+            m_termTabs->setCurrentIndex(i); // the terminal has focus, so the new tab takes it
     });
 }
 
@@ -1445,7 +1529,7 @@ void MainWindow::terminalFollow(BrowserTab *owner, const QString &path)
         return;
     if (t->isBusy() && !t->isAt(path)) {
         Log::write("terminal", QStringLiteral("busy → new terminal tab at %1").arg(path));
-        addTerminal(owner, path); // the running program keeps its tab
+        addTerminal(owner, path, false); // the running program keeps its tab; following never runs the startup command
         return;
     }
     if (!t->isAt(path))
@@ -2435,7 +2519,8 @@ QVariantMap MainWindow::saveState() const
             {QStringLiteral("sidebar"), m_sidebarPanel->isVisible()},
             {QStringLiteral("preview"), m_previewPane->isVisible()},
             {QStringLiteral("terminal"), m_terminalAct->isChecked()},
-            {QStringLiteral("terminalHeight"), m_terminalAct->isChecked() ? m_vsplit->sizes().value(1) : m_termHeight},
+            {QStringLiteral("terminalExpanded"), m_termExpanded},
+            {QStringLiteral("terminalHeight"), m_terminalAct->isChecked() && !m_termExpanded ? m_vsplit->sizes().value(1) : m_termHeight},
             {QStringLiteral("vsplit"), m_vsplit->saveState()}};
 }
 
@@ -2463,8 +2548,13 @@ void MainWindow::restoreState(const QVariantMap &s)
     m_termHeight = s.value(QStringLiteral("terminalHeight"), 0).toInt();
     if (!s.value(QStringLiteral("terminal"), false).toBool())
         setTerminalHeight(kTermHeaderHeight);
+    else if (Settings::instance()->value(Settings::TermApp).toString() == QLatin1String("internal"))
+        QTimer::singleShot(0, this, [this, expanded = s.value(QStringLiteral("terminalExpanded"), false).toBool()] {
+            setTerminalVisible(true);
+            setTerminalExpanded(expanded);
+        });
     else
-        QTimer::singleShot(0, this, [this] { setTerminalVisible(true); });
+        setTerminalHeight(kTermHeaderHeight);
     updateNav();
     updateStatus();
 }

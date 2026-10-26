@@ -4,6 +4,7 @@
 #include <QFont>
 #include <QHash>
 #include <QPoint>
+#include <QProcessEnvironment>
 #include <QTimer>
 #include <QVector>
 #include <QWidget>
@@ -51,6 +52,9 @@ public:
     static bool drawBoxGlyph(QPainter &p, const QRectF &cell, char32_t ch, const QColor &color);
     // How many bytes at the end of `data` are an unfinished UTF-8 character (0: it ends cleanly).
     static int incompleteUtf8Tail(const QByteArray &data);
+    // What an AI agent's tool shell left in `env` when that agent launched Gifiles, for the terminal's shell to drop
+    // (empty when no agent launched it): NO_COLOR, pagers set to cat, the agent's own markers, its C.UTF-8 locale.
+    static QStringList agentLeftovers(const QProcessEnvironment &env);
     // The bundled default font (D2Coding), registered on first use; empty if it couldn't be.
     static QString bundledFont();
     // `fg` moved toward white (dark bg) or black (light bg) just enough for `ratio` contrast (WCAG) with `bg`.
@@ -73,6 +77,7 @@ signals:
     // Configurable terminal tab keys (Cmd on macOS, Ctrl on Windows/Linux).
     void newTabRequested();
     void closeRequested();
+    void tabRequested(int index); // ⌘1–⌘9: the n-th terminal tab
 
 protected:
     bool event(QEvent *e) override;

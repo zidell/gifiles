@@ -12,6 +12,11 @@ namespace gifiles_test {
 inline const bool headless = [] {
     if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM"))
         qputenv("QT_QPA_PLATFORM", "offscreen");
+#ifdef GIFILES_QT_PLATFORMS_DIR
+    // A deployed Windows build folder has no offscreen plugin: take the toolchain's.
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM_PLUGIN_PATH"))
+        qputenv("QT_QPA_PLATFORM_PLUGIN_PATH", GIFILES_QT_PLATFORMS_DIR);
+#endif
     return true;
 }();
 } // namespace gifiles_test

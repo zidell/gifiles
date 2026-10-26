@@ -786,7 +786,7 @@ private slots:
         auto canon = [](const QString &x) { return QFileInfo(x).canonicalFilePath(); };
         TerminalWidget *term = nullptr;
         auto screen = [&term] { return term->screenText().remove(QLatin1Char('\n')); }; // long paths wrap
-        key(Qt::Key_QuoteLeft, kTerminalMods); // ⌃` shows the terminal
+        key(Qt::Key_J, Qt::ControlModifier); // Cmd/Ctrl+J shows the terminal
         QTRY_VERIFY2((term = m_win->findChild<TerminalWidget *>()) && term->isRunning(),
                      qPrintable(term ? term->screenText() : QStringLiteral("no terminal")));
         QTRY_VERIFY2_WITH_TIMEOUT(term->isReady(), qPrintable(term->screenText()), 15000);
@@ -881,7 +881,7 @@ private slots:
         QTest::keyClick(term, Qt::Key_Return);
         QTRY_COMPARE(canon(tab()->path()), canon(p("Alpha")));
 
-        key(Qt::Key_QuoteLeft, kTerminalMods); // folds again; the shell keeps running
+        key(Qt::Key_J, Qt::ControlModifier); // folds again; the shell keeps running
         QTRY_VERIFY(!term->isVisible());
         QVERIFY(term->isRunning());
         auto *header = m_win->findChild<QWidget *>(QStringLiteral("termHeader"));
@@ -941,7 +941,7 @@ private slots:
         auto *bar = m_win->findChild<QTabBar *>(QStringLiteral("termTabs"));
         QVERIFY(bar);
         tab()->navigate(m_tmp.path());
-        key(Qt::Key_QuoteLeft, kTerminalMods);
+        key(Qt::Key_J, Qt::ControlModifier);
         QPointer<TerminalWidget> first = current();
         QTRY_VERIFY(first && first->isVisible() && first->isRunning());
         QTRY_VERIFY2_WITH_TIMEOUT(first->isReady(), qPrintable(first->screenText()), 15000);
@@ -995,11 +995,25 @@ private slots:
         QVERIFY(third != second);
         QTRY_VERIFY(third->hasFocus());
         QCOMPARE(m_win->findChild<QTabWidget *>()->count(), browserTabs);
+
+        // ⌘1–⌘9 in the terminal pick a terminal tab; the list keeps its view (⌘1 there is the gallery).
+        const BrowserTab::Mode mode = tab()->mode();
+        key(Qt::Key_1, kTabMods);
+        QTRY_COMPARE(bar->currentIndex(), 0);
+        QTRY_VERIFY(current()->hasFocus());
+        QCOMPARE(tab()->mode(), mode);
+        key(Qt::Key_9, kTabMods); // no ninth tab: nothing moves
+        QCOMPARE(bar->currentIndex(), 0);
+        auto *stack = m_win->findChild<QStackedWidget *>(QStringLiteral("termStack"));
+        key(Qt::Key(Qt::Key_1 + stack->indexOf(third)), kTabMods);
+        QTRY_COMPARE(current(), third.data());
+        QTRY_VERIFY(third->hasFocus());
+
         emit bar->tabCloseRequested(bar->currentIndex()); // the tab's close button
         QTRY_VERIFY(!third);
         QCOMPARE(bar->count(), before);
 
-        key(Qt::Key_QuoteLeft, kTerminalMods); // fold again
+        key(Qt::Key_J, Qt::ControlModifier); // fold again
         QTRY_VERIFY(!second->isVisible());
         Settings::instance()->setValue(Settings::TermShell, QString());
     }
@@ -1033,7 +1047,7 @@ private slots:
         });
         BrowserTab *a = tab();
         a->navigate(p("Alpha"));
-        key(Qt::Key_QuoteLeft, kTerminalMods);
+        key(Qt::Key_J, Qt::ControlModifier);
         QPointer<TerminalWidget> first = current();
         QTRY_VERIFY(first && first->isVisible());
         QTRY_VERIFY2_WITH_TIMEOUT(first->isReady(), qPrintable(first->screenText()), 15000);
@@ -1052,7 +1066,7 @@ private slots:
         QTRY_VERIFY(!first->isVisible());
         QCOMPARE(bar->count(), 0);
         QCOMPARE(m_win->findChildren<TerminalWidget *>().size(), 1); // nothing opened for the busy one
-        key(Qt::Key_QuoteLeft, kTerminalMods); // this tab's own terminal
+        key(Qt::Key_J, Qt::ControlModifier); // this tab's own terminal
         QPointer<TerminalWidget> second = current();
         QTRY_VERIFY(second && second != first && second->isVisible());
         QTRY_VERIFY2_WITH_TIMEOUT(second->isReady(), qPrintable(second->screenText()), 15000);
@@ -1074,7 +1088,7 @@ private slots:
         QCOMPARE(canon(second->shellCwd()), canon(p("Beta")));
 
         // Folded in B stays folded in B; A still opens unfolded.
-        key(Qt::Key_QuoteLeft, kTerminalMods);
+        key(Qt::Key_J, Qt::ControlModifier);
         QTRY_VERIFY(!second->isVisible());
         tabs->setCurrentWidget(a);
         QTRY_VERIFY(first->isVisible());
@@ -1178,7 +1192,7 @@ private slots:
         QTRY_VERIFY2(term->hasFocus(), qPrintable(QStringLiteral("active=%1 focus=%2").arg(
             QApplication::activeWindow() ? QApplication::activeWindow()->metaObject()->className() : "none",
             QApplication::focusWidget() ? QApplication::focusWidget()->metaObject()->className() : "none"))); // the terminal took the keyboard
-        key(Qt::Key_QuoteLeft, kTerminalMods); // fold again
+        key(Qt::Key_J, Qt::ControlModifier); // fold again
         QTRY_VERIFY(!term->isVisible());
     }
 
@@ -1404,7 +1418,10 @@ private slots:
     {
         // The capture window and the rebinding rules: unit_widgets shortcutsCanBeRebound.
         Shortcuts *sc = Shortcuts::instance();
-        const auto restore = qScopeGuard([sc] { sc->reset(QStringLiteral("열기")); });
+        const auto restore = qScopeGuard([sc] {
+            sc->reset(QStringLiteral("열기"));
+            sc->reset(QStringLiteral("터미널 전체 펼치기")); // this test borrows its default key
+        });
         sc->assign(QStringLiteral("열기"), QKeySequence(QStringLiteral("Ctrl+Shift+J")));
         // Saved in config.toml, active in the window: the new key opens, the old one no longer does.
         auto saved = [] {
@@ -1518,7 +1535,7 @@ private slots:
             QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(p(QStringLiteral("cmdtest/새 폴더/새 폴더/") + n)), 20000);
         TerminalWidget *term = m_win->findChild<TerminalWidget *>();
         QVERIFY(term && term->isVisible());
-        key(Qt::Key_QuoteLeft, kTerminalMods); // fold again
+        key(Qt::Key_J, Qt::ControlModifier); // fold again
         QTRY_VERIFY(!term->isVisible());
         tab()->navigate(m_tmp.path());
     }
@@ -2090,7 +2107,7 @@ private slots:
         QCOMPARE(v->sizeHintForRow(0), rowBefore);
 
         // With the terminal focused the same keys size the terminal's text, not the list's.
-        key(Qt::Key_QuoteLeft, kTerminalMods);
+        key(Qt::Key_J, Qt::ControlModifier);
         TerminalWidget *term = nullptr;
         QTRY_VERIFY((term = m_win->findChild<TerminalWidget *>()) && term->isVisible());
         term->setFocus();
@@ -2105,7 +2122,78 @@ private slots:
         key(Qt::Key_0, Qt::ControlModifier);
         QTRY_VERIFY(!s->contains(Settings::TermFontSize));
         QCOMPARE(s->value(Settings::FontSize).toInt(), 0); // the list's size stayed
-        key(Qt::Key_QuoteLeft, kTerminalMods); // fold again
+        key(Qt::Key_J, Qt::ControlModifier); // fold again
+    }
+
+    void terminalExpansionRestoresHeightAndFocus()
+    {
+        key(Qt::Key_J, Qt::ControlModifier);
+        QToolButton *expand = nullptr;
+        for (auto *button : m_win->findChildren<QToolButton *>())
+            if (button->property("terminalExpand").toBool())
+                expand = button;
+        QVERIFY(expand);
+        QTRY_VERIFY(expand->isVisible());
+        const int height = m_win->saveState().value(QStringLiteral("terminalHeight")).toInt();
+        QVERIFY(height > 40);
+        key(Qt::Key_J, Qt::ControlModifier | Qt::ShiftModifier);
+        QTRY_VERIFY(m_win->saveState().value(QStringLiteral("terminalExpanded")).toBool());
+        QVERIFY(!tab()->isVisible());
+        QCOMPARE(m_win->saveState().value(QStringLiteral("terminalHeight")).toInt(), height);
+        shot(QStringLiteral("terminal-expanded"));
+        expand->click();
+        QTRY_VERIFY(tab()->isVisible());
+        QTRY_VERIFY(qAbs(m_win->saveState().value(QStringLiteral("terminalHeight")).toInt() - height) <= 2);
+        expand->click();
+        key(Qt::Key_Right, Qt::AltModifier);
+        QTRY_VERIFY(tab()->isVisible());
+        QVERIFY(!m_win->saveState().value(QStringLiteral("terminalExpanded")).toBool());
+        expand->click();
+        key(Qt::Key_J, Qt::ControlModifier);
+        QTRY_VERIFY(tab()->isVisible());
+        QVERIFY(!expand->isVisible());
+    }
+
+    void terminalStartupRunsOnceAndExplicitCommandReplacesIt()
+    {
+#if defined(Q_OS_MACOS)
+        Settings::instance()->setValue(Settings::TermShell, QStringLiteral("/bin/sh"));
+#elif !defined(Q_OS_WIN)
+        Settings::instance()->setValue(Settings::TermShell, QStringLiteral("/bin/bash"));
+#endif
+        const QString marker = p(QStringLiteral("startup-marker.txt"));
+        const QString explicitMarker = p(QStringLiteral("explicit-marker.txt"));
+        const auto restore = qScopeGuard([&] {
+            Settings::instance()->remove(Settings::TermStartupCommand);
+            QFile::remove(marker);
+            QFile::remove(explicitMarker);
+        });
+        Settings::instance()->setValue(Settings::TermStartupCommand,
+            QStringLiteral("echo startup >> ") + TerminalWidget::quoteWord(QDir::toNativeSeparators(marker)));
+        key(Qt::Key_J, Qt::ControlModifier);
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo(marker).size() > 0, 15000);
+        auto *terminal = m_win->findChild<TerminalWidget *>();
+        QVERIFY(terminal);
+        QTRY_VERIFY(!terminal->isBusy());
+        const qint64 size = QFileInfo(marker).size();
+        key(Qt::Key_J, Qt::ControlModifier);
+        key(Qt::Key_J, Qt::ControlModifier);
+        QTest::qWait(600);
+        QCOMPARE(QFileInfo(marker).size(), size);
+        auto *bar = m_win->findChild<QTabBar *>(QStringLiteral("termTabs"));
+        while (bar->count())
+            emit bar->tabCloseRequested(bar->currentIndex());
+        QTRY_VERIFY(m_win->findChildren<TerminalWidget *>().isEmpty());
+        QVERIFY(QFile::remove(marker));
+        QVariantMap command{{QStringLiteral("label"), QStringLiteral("startup override")},
+            {QStringLiteral("terminal"), true}, {QStringLiteral("command"), QStringLiteral("echo explicit > ")
+                + TerminalWidget::quoteWord(QDir::toNativeSeparators(explicitMarker))}};
+        m_win->runSelectionCommand(command, {m_tmp.path()});
+        auto *explicitTerminal = m_win->findChild<TerminalWidget *>();
+        QVERIFY(explicitTerminal);
+        QTRY_VERIFY2_WITH_TIMEOUT(explicitTerminal->isReady(), qPrintable(explicitTerminal->screenText()), 15000);
+        QTRY_VERIFY2_WITH_TIMEOUT(QFileInfo(explicitMarker).size() > 0, qPrintable(explicitTerminal->screenText()), 15000);
+        QVERIFY(!QFile::exists(marker));
     }
 
     void terminalAddButtonOnlyWhenOpen()
@@ -2135,7 +2223,7 @@ private slots:
         // ⌘J (Ctrl+J on Windows/Linux) unfolds and folds the terminal, also with the terminal focused.
         TerminalWidget *term = m_win->findChild<TerminalWidget *>();
         if (term && term->isVisible())
-            key(Qt::Key_QuoteLeft, kTerminalMods); // fold first
+            key(Qt::Key_J, Qt::ControlModifier); // fold first
         tab()->focusView();
         key(Qt::Key_J, Qt::ControlModifier);
         QTRY_VERIFY((term = m_win->findChild<TerminalWidget *>()) && term->isVisible());
@@ -3352,7 +3440,7 @@ private slots:
 
         // The terminal: cd and ls don't count, a command that does something does.
         tab()->navigate(p("recent/typed"));
-        key(Qt::Key_QuoteLeft, kTerminalMods);
+        key(Qt::Key_J, Qt::ControlModifier);
         TerminalWidget *term = nullptr;
         QTRY_VERIFY((term = m_win->findChild<TerminalWidget *>()) && term->isVisible());
         QTRY_VERIFY2_WITH_TIMEOUT(term->isReady(), qPrintable(term->screenText()), 15000);
@@ -3381,7 +3469,7 @@ private slots:
         };
         QTRY_COMPARE(canon(shown()), canon({p("recent/typed"), p("recent/worked")}));
         QVERIFY(!shown().contains(p("recent/looked")));
-        key(Qt::Key_QuoteLeft, kTerminalMods); // fold again
+        key(Qt::Key_J, Qt::ControlModifier); // fold again
 
         // A click on one opens it.
         tab()->navigate(m_tmp.path());
@@ -3769,7 +3857,7 @@ private slots:
         QStackedWidget *stack = termStack();
         QVERIFY(bar && stack);
         tab()->navigate(p("Alpha"));
-        key(Qt::Key_QuoteLeft, kTerminalMods);
+        key(Qt::Key_J, Qt::ControlModifier);
         QTRY_COMPARE(bar->count(), 1);
         auto *first = qobject_cast<TerminalWidget *>(stack->widget(0));
         QTRY_VERIFY(first && first->isReady());
@@ -3782,13 +3870,13 @@ private slots:
         QCOMPARE(stack->widget(0), static_cast<QWidget *>(second));
         QCOMPARE(stack->widget(1), static_cast<QWidget *>(first));
         QCOMPARE(stack->currentWidget(), stack->widget(bar->currentIndex()));
-        key(Qt::Key_QuoteLeft, kTerminalMods); // fold
+        key(Qt::Key_J, Qt::ControlModifier); // fold
         QTRY_VERIFY(!first->isVisible() && !second->isVisible());
         auto *shown = qobject_cast<TerminalWidget *>(stack->widget(bar->currentIndex()));
         QTest::mouseClick(bar, Qt::LeftButton, {}, bar->tabRect(bar->currentIndex()).center());
         QTRY_VERIFY(shown->isVisible());
         QTRY_VERIFY(shown->hasFocus());
-        key(Qt::Key_QuoteLeft, kTerminalMods);
+        key(Qt::Key_J, Qt::ControlModifier);
         QTRY_VERIFY(!shown->isVisible());
         tab()->navigate(m_tmp.path());
 

@@ -108,12 +108,15 @@ private:
     void placeFolderTree();
     // keepHeight: unfolding by dragging the edge, the panel keeps the dragged height.
     // takeFocus: unfolding gives the terminal the keyboard, folding gives it to the list.
-    void setTerminalVisible(bool visible, bool keepHeight = false, bool takeFocus = true);
+    // runStartup: a first shell started here runs terminal.startup_command (not for restored or explicit runs).
+    void setTerminalVisible(bool visible, bool keepHeight = false, bool takeFocus = true, bool runStartup = true);
+    bool openExternalTerminal(const QString &command = {});
+    void setTerminalExpanded(bool expanded);
     QString debugState() const; // one line for the debug log: folder, view, selection, focus
     // Terminal tabs (Chrome-like, in the panel's bar) belong to a browser tab (BrowserTab::terminals());
     // the panel shows the current browser tab's. term() is its current one, or none yet.
     TerminalWidget *term() const;
-    TerminalWidget *addTerminal(BrowserTab *owner, const QString &cwd);
+    TerminalWidget *addTerminal(BrowserTab *owner, const QString &cwd, bool runStartup = true);
     void connectTerminal(BrowserTab *owner, TerminalWidget *t);
     void closeTerminal(BrowserTab *owner, TerminalWidget *t);
     void showTerminalsOf(BrowserTab *t); // the panel's stack, bar and fold state become this tab's
@@ -154,6 +157,8 @@ private:
     QLabel *m_termTitle = nullptr; // "터미널" until the first shell starts
     QWidget *m_termHeader = nullptr;
     QToolButton *m_termToggle = nullptr;
+    QToolButton *m_termExpand = nullptr;
+    bool m_termExpanded = false;
     QToolButton *m_termAdd = nullptr; // "+": hidden while the terminal is folded
     QToolButton *m_updateButton = nullptr; // shown once a new version is downloaded and ready
     int m_termHeight = 0; // last unfolded height of the terminal panel
@@ -161,6 +166,7 @@ private:
     void setTerminalHeight(int h);
     static constexpr int kTermHeaderHeight = 28;
     QAction *m_terminalAct = nullptr;
+    QAction *m_terminalExpandAct = nullptr;
     Sidebar *m_sidebar;
     PreviewWidget *m_previewPane;
     QSplitter *m_splitter;

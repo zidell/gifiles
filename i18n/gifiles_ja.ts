@@ -228,6 +228,10 @@ Windows: Gifiles.exe の隣、Linux AppImage: --appimage-extract 後の squashfs
         <translation>新規ターミナルタブ (ターミナルで Ctrl+Shift+T)</translation>
     </message>
     <message>
+        <source>터미널 전체 펼치기</source>
+        <translation>ターミナルを最大化</translation>
+    </message>
+    <message>
         <source>파일</source>
         <translation>ファイル</translation>
     </message>
@@ -310,6 +314,14 @@ Windows: Gifiles.exe の隣、Linux AppImage: --appimage-extract 後の squashfs
     <message>
         <source>실행하지 못했습니다: %1</source>
         <translation>実行できませんでした: %1</translation>
+    </message>
+    <message>
+        <source>선택한 터미널 앱을 실행하지 못했습니다. 환경설정에서 기본 터미널을 확인하세요.</source>
+        <translation>選択したターミナルアプリを起動できませんでした。設定で既定のターミナルを確認してください。</translation>
+    </message>
+    <message>
+        <source>터미널 원래 높이로</source>
+        <translation>ターミナルの高さを元に戻す</translation>
     </message>
     <message>
         <source>터미널 접기</source>
@@ -754,8 +766,12 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
         <translation>txt・mdなど文章主体のファイルのプレビューのフォントサイズ。</translation>
     </message>
     <message>
-        <source>터미널에서 실행할 셸의 경로나 이름. 빈 문자열이면 시스템 기본 셸 ($SHELL, Windows는 powershell.exe).</source>
-        <translation>ターミナルで実行するシェルのパスまたは名前。空文字列の場合はシステムのデフォルトシェル ($SHELL、Windowsは powershell.exe)。</translation>
+        <source>기본 터미널 앱. internal은 자체 터미널입니다. 외부 터미널은 현재 폴더에서 별도 창으로 열립니다.</source>
+        <translation>既定のターミナルアプリ。internal は内蔵ターミナルです。外部ターミナルは現在のフォルダで別ウィンドウを開きます。</translation>
+    </message>
+    <message>
+        <source>새 터미널의 셸 초기화 후 실행할 명령 (예: codex, claude). 빈 문자열이면 실행하지 않습니다. 선택 항목 명령을 실행할 때는 생략합니다.</source>
+        <translation>新しいターミナルのシェル初期化後に実行するコマンド（例: codex、claude）。空欄なら実行しません。選択項目のコマンドを実行するときは省略します。</translation>
     </message>
     <message>
         <source>새로 여는 터미널부터 적용됩니다.</source>
@@ -1058,6 +1074,34 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
         <translation>claude の例</translation>
     </message>
     <message>
+        <source>자체 터미널</source>
+        <translation>内蔵ターミナル</translation>
+    </message>
+    <message>
+        <source>%1 (사용 불가)</source>
+        <translation>%1（利用不可）</translation>
+    </message>
+    <message>
+        <source>기본 터미널:</source>
+        <translation>既定のターミナル:</translation>
+    </message>
+    <message>
+        <source>자동 (%1)</source>
+        <translation>自動 (%1)</translation>
+    </message>
+    <message>
+        <source>직접 입력…</source>
+        <translation>直接入力…</translation>
+    </message>
+    <message>
+        <source>외부 터미널은 별도 창으로 열립니다. 폴더 동기화와 드래그 연동은 자체 터미널에서 사용할 수 있습니다.</source>
+        <translation>外部ターミナルは別ウィンドウで開きます。フォルダの同期とドラッグ連携は内蔵ターミナルで利用できます。</translation>
+    </message>
+    <message>
+        <source>초기화 후 실행할 명령:</source>
+        <translation>初期化後に実行するコマンド:</translation>
+    </message>
+    <message>
         <source>D2Coding (기본)</source>
         <translation>D2Coding（標準）</translation>
     </message>
@@ -1306,6 +1350,10 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
         <translation>フォルダとすべての拡張子の色を既定値に</translation>
     </message>
     <message>
+        <source>자체 터미널에서 실행할 셸의 경로나 이름 (외부 터미널은 그 앱의 기본 셸). 빈 문자열이면 자동: Windows는 설치된 최신 PowerShell (7 Preview → 7 → Windows PowerShell), macOS·Linux는 로그인 셸 ($SHELL). Windows의 자체 터미널은 PowerShell만 지원합니다.</source>
+        <translation>内蔵ターミナルで実行するシェルのパスまたは名前（外部ターミナルはそのアプリの既定のシェル）。空の場合は自動：Windows はインストール済みの最新の PowerShell（7 Preview → 7 → Windows PowerShell）、macOS・Linux はログインシェル（$SHELL）。Windows の内蔵ターミナルは PowerShell のみ対応しています。</translation>
+    </message>
+    <message>
         <source>터미널 글꼴 이름 (예: &quot;JetBrains Mono&quot;, &quot;Menlo&quot;). 빈 문자열이면 앱에 든 D2Coding (네이버, SIL Open Font License).</source>
         <translation>ターミナルのフォント名（例: &quot;JetBrains Mono&quot;、&quot;Menlo&quot;）。空文字列ならアプリ同梱の D2Coding（NAVER、SIL Open Font License）。</translation>
     </message>
@@ -1316,7 +1364,7 @@ color に &quot;#RRGGBB&quot; の色を書きます。拡張子は大文字小�
   command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법
   key      메뉴가 열려 있을 때 이 글자 하나를 누르면 바로 실행 (A-Z 또는 0-9, 생략 가능)
   extensions 쉼표로 이은 확장자 (예: &quot;jpg,png&quot;). 기본값 &quot;*&quot;: 모든 항목. 선택한 항목 모두가 맞아야 표시
-  terminal true: 아래쪽 터미널을 열고 거기서 실행해 출력을 보여 줌.
+  terminal true: 기본 터미널을 열고 거기서 실행해 출력을 보여 줌.
            false: 터미널 없이 조용히 실행하고, 실패하면 오류만 알림 (생략하면 true)
   id       기본 명령의 표시 (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;). 기본 명령은 고칠 수는 있어도 지울 수 없어서,
            빠져 있으면 기본값으로 다시 생깁니다. 직접 추가하는 명령에는 쓰지 않습니다.
@@ -1335,7 +1383,7 @@ command 안의 자리표시자는 실행할 때 바뀝니다 (각 경로는 셸�
   command  実行するシェルコマンド (必須)。macOS·Linux はターミナルのシェル (zsh/bash)、Windows は PowerShell の文法
   key      メニューが開いているときにこの 1 文字を押すとすぐ実行 (A-Z または 0-9、省略可)
   extensions カンマ区切りの拡張子 (例: &quot;jpg,png&quot;)。既定値 &quot;*&quot;: すべての項目。選択した項目すべてが一致すると表示
-  terminal true: 下のターミナルを開いてそこで実行し、出力を表示します。
+  terminal true: 既定のターミナルを開いてそこで実行し、出力を表示します。
            false: ターミナルなしで静かに実行し、失敗したときだけ知らせます (省略時は true)
   id       標準コマンドの印 (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;)。標準コマンドは変更できますが削除はできず、
            なくなっていると既定値で戻ります。自分で追加するコマンドには使いません。
@@ -1828,6 +1876,42 @@ command 内のプレースホルダは実行時に置き換えられます (各�
     <message>
         <source>터미널 탭 닫기</source>
         <translation>ターミナルのタブを閉じる</translation>
+    </message>
+    <message>
+        <source>터미널 탭 1</source>
+        <translation>ターミナルのタブ 1</translation>
+    </message>
+    <message>
+        <source>터미널 탭 2</source>
+        <translation>ターミナルのタブ 2</translation>
+    </message>
+    <message>
+        <source>터미널 탭 3</source>
+        <translation>ターミナルのタブ 3</translation>
+    </message>
+    <message>
+        <source>터미널 탭 4</source>
+        <translation>ターミナルのタブ 4</translation>
+    </message>
+    <message>
+        <source>터미널 탭 5</source>
+        <translation>ターミナルのタブ 5</translation>
+    </message>
+    <message>
+        <source>터미널 탭 6</source>
+        <translation>ターミナルのタブ 6</translation>
+    </message>
+    <message>
+        <source>터미널 탭 7</source>
+        <translation>ターミナルのタブ 7</translation>
+    </message>
+    <message>
+        <source>터미널 탭 8</source>
+        <translation>ターミナルのタブ 8</translation>
+    </message>
+    <message>
+        <source>터미널 탭 9</source>
+        <translation>ターミナルのタブ 9</translation>
     </message>
     <message>
         <source>터미널 복사</source>

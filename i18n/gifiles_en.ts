@@ -229,6 +229,10 @@ GIFILES_CONFIG_DIR environment variable changes the folder. More details: the in
         <translation>New terminal tab (Ctrl+Shift+T in the terminal)</translation>
     </message>
     <message>
+        <source>터미널 전체 펼치기</source>
+        <translation>Expand terminal fully</translation>
+    </message>
+    <message>
         <source>파일</source>
         <translation>File</translation>
     </message>
@@ -311,6 +315,14 @@ GIFILES_CONFIG_DIR environment variable changes the folder. More details: the in
     <message>
         <source>실행하지 못했습니다: %1</source>
         <translation>Couldn’t run: %1</translation>
+    </message>
+    <message>
+        <source>선택한 터미널 앱을 실행하지 못했습니다. 환경설정에서 기본 터미널을 확인하세요.</source>
+        <translation>Could not launch the selected terminal app. Check the default terminal in Settings.</translation>
+    </message>
+    <message>
+        <source>터미널 원래 높이로</source>
+        <translation>Restore terminal height</translation>
     </message>
     <message>
         <source>터미널 접기</source>
@@ -755,8 +767,12 @@ Example: { extensions = &quot;psd, ai, sketch&quot;, color = &quot;#FFB347&quot;
         <translation>Font size for previews of text-heavy files such as txt and md.</translation>
     </message>
     <message>
-        <source>터미널에서 실행할 셸의 경로나 이름. 빈 문자열이면 시스템 기본 셸 ($SHELL, Windows는 powershell.exe).</source>
-        <translation>Path or name of the shell to run in the terminal. Empty string uses the system default shell ($SHELL, powershell.exe on Windows).</translation>
+        <source>기본 터미널 앱. internal은 자체 터미널입니다. 외부 터미널은 현재 폴더에서 별도 창으로 열립니다.</source>
+        <translation>Default terminal app. internal uses the built-in terminal. External terminals open a separate window in the current folder.</translation>
+    </message>
+    <message>
+        <source>새 터미널의 셸 초기화 후 실행할 명령 (예: codex, claude). 빈 문자열이면 실행하지 않습니다. 선택 항목 명령을 실행할 때는 생략합니다.</source>
+        <translation>Command to run after a new terminal shell initializes (e.g. codex, claude). Leave empty to skip. Skipped when running a selection command.</translation>
     </message>
     <message>
         <source>새로 여는 터미널부터 적용됩니다.</source>
@@ -1059,6 +1075,34 @@ Desktop, Documents and Downloads are included only after you have opened them in
         <translation>claude example</translation>
     </message>
     <message>
+        <source>자체 터미널</source>
+        <translation>Built-in terminal</translation>
+    </message>
+    <message>
+        <source>%1 (사용 불가)</source>
+        <translation>%1 (unavailable)</translation>
+    </message>
+    <message>
+        <source>기본 터미널:</source>
+        <translation>Default terminal:</translation>
+    </message>
+    <message>
+        <source>자동 (%1)</source>
+        <translation>Automatic (%1)</translation>
+    </message>
+    <message>
+        <source>직접 입력…</source>
+        <translation>Custom…</translation>
+    </message>
+    <message>
+        <source>외부 터미널은 별도 창으로 열립니다. 폴더 동기화와 드래그 연동은 자체 터미널에서 사용할 수 있습니다.</source>
+        <translation>External terminals open in a separate window. Folder synchronization and drag integration are available in the built-in terminal.</translation>
+    </message>
+    <message>
+        <source>초기화 후 실행할 명령:</source>
+        <translation>Command after initialization:</translation>
+    </message>
+    <message>
         <source>D2Coding (기본)</source>
         <translation>D2Coding (default)</translation>
     </message>
@@ -1307,6 +1351,10 @@ opened a file, or ran a &quot;Selected Items…&quot; command or a terminal comm
         <translation>Folder and all extension colors back to the defaults</translation>
     </message>
     <message>
+        <source>자체 터미널에서 실행할 셸의 경로나 이름 (외부 터미널은 그 앱의 기본 셸). 빈 문자열이면 자동: Windows는 설치된 최신 PowerShell (7 Preview → 7 → Windows PowerShell), macOS·Linux는 로그인 셸 ($SHELL). Windows의 자체 터미널은 PowerShell만 지원합니다.</source>
+        <translation>Path or name of the shell the built-in terminal runs (external terminals use their own default shell). Empty means automatic: on Windows the newest installed PowerShell (7 Preview → 7 → Windows PowerShell), on macOS and Linux the login shell ($SHELL). The built-in terminal on Windows supports PowerShell only.</translation>
+    </message>
+    <message>
         <source>터미널 글꼴 이름 (예: &quot;JetBrains Mono&quot;, &quot;Menlo&quot;). 빈 문자열이면 앱에 든 D2Coding (네이버, SIL Open Font License).</source>
         <translation>Terminal font name (e.g. &quot;JetBrains Mono&quot;, &quot;Menlo&quot;). An empty string uses D2Coding, bundled with the app (NAVER, SIL Open Font License).</translation>
     </message>
@@ -1317,7 +1365,7 @@ opened a file, or ran a &quot;Selected Items…&quot; command or a terminal comm
   command  실행할 셸 명령 (필수). macOS·Linux는 터미널의 셸(zsh/bash), Windows는 PowerShell 문법
   key      메뉴가 열려 있을 때 이 글자 하나를 누르면 바로 실행 (A-Z 또는 0-9, 생략 가능)
   extensions 쉼표로 이은 확장자 (예: &quot;jpg,png&quot;). 기본값 &quot;*&quot;: 모든 항목. 선택한 항목 모두가 맞아야 표시
-  terminal true: 아래쪽 터미널을 열고 거기서 실행해 출력을 보여 줌.
+  terminal true: 기본 터미널을 열고 거기서 실행해 출력을 보여 줌.
            false: 터미널 없이 조용히 실행하고, 실패하면 오류만 알림 (생략하면 true)
   id       기본 명령의 표시 (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;). 기본 명령은 고칠 수는 있어도 지울 수 없어서,
            빠져 있으면 기본값으로 다시 생깁니다. 직접 추가하는 명령에는 쓰지 않습니다.
@@ -1336,7 +1384,7 @@ One item is one line of { }, with these keys:
   command  shell command to run (required). macOS·Linux: the terminal&apos;s shell (zsh/bash); Windows: PowerShell syntax
   key      press this one letter while the menu is open to run it at once (A-Z or 0-9, optional)
   extensions Comma-separated extensions (e.g. &quot;jpg,png&quot;). Default &quot;*&quot;: all items. Every selected item must match
-  terminal true: open the terminal below and run it there, showing the output.
+  terminal true: open the default terminal and run it there, showing the output.
            false: run quietly without a terminal and report only errors (default true)
   id       marks a built-in command (&quot;new_folder&quot;, &quot;zip&quot;, &quot;ai&quot;). Built-in commands can be changed but not removed;
            one that is missing comes back with its default. Don&apos;t use it for your own commands.
@@ -1829,6 +1877,42 @@ Shell scripts work too. Example:
     <message>
         <source>터미널 탭 닫기</source>
         <translation>Close Terminal Tab</translation>
+    </message>
+    <message>
+        <source>터미널 탭 1</source>
+        <translation>Terminal Tab 1</translation>
+    </message>
+    <message>
+        <source>터미널 탭 2</source>
+        <translation>Terminal Tab 2</translation>
+    </message>
+    <message>
+        <source>터미널 탭 3</source>
+        <translation>Terminal Tab 3</translation>
+    </message>
+    <message>
+        <source>터미널 탭 4</source>
+        <translation>Terminal Tab 4</translation>
+    </message>
+    <message>
+        <source>터미널 탭 5</source>
+        <translation>Terminal Tab 5</translation>
+    </message>
+    <message>
+        <source>터미널 탭 6</source>
+        <translation>Terminal Tab 6</translation>
+    </message>
+    <message>
+        <source>터미널 탭 7</source>
+        <translation>Terminal Tab 7</translation>
+    </message>
+    <message>
+        <source>터미널 탭 8</source>
+        <translation>Terminal Tab 8</translation>
+    </message>
+    <message>
+        <source>터미널 탭 9</source>
+        <translation>Terminal Tab 9</translation>
     </message>
     <message>
         <source>터미널 복사</source>

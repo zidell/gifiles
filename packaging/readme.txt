@@ -2,6 +2,15 @@ Gifiles — 설치 사용자를 위한 안내 (readme.txt)
 ================================================
 
 Gifiles는 아래쪽에 터미널이 붙은 파일 관리자입니다 (macOS · Windows · Linux).
+
+설정 → 터미널: 기본 터미널(기본값: 자체 터미널)과 초기화 후 실행할 명령을 지정합니다.
+config.toml의 terminal.app, terminal.startup_command에 저장됩니다. 외부 앱은 현재 폴더에서
+별도 창으로 열립니다. 시작 명령(예: codex, claude)은 셸이 준비된 뒤 한 번 실행하며,
+접었다 펼칠 때나 선택 항목 명령 실행·폴더 이동으로 자동 생성된 탭에서는 실행하지 않습니다.
+자체 터미널의 셸(terminal.shell)은 기본 터미널이 자체 터미널일 때 고르며, 기본은 자동입니다
+(Windows: 설치된 최신 PowerShell 7 Preview → 7 → Windows PowerShell, macOS·Linux: $SHELL).
+터미널 막대의 전체 펼치기 버튼 또는 ⌘⇧J(Windows/Linux: Ctrl+Shift+J)로 파일 목록 영역을
+채웠다가 원래 높이로 돌아올 수 있습니다.
 이 파일은 설치된 앱과 함께 배포되며, 환경설정을 찾고 바꾸는 방법을 설명합니다.
 
 
@@ -114,6 +123,15 @@ Gifiles — guide for installed copies (English)
 ================================================================================
 
 Gifiles is a file manager with a terminal attached at the bottom (macOS · Windows · Linux).
+
+Settings > Terminal: choose the default terminal (built-in by default) and a command to run after
+shell initialization, saved as terminal.app and terminal.startup_command in config.toml.
+External apps open a separate window in the current folder. Startup commands (e.g. codex, claude)
+run once after the shell is ready, and are skipped on unfolding, selection commands and tabs
+created automatically while following folders. The built-in terminal's shell (terminal.shell) is
+chosen there too; automatic by default (Windows: the newest installed PowerShell, 7 Preview → 7 →
+Windows PowerShell; macOS/Linux: $SHELL), external terminals use their own default shell.
+The header's expand button or Cmd+Shift+J (Windows/Linux: Ctrl+Shift+J) fills the file area with the terminal and restores its previous height.
 
 1. One settings file: config.toml
    Every setting (the Settings window ⌘, / Ctrl+, , shortcuts, sidebar favorites, the

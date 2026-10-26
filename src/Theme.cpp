@@ -35,6 +35,8 @@ const QHash<QString, QString> &glyphs()
         {"chevron-right-small", "<path d='M10 16l4-4-4-4'/>"},
         {"chevron-down-small", "<path d='M8 10l4 4 4-4'/>"},
         {"chevron-up-small", "<path d='M8 14l4-4 4 4'/>"},
+        {"expand", "<path d='M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5'/>"},
+        {"shrink", "<path d='M3 8h5V3M21 8h-5V3M8 21v-5H3M16 21v-5h5'/>"},
         {"sparkle", "<path d='M11 3.5l1.6 4.4 4.4 1.6-4.4 1.6L11 15.5l-1.6-4.4L5 9.5l4.4-1.6z'/><path d='M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z'/>"},
         {"list", "<path d='M9 6h11M9 12h11M9 18h11'/><path d='M4.5 6h.01M4.5 12h.01M4.5 18h.01' stroke-width='2.6'/>"},
         {"grid", "<rect x='4' y='4' width='6.5' height='6.5' rx='1.5'/><rect x='13.5' y='4' width='6.5' height='6.5' rx='1.5'/>"
