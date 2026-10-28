@@ -202,6 +202,7 @@ int main(int argc, char *argv[])
     Theme::instance()->install();
 #ifdef Q_OS_MACOS
     macFixAccessibilityHitTest();
+    macFixAccessibilityOwnership();
     // A development aid must not take the keyboard from the user: snapshots show the window
     // inactive unless GIFILES_SNAPSHOT_FOREGROUND=1 (active-window colors).
     if (qEnvironmentVariableIsSet("GIFILES_SNAPSHOT") && !qEnvironmentVariableIsSet("GIFILES_SNAPSHOT_FOREGROUND"))

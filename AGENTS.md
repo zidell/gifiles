@@ -382,6 +382,24 @@ again; leave out what only mattered once.
 - **BetterTouchTool / accessibility:** Qt's `accessibilityHitTest:` returns nil over item views (108 of 144
   points failed on a real window); `macFixAccessibilityHitTest()` (MacWindow.mm) falls back to the window.
   Removing it breaks modifier-drag window tools.
+- **Qt 6.11.2 Cocoa accessibility ownership:** synthetic rows, columns and placeholder cells borrow
+  the table ID. Qt incorrectly deletes that ID during array cleanup and placeholder deallocation,
+  destroying the table during cell-cache reset (Gikey hint click → terminal tab → folder navigation
+  crashed in `QAccessibleCache::deleteInterface`). `macFixAccessibilityOwnership` guards both cleanup
+  paths, only on Qt 6.11.2; real cells still own and delete their IDs. Same-count model rebuilds
+  while accessibility is inactive can leave stale Cocoa cells with zero frames. The guarded
+  accessibilityRows hook detects invalid materialized cells and resets both the C++ cell cache
+  and Cocoa row/column arrays. DataChanged must retain valid cells at matching row/column indices;
+  rebuilding them on selection changes destroys identities still cached by AX clients. Synthetic
+  rows/columns/placeholders also need distinct identity despite borrowing one table ID. Actual
+  rebuilds notify AX clients that the table layout changed. Forced core-cache reset briefly
+  suppresses Qt update-handler dispatch: deleteInterface emits ObjectDestroyed before removing
+  the ID, and Cocoa would recreate a native cell from that dying interface and reenter the cache.
+  Restore the previous handler before native rebuild/notification; native invalidate still emits
+  its own Destroyed notification. The regression checks suppression and handler restoration.
+  Keep this in the provider; consumers
+  must never guess row geometry. The offscreen
+  `macos_accessibility` regression loads the Cocoa provider without showing desktop windows.
 - **Colors:** file colors start at OKLab L 0.78 (equal HSL lightness looked unequal in weight), then the
   user tuned emphasis (2026-10-08: programs #00FF09 and scripts #F7D800 brighter, pictures #7EB206 and sound #C47623
   dimmer); light mode mirrors the lightness, L = 0.52 − 0.6·(L_dark − 0.78) clamped to 0.42–0.62

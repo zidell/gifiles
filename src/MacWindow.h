@@ -15,6 +15,9 @@ void macDisableWindowAnimation(QWidget *window);
 // BetterTouchTool then can't tell which window is under the mouse and won't move/resize it.
 void macFixAccessibilityHitTest();
 
+// Qt 6.11.2 Cocoa table identity, ownership, and model/native cache synchronization.
+void macFixAccessibilityOwnership();
+
 // macOS: whether the left mouse button is down right now (also while the system moves a window, when Qt
 // gets no mouse events).
 bool macLeftButtonDown();
