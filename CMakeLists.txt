@@ -23,6 +23,7 @@ if(MSVC)
 endif()
 
 qt_add_library(gifiles_core STATIC
+    src/AccessibleTabs.h src/AccessibleTabs.cpp
     src/App.h src/App.cpp
     src/MainWindow.h src/MainWindow.cpp
     src/BrowserTab.h src/BrowserTab.cpp

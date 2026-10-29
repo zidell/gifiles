@@ -74,6 +74,14 @@ Dependencies (macOS): `brew install qt cmake ninja libvterm pkgconf`.
 
 ## Rules that are easy to break
 
+- **Tab accessibility:** `AccessibleTabs` installs a public Qt factory before MainWindow creates
+  its browser/terminal tab bars. Qt's built-in QTabBar provider exposes synthetic tabs and two
+  scroll buttons but omits real close buttons. Our shared provider keeps tab selection/press
+  semantics and exposes real direct child widgets with their own geometry/actions and parent.
+  Only synthetic tab IDs are owned/deleted by the provider; actual button interfaces remain
+  QObject-owned. The widget regression checks selection, close hit-testing/action, moves and
+  removal. This is common to macOS/Windows/Linux; native desktop verification is on macOS.
+
 - **Signing:** sign the macOS Release app with a fixed identity (`GIFILES_SIGN_IDENTITY`, bundle id
   `dev.zidell.gifiles`). macOS ties Full Disk Access to the signature; the linker's ad-hoc signature
   changes every build and makes macOS ask for folder access again.

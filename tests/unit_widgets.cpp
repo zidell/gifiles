@@ -8,6 +8,7 @@
 #include "TestShell.h"
 
 #include "App.h"
+#include "AccessibleTabs.h"
 #include "Log.h"
 #include "OpenWith.h"
 #include "Permissions.h"
@@ -25,6 +26,9 @@
 #include "Util.h"
 
 #include <QApplication>
+#include <QAccessible>
+#include <QTabBar>
+#include <QToolButton>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
@@ -174,6 +178,50 @@ class Widgets : public QObject {
     }
 
 private slots:
+    void tabAccessibilityIncludesRealCloseButtons()
+    {
+        installAccessibleTabs();
+        QTabBar bar;
+        bar.setTabsClosable(true);
+        bar.addTab(QStringLiteral("First"));
+        bar.addTab(QStringLiteral("Second"));
+        bar.resize(400, 40);
+        bar.show();
+        QApplication::processEvents();
+        auto *ax = QAccessible::queryAccessibleInterface(&bar);
+        QCOMPARE(ax->role(), QAccessible::PageTabList);
+        QCOMPARE(ax->child(0)->role(), QAccessible::PageTab);
+        QVERIFY(ax->selectionInterface());
+        QVERIFY(ax->selectionInterface()->select(ax->child(1)));
+        QCOMPARE(bar.currentIndex(), 1);
+        bar.setFocusPolicy(Qt::NoFocus);
+        QVERIFY(ax->child(1)->state().focused);
+        QSignalSpy close(&bar, &QTabBar::tabCloseRequested);
+        auto *button = bar.tabButton(0, QTabBar::RightSide);
+        if (!button) button = bar.tabButton(0, QTabBar::LeftSide);
+        QVERIFY(button);
+        auto *closeAx = QAccessible::queryAccessibleInterface(button);
+        QVERIFY(ax->indexOfChild(closeAx) >= 2);
+        QCOMPARE(ax->child(ax->indexOfChild(closeAx)), closeAx);
+        QCOMPARE(closeAx->parent(), ax);
+        QCOMPARE(closeAx->rect(), QRect(button->mapToGlobal(QPoint()), button->size()));
+        QCOMPARE(ax->childAt(closeAx->rect().center().x(), closeAx->rect().center().y()), closeAx);
+        QVERIFY(closeAx->actionInterface());
+        closeAx->actionInterface()->doAction(QAccessibleActionInterface::pressAction());
+        QTRY_COMPARE(close.size(), 1);
+        QCOMPARE(close.first().first().toInt(), 0);
+        QCOMPARE(bar.currentIndex(), 1); // Close is independent from selecting its tab.
+        bar.moveTab(0, 1);
+        QCOMPARE(ax->child(0)->text(QAccessible::Name), QStringLiteral("Second"));
+        QCOMPARE(ax->child(1)->text(QAccessible::Name), QStringLiteral("First"));
+        bar.removeTab(1);
+        QCOMPARE(ax->child(0)->text(QAccessible::Name), QStringLiteral("Second"));
+        bar.setTabsClosable(false);
+        QApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        for (int i = bar.count(); i < ax->childCount(); ++i)
+            QVERIFY(ax->child(i)->object() != button);
+    }
+
     void initTestCase()
     {
         PreviewWidget::chooseMediaBackend(); // as main() does

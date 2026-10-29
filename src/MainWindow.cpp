@@ -56,6 +56,7 @@
 #include <QStorageInfo>
 #include <QStyle>
 #include <QTabBar>
+#include "AccessibleTabs.h"
 #include <QTabWidget>
 #include <QToolBar>
 #include <QToolButton>
@@ -158,6 +159,7 @@ QStringList localPaths(const QList<QUrl> &urls)
 
 MainWindow::MainWindow(const QStringList &tabPaths, QWidget *parent) : QMainWindow(parent)
 {
+    installAccessibleTabs();
     setAttribute(Qt::WA_DeleteOnClose);
     // We lay out under the title bar ourselves (traffic lights over the sidebar).
     setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
