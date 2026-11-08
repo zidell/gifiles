@@ -4,6 +4,7 @@
 #include <QUrl>
 #include <QElapsedTimer>
 #include <QPointer>
+#include <QSet>
 #include <QStackedWidget>
 #include <QWidget>
 
@@ -14,6 +15,7 @@ class QColumnView;
 class QFileSystemModel;
 class QFileSystemWatcher;
 class QListView;
+class QLabel;
 class QTreeView;
 class QTimer;
 class FileProxy;
@@ -89,6 +91,12 @@ protected:
     bool eventFilter(QObject *obj, QEvent *ev) override;
 
 private:
+    void setLoading(bool loading);
+    QLabel *m_loadingLabel = nullptr;
+    QTimer *m_loadingTimer = nullptr;
+    QElapsedTimer m_loadingElapsed;
+    QSet<QString> m_loadedFolders;
+
     void setPathInternal(const QString &path, bool pushHistory);
     void applyRoot();
     void checkRoot(); // the open folder's row went away (renamed, replaced): show it again, or its parent

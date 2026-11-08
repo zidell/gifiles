@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QFileInfo>
+#include <QIcon>
 #include <QString>
 #include <QStringList>
 
@@ -29,6 +30,11 @@ void splitExt(const QString &name, QString *base, QString *ext);
 QString uniqueCopyName(const QString &dir, const QString &name, bool forceCopy);
 // "name", "name 2", "name 3"...
 QString uniquePlainName(const QString &dir, const QString &name);
+
+// macOS remote mounts use generic icons: native icon lookup performs synchronous network I/O.
+bool usesGenericFileIcon(const QString &path);
+QIcon folderIcon(const QString &path);
+QString elapsedTime(qint64 milliseconds);
 
 bool isInside(const QString &child, const QString &parent);
 // A drive the user would pick (the sidebar's 위치, the folder tree's drive list): no system mounts.

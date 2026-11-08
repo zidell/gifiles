@@ -50,7 +50,6 @@ void PathBar::rebuild()
     chain << d.absolutePath();
     while (d.cdUp())
         chain.prepend(d.absolutePath());
-    QFileIconProvider icons;
     for (int i = 0; i < chain.size(); ++i) {
         if (i > 0) {
             auto *sep = new QLabel(QStringLiteral("›"), m_crumbs);
@@ -62,7 +61,7 @@ void PathBar::rebuild()
         b->setObjectName(i == chain.size() - 1 ? QStringLiteral("crumbCurrent") : QStringLiteral("crumb"));
         b->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         b->setText(util::displayName(chain[i]));
-        b->setIcon(icons.icon(QFileInfo(chain[i])));
+        b->setIcon(util::folderIcon(chain[i]));
         b->setIconSize(QSize(16, 16));
         b->setToolTip(QDir::toNativeSeparators(chain[i]));
         b->setFocusPolicy(Qt::NoFocus);

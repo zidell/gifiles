@@ -277,6 +277,10 @@ GIFILES_CONFIG_DIR environment variable changes the folder. More details: the in
         <translation>Icon Size</translation>
     </message>
     <message>
+        <source>경과 %1</source>
+        <translation>Elapsed %1</translation>
+    </message>
+    <message>
         <source>%1 (선택한 %2개 항목)</source>
         <translation>%1 (%2 selected items)</translation>
     </message>
@@ -2419,6 +2423,10 @@ Shell scripts work too. Example:
     <message>
         <source>폴더 %1개</source>
         <translation>%1 folders</translation>
+    </message>
+    <message>
+        <source>폴더 읽는 중… %1</source>
+        <translation>Reading folder… %1</translation>
     </message>
 </context>
 </TS>

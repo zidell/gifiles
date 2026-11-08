@@ -174,6 +174,9 @@ private:
     QLineEdit *m_search;
     QLabel *m_statusLabel;
     QProgressBar *m_progress;
+    QLabel *m_jobElapsedLabel;
+    QTimer *m_jobElapsedTimer;
+    QElapsedTimer m_jobElapsed;
     QToolButton *m_cancel;
     QSlider *m_iconSlider;
     QuickLookWindow *m_quickLook = nullptr;

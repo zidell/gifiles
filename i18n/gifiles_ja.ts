@@ -276,6 +276,10 @@ Windows: Gifiles.exe の隣、Linux AppImage: --appimage-extract 後の squashfs
         <translation>アイコンサイズ</translation>
     </message>
     <message>
+        <source>경과 %1</source>
+        <translation>経過 %1</translation>
+    </message>
+    <message>
         <source>%1 (선택한 %2개 항목)</source>
         <translation>%1 (選択した %2 項目)</translation>
     </message>
@@ -2418,6 +2422,10 @@ command 内のプレースホルダは実行時に置き換えられます (各�
     <message>
         <source>폴더 %1개</source>
         <translation>%1 個のフォルダ</translation>
+    </message>
+    <message>
+        <source>폴더 읽는 중… %1</source>
+        <translation>フォルダを読み込み中… %1</translation>
     </message>
 </context>
 </TS>

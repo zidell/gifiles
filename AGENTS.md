@@ -379,6 +379,13 @@ again; leave out what only mattered once.
   `VTermScreenCellAttrs.dim`, `VTERM_HAS_DIM`; upstream drops it, so Claude Code's dimmed hints came out at
   full brightness).
   Faint text is drawn halfway to the background, before the 3:1 readability step.
+- **Remote folder icons on macOS:** Qt's native file icon lookup runs on the GUI thread during
+  `QFileSystemModel::fileSystemChanged` and does synchronous realpath/statfs/NSWorkspace calls.
+  Slow SSHFS through fuse-t/NFS can leave the whole window unresponsive during a transfer.
+  `BrowserIconProvider` and navigation folder icons use generic icons on non-local mounts;
+  classify paths with the cached `getfsstat(MNT_NOWAIT)` mount table, never by probing the share.
+  Folder loading belongs to each BrowserTab and ends only on its own directoryLoaded (including
+  empty folders); file-job elapsed time stays visible independently of folder loading.
 - **Qt file watching:** `QFileInfoGatherer` (qtbase 6.11) skips `watchPaths` for a folder already queued,
   while `setRootPath` unwatches the old root at once; going into a folder and straight back while the
   file-info thread is busy left it unwatched for good. `BrowserTab::m_folderWatch` + `relistIfStale`

@@ -6,6 +6,8 @@
 #include <cmath>
 
 #include <QDir>
+#include <QFileIconProvider>
+#include <vector>
 #include <QHash>
 #include <QKeySequence>
 #include <QLocale>
@@ -22,6 +24,49 @@
 #endif
 
 namespace util {
+
+QString elapsedTime(qint64 milliseconds)
+{
+    const qint64 seconds = milliseconds / 1000;
+    return QStringLiteral("%1:%2:%3").arg(seconds / 3600, 2, 10, QLatin1Char('0'))
+        .arg(seconds / 60 % 60, 2, 10, QLatin1Char('0')).arg(seconds % 60, 2, 10, QLatin1Char('0'));
+}
+
+bool usesGenericFileIcon(const QString &path)
+{
+#ifdef Q_OS_MACOS
+    // Use the kernel's cached mount table, never statfs(path) or QStorageInfo(path): a slow
+    // or disconnected NFS/FUSE mount must not block the GUI just to decide which icon to use.
+    const int count = getfsstat(nullptr, 0, MNT_NOWAIT);
+    if (count < 0)
+        return true;
+    std::vector<struct statfs> mounts(count + 8);
+    const int n = getfsstat(mounts.data(), int(mounts.size() * sizeof(struct statfs)), MNT_NOWAIT);
+    if (n < 0)
+        return true;
+    qsizetype longest = -1;
+    bool remote = false;
+    for (int i = 0; i < n; ++i) {
+        const QString root = QString::fromUtf8(mounts[i].f_mntonname);
+        if (root.size() > longest && isInside(path, root)) {
+            longest = root.size();
+            remote = !(mounts[i].f_flags & MNT_LOCAL);
+        }
+    }
+    return remote;
+#else
+    Q_UNUSED(path);
+    return false;
+#endif
+}
+
+QIcon folderIcon(const QString &path)
+{
+    QFileIconProvider provider;
+    if (usesGenericFileIcon(path))
+        return provider.icon(QFileIconProvider::Folder); // no extra stat, even for an uncached path
+    return provider.icon(QFileInfo(path));
+}
 
 QString humanSize(qint64 n)
 {

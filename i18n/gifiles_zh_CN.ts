@@ -276,6 +276,10 @@ Windows: Gifiles.exe 旁边，Linux AppImage: --appimage-extract 后的 squashfs
         <translation>图标大小</translation>
     </message>
     <message>
+        <source>경과 %1</source>
+        <translation>已用时 %1</translation>
+    </message>
+    <message>
         <source>%1 (선택한 %2개 항목)</source>
         <translation>%1（所选的 %2 个项目）</translation>
     </message>
@@ -2418,6 +2422,10 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
     <message>
         <source>폴더 %1개</source>
         <translation>%1 个文件夹</translation>
+    </message>
+    <message>
+        <source>폴더 읽는 중… %1</source>
+        <translation>正在读取文件夹… %1</translation>
     </message>
 </context>
 </TS>

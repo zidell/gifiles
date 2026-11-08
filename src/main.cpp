@@ -240,6 +240,11 @@ int main(int argc, char *argv[])
                 return QApplication::quit();
             const QString initialFolder = w->tab()->path();
             QDir().mkpath(dir);
+            if (const QString loadingPath = qEnvironmentVariable("GIFILES_SNAPSHOT_LOADING"); !loadingPath.isEmpty()) {
+                w->tab()->navigate(loadingPath);
+                w->grab().save(QDir(dir).filePath(QStringLiteral("folder-loading.png")));
+                w->tab()->navigate(initialFolder);
+            }
             if (const QString focusPath = qEnvironmentVariable("GIFILES_SNAPSHOT_SIDEBAR_FOCUS"); !focusPath.isEmpty()) {
                 if (auto *sidebar = w->findChild<Sidebar *>()) {
                     for (int section = 0; section < sidebar->topLevelItemCount(); ++section)

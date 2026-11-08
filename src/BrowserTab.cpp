@@ -13,6 +13,8 @@
 
 #include <QApplication>
 #include <QLineEdit>
+#include <QLabel>
+#include <QFileIconProvider>
 #include <QColumnView>
 #include <QCryptographicHash>
 #include <QSettings>
@@ -38,6 +40,19 @@
 #include <functional>
 
 namespace {
+
+class BrowserIconProvider : public QObject, public QFileIconProvider {
+public:
+    explicit BrowserIconProvider(QObject *parent) : QObject(parent) {}
+    using QFileIconProvider::icon;
+    QIcon icon(const QFileInfo &info) const override
+    {
+        if (util::usesGenericFileIcon(info.absoluteFilePath()))
+            return QFileIconProvider::icon(info.isDir() ? Folder : File);
+        return QFileIconProvider::icon(info);
+    }
+};
+
 constexpr int kMacTextWeight = QFont::Light; // see applyFont
 
 // Finder-style list: pressing on a row's name (icon + text) drags the file; pressing anywhere
@@ -239,6 +254,7 @@ void setFinderColumnOrder(QHeaderView *header)
 BrowserTab::BrowserTab(const QString &path, Mode mode, bool showHidden, QWidget *parent) : QWidget(parent)
 {
     m_fs = new QFileSystemModel(this);
+    m_fs->setIconProvider(new BrowserIconProvider(m_fs));
     m_fs->setReadOnly(false); // enables in-place editing; the delegate performs the actual rename
     m_fs->setFilter(kBaseFilter | (showHidden ? QDir::Hidden : QDir::Filters()));
     m_fs->setResolveSymlinks(true);
@@ -369,7 +385,22 @@ BrowserTab::BrowserTab(const QString &path, Mode mode, bool showHidden, QWidget 
     m_stack->addWidget(m_columns);
     auto *l = new QVBoxLayout(this);
     l->setContentsMargins(0, 0, 0, 0);
+    m_loadingLabel = new QLabel(this);
+    m_loadingLabel->setObjectName(QStringLiteral("folderLoading"));
+    m_loadingLabel->setContentsMargins(12, 6, 12, 6);
+    m_loadingLabel->hide();
+    l->addWidget(m_loadingLabel);
     l->addWidget(m_stack);
+    m_loadingTimer = new QTimer(this);
+    m_loadingTimer->setInterval(1000);
+    connect(m_loadingTimer, &QTimer::timeout, this, [this] {
+        m_loadingLabel->setText(Gifiles::tr("폴더 읽는 중… %1").arg(util::elapsedTime(m_loadingElapsed.elapsed())));
+    });
+    connect(m_fs, &QFileSystemModel::directoryLoaded, this, [this](const QString &folder) {
+        m_loadedFolders.insert(QDir::cleanPath(folder));
+        if (QDir::cleanPath(folder) == m_path)
+            setLoading(false);
+    });
 
     for (QAbstractItemView *v : {static_cast<QAbstractItemView *>(m_list), static_cast<QAbstractItemView *>(m_gallery),
                                  static_cast<QAbstractItemView *>(m_columns)})
@@ -548,6 +579,19 @@ void BrowserTab::navigate(const QString &rawPath, bool pushHistory, const QStrin
         m_list->selectionModel()->clearSelection();
 }
 
+void BrowserTab::setLoading(bool loading)
+{
+    if (loading) {
+        if (!m_loadingTimer->isActive())
+            m_loadingElapsed.start();
+        m_loadingLabel->setText(Gifiles::tr("폴더 읽는 중… %1").arg(util::elapsedTime(m_loadingElapsed.elapsed())));
+        m_loadingTimer->start();
+    } else {
+        m_loadingTimer->stop();
+    }
+    m_loadingLabel->setVisible(loading);
+}
+
 void BrowserTab::setPathInternal(const QString &path, bool pushHistory)
 {
     const bool changed = path != m_path;
@@ -558,7 +602,10 @@ void BrowserTab::setPathInternal(const QString &path, bool pushHistory)
         m_prefsTimer->stop();
         saveFolderPrefs();
     }
+    if (changed)
+        m_loadingTimer->stop();
     m_path = path;
+    setLoading(!m_loadedFolders.contains(path));
     m_fs->setRootPath(path);
     if (changed) {
         m_staleCheck->stop();
@@ -605,6 +652,8 @@ void BrowserTab::relistIfStale()
     if (shown == onDisk)
         return;
     Log::write("browse", QStringLiteral("model stopped following %1: relisting").arg(m_path));
+    m_loadedFolders.remove(m_path);
+    setLoading(true);
     m_fs->setRootPath(QString());
     m_fs->setRootPath(m_path);
 }

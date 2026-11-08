@@ -254,6 +254,14 @@ class Unit : public QObject {
     }
 
 private slots:
+    void elapsedTimeIncludesDays()
+    {
+        QCOMPARE(util::elapsedTime(0), QStringLiteral("00:00:00"));
+        QCOMPARE(util::elapsedTime(1923 * 60 * 1000LL), QStringLiteral("32:03:00"));
+        QCOMPARE(util::elapsedTime(69783000), QStringLiteral("19:23:03"));
+        QVERIFY(!util::usesGenericFileIcon(QDir::homePath()));
+    }
+
     void initTestCase()
     {
         QVERIFY(m_root.isValid());

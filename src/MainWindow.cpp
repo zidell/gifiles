@@ -933,6 +933,15 @@ void MainWindow::createStatusBar()
         tab()->setIconSize(v, true); // remembered for this folder
         Settings::instance()->setValue(Settings::IconSize, v); // default for new tabs
     });
+    m_jobElapsedLabel = new QLabel(m_statusStrip);
+    m_jobElapsedLabel->setObjectName(QStringLiteral("jobElapsed"));
+    m_jobElapsedLabel->hide();
+    m_jobElapsedTimer = new QTimer(this);
+    m_jobElapsedTimer->setInterval(1000);
+    connect(m_jobElapsedTimer, &QTimer::timeout, this, [this] {
+        m_jobElapsedLabel->setText(Gifiles::tr("경과 %1").arg(util::elapsedTime(m_jobElapsed.elapsed())));
+    });
+    l->addWidget(m_jobElapsedLabel);
     l->addWidget(m_progress);
     l->addWidget(m_cancel);
     l->addWidget(m_iconSlider);
@@ -1786,7 +1795,7 @@ void MainWindow::updateTabTitle(BrowserTab *t)
         return;
     m_tabs->setTabText(i, util::displayName(t->path()));
     m_tabs->setTabToolTip(i, QDir::toNativeSeparators(t->path()));
-    m_tabs->setTabIcon(i, QFileIconProvider().icon(QFileInfo(t->path())));
+    m_tabs->setTabIcon(i, util::folderIcon(t->path()));
 }
 
 void MainWindow::updateNav()
@@ -2125,7 +2134,13 @@ void MainWindow::runJob(const Job &job, const QString &selectAfter)
     auto *watcher = new QFutureWatcher<OpResult>(this);
     const QString verb = FileOps::verb(job.type);
     Log::write("job", QStringLiteral("start %1: %2 → %3").arg(verb, job.sources.join(QStringLiteral(", ")), job.destDir));
-    ++m_runningJobs;
+    if (++m_runningJobs == 1) {
+        m_jobElapsed.start();
+        m_jobElapsedLabel->setText(Gifiles::tr("경과 %1").arg(util::elapsedTime(0)));
+        m_jobElapsedLabel->show();
+        m_jobElapsedTimer->start();
+    }
+    m_progress->setRange(0, 0);
     m_progress->setValue(0);
     m_progress->show();
     m_cancel->show();
@@ -2141,6 +2156,8 @@ void MainWindow::runJob(const Job &job, const QString &selectAfter)
         m_jobCancels.removeOne(cancel);
         if (--m_runningJobs == 0) {
             m_progress->hide();
+            m_jobElapsedTimer->stop();
+            m_jobElapsedLabel->hide();
             m_cancel->hide();
             if (!m_deferredUndo.isEmpty()) // after this job's record is in (queued past this handler)
                 QTimer::singleShot(0, this, [this] {

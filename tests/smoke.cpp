@@ -2519,6 +2519,32 @@ private slots:
         tab()->navigate(m_tmp.path());
     }
 
+    void folderLoadingTracksCurrentFolder()
+    {
+        const auto restore = qScopeGuard([this] { tab()->navigate(m_tmp.path()); });
+        QVERIFY(makeFixture(QStringLiteral("loading")));
+        QVERIFY(QDir().mkpath(p("loading/empty")));
+        QVERIFY(QDir().mkpath(p("loading/other")));
+        tab()->navigate(p("loading/empty"));
+        auto *label = tab()->findChild<QLabel *>(QStringLiteral("folderLoading"));
+        auto *fs = tab()->findChild<QFileSystemModel *>();
+        QVERIFY(label);
+        QVERIFY(fs);
+        QVERIFY(!label->isHidden());
+        QVERIFY(label->text().contains(QStringLiteral("폴더 읽는 중…")));
+        // A late completion for a different folder must not hide the current request.
+        QVERIFY(QMetaObject::invokeMethod(fs, "directoryLoaded", Qt::DirectConnection,
+                                         Q_ARG(QString, m_tmp.path())));
+        QVERIFY(!label->isHidden());
+        QTRY_VERIFY(label->isHidden()); // an empty folder also completes
+        tab()->navigate(p("loading"));
+        QTRY_VERIFY(label->isHidden());
+        tab()->navigate(p("loading/empty"));
+        QVERIFY(label->isHidden()); // returning to an already loaded folder doesn't spin forever
+        tab()->navigate(p("loading/other"));
+        QTRY_VERIFY(label->isHidden());
+    }
+
     void openFolderSurvivesBeingReplaced()
     {
         // The open folder is renamed away and back from outside (a terminal, git, a build tool):
@@ -3748,8 +3774,12 @@ private slots:
             key(Qt::Key_V, Qt::ControlModifier);
         }
         QTRY_VERIFY(cancel->isVisible());
+        auto *elapsed = m_win->findChild<QLabel *>(QStringLiteral("jobElapsed"));
+        QVERIFY(elapsed && elapsed->isVisible());
+        QVERIFY(elapsed->text().startsWith(QStringLiteral("경과 ")));
         cancel->click();
         QTRY_VERIFY_WITH_TIMEOUT(!cancel->isVisible(), 20000); // both jobs are over
+        QVERIFY(elapsed->isHidden());
         // A folder copy stopped half-way is taken away again: neither copy is left incomplete.
         QTRY_VERIFY(!QDir(p("jobs/one/big")).exists());
         QTRY_VERIFY(!QDir(p("jobs/two/big")).exists());
