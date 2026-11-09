@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QByteArray>
 #include <QFuture>
 #include <QHash>
 #include <QList>
@@ -11,10 +12,11 @@
 
 // One primitive file-system change, recorded so it can be undone/redone.
 struct Step {
-    enum Kind { Move, Copy, Trash, Mkdir, Extract } kind;
+    enum Kind { Move, Copy, Trash, Mkdir, Extract, Create } kind;
     QString from; // Move/Copy: source, Trash: original location, Extract: archive
+                  // Create: trash location after undo
     QString to;   // Move/Copy: destination, Trash: location inside the trash, Mkdir: created folder,
-                  // Extract: the extracted item
+                  // Extract: the extracted item, Create: new file
 
 };
 
@@ -58,6 +60,7 @@ bool isArchive(const QString &path);
 
 // Small synchronous operations. Return an error message, or an empty string on success.
 QString rename(const QString &path, const QString &newName, UndoRecord *rec);
+QString makeFile(const QString &dir, const QString &name, const QByteArray &data, QString *created, UndoRecord *rec);
 QString makeFolder(const QString &dir, const QString &name, QString *created, UndoRecord *rec);
 // Finder's "선택 항목으로 새로운 폴더": a new folder in dir holding the given items (same volume).
 QString makeFolderWith(const QString &dir, const QStringList &items, QString *created, UndoRecord *rec);

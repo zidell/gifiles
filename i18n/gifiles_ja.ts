@@ -120,6 +120,14 @@
         <translation>名前を変更</translation>
     </message>
     <message>
+        <source>파일을 만들 수 없습니다: %1</source>
+        <translation>ファイルを作成できません: %1</translation>
+    </message>
+    <message>
+        <source>클립보드에서 파일 생성</source>
+        <translation>クリップボードからファイルを作成</translation>
+    </message>
+    <message>
         <source>이 위치에 폴더를 만들 수 없습니다.</source>
         <translation>この場所にはフォルダを作成できません。</translation>
     </message>
@@ -374,6 +382,24 @@ Windows: Gifiles.exe の隣、Linux AppImage: --appimage-extract 後の squashfs
     <message>
         <source>복사함</source>
         <translation>コピーしました</translation>
+    </message>
+    <message>
+        <source>클립보드 이미지를 읽을 수 없습니다.</source>
+        <translation>クリップボードの画像を読み込めません。</translation>
+    </message>
+    <message>
+        <source>클립보드 이미지.png</source>
+        <translation>クリップボードの画像.png</translation>
+    </message>
+    <message>
+        <source>클립보드 텍스트.txt</source>
+        <translation>クリップボードのテキスト.txt</translation>
+    </message>
+    <message>
+        <source>클립보드 내용을 이 폴더에 파일로 저장할까요?
+%1</source>
+        <translation>クリップボードの内容をこのフォルダにファイルとして保存しますか？
+%1</translation>
     </message>
     <message>
         <source>경로를 복사함</source>

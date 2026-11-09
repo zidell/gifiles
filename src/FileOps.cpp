@@ -384,6 +384,11 @@ void replay(const Job &job, Ctx &ctx, bool inverse)
                     err = Gifiles::tr("폴더를 만들 수 없습니다: %1").arg(s.to);
             }
             break;
+        case Step::Create:
+            ok = inverse ? trashItem(s.to, &s.from, &err) : moveItem(s.from, s.to, ctx, &err);
+            if (ok && !inverse)
+                ctx.res.created << s.to;
+            break;
         case Step::Extract:
             if (inverse) {
                 QString t;
@@ -477,6 +482,24 @@ QString rename(const QString &path, const QString &newName, UndoRecord *rec)
         return Gifiles::tr("이름을 바꿀 수 없습니다.");
     rec->label = Gifiles::tr("이름 변경");
     rec->steps = {Step{Step::Move, path, dst}};
+    return {};
+}
+
+QString makeFile(const QString &dir, const QString &name, const QByteArray &data, QString *created, UndoRecord *rec)
+{
+    const QString path = QDir(dir).filePath(util::uniquePlainName(dir, name));
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::NewOnly))
+        return Gifiles::tr("파일을 만들 수 없습니다: %1").arg(file.errorString());
+    if (file.write(data) != data.size() || !file.flush()) {
+        const QString error = file.errorString();
+        file.remove();
+        return Gifiles::tr("파일을 만들 수 없습니다: %1").arg(error);
+    }
+    file.close();
+    *created = path;
+    rec->label = Gifiles::tr("클립보드에서 파일 생성");
+    rec->steps = {Step{Step::Create, {}, path}};
     return {};
 }
 

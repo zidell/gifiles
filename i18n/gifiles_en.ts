@@ -120,6 +120,14 @@
         <translation>Rename</translation>
     </message>
     <message>
+        <source>파일을 만들 수 없습니다: %1</source>
+        <translation>Could not create file: %1</translation>
+    </message>
+    <message>
+        <source>클립보드에서 파일 생성</source>
+        <translation>Create File from Clipboard</translation>
+    </message>
+    <message>
         <source>이 위치에 폴더를 만들 수 없습니다.</source>
         <translation>Can&apos;t create a folder here.</translation>
     </message>
@@ -375,6 +383,24 @@ GIFILES_CONFIG_DIR environment variable changes the folder. More details: the in
     <message>
         <source>복사함</source>
         <translation>Copied</translation>
+    </message>
+    <message>
+        <source>클립보드 이미지를 읽을 수 없습니다.</source>
+        <translation>Could not read the clipboard image.</translation>
+    </message>
+    <message>
+        <source>클립보드 이미지.png</source>
+        <translation>Clipboard Image.png</translation>
+    </message>
+    <message>
+        <source>클립보드 텍스트.txt</source>
+        <translation>Clipboard Text.txt</translation>
+    </message>
+    <message>
+        <source>클립보드 내용을 이 폴더에 파일로 저장할까요?
+%1</source>
+        <translation>Save the clipboard contents as a file in this folder?
+%1</translation>
     </message>
     <message>
         <source>경로를 복사함</source>

@@ -1233,6 +1233,34 @@ private slots:
         QCOMPARE(rec.steps.size(), 1);
     }
 
+    void makeFileKeepsBothAndUndoRedoRestoresBytes()
+    {
+        const QByteArray data = QStringLiteral("한글\nclipboard ✓").toUtf8();
+        QString first, second;
+        UndoRecord rec, secondRec;
+        QVERIFY(FileOps::makeFile(m_dir, QStringLiteral("clipboard.txt"), data, &first, &rec).isEmpty());
+        QVERIFY(FileOps::makeFile(m_dir, QStringLiteral("clipboard.txt"), "second", &second, &secondRec).isEmpty());
+        QVERIFY(first != second);
+        QCOMPARE(readFile(first), data);
+        QCOMPARE(readFile(second), QByteArray("second"));
+        // Edits made after creation survive undo and redo, without needing the clipboard again.
+        QVERIFY(writeFile(first, "edited"));
+        for (int i = 0; i < 2; ++i) {
+            const auto undone = run(replayJob(Job::Undo, rec));
+            QVERIFY2(undone.errors.isEmpty(), qPrintable(undone.errors.join('\n')));
+            QVERIFY(!QFile::exists(first));
+            const auto redone = run(replayJob(Job::Redo, undone.record));
+            QVERIFY2(redone.errors.isEmpty(), qPrintable(redone.errors.join('\n')));
+            QCOMPARE(readFile(first), QByteArray("edited"));
+            rec = redone.record;
+        }
+        QString missing;
+        UndoRecord failed;
+        QVERIFY(!FileOps::makeFile(d("missing/dir"), QStringLiteral("no.txt"), data, &missing, &failed).isEmpty());
+        QVERIFY(missing.isEmpty());
+        QVERIFY(failed.isEmpty());
+    }
+
     void makeFolderPicksFreeNames()
     {
         QString c1, c2;

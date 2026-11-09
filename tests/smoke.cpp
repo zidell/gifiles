@@ -48,6 +48,7 @@
 #include <QToolButton>
 #include <QMediaPlayer>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QVideoFrame>
 #include <QVideoSink>
 #include <QVideoWidget>
@@ -761,6 +762,79 @@ private slots:
         key(Qt::Key_V, Qt::ControlModifier);
         QTRY_VERIFY(QFile::exists(p("감마/file2.go")));
         QVERIFY(QFile::exists(p("file2.go")));
+    }
+
+    void pasteClipboardContent_data()
+    {
+        QTest::addColumn<QString>("kind");
+        QTest::addColumn<bool>("accept");
+        QTest::newRow("text") << QStringLiteral("text") << true;
+        QTest::newRow("image-with-text") << QStringLiteral("image") << true;
+        QTest::newRow("cancel") << QStringLiteral("text") << false;
+        QTest::newRow("web-url") << QStringLiteral("url") << true;
+        QTest::newRow("empty") << QStringLiteral("empty") << false;
+        QTest::newRow("unsupported") << QStringLiteral("binary") << false;
+    }
+
+    void pasteClipboardContent()
+    {
+        QFETCH(QString, kind);
+        QFETCH(bool, accept);
+        QVERIFY(makeFixture(QStringLiteral("clipboard-content")));
+        const auto restore = qScopeGuard([this] {
+            QGuiApplication::clipboard()->clear();
+            tab()->navigate(m_tmp.path());
+            QDir(p("clipboard-content")).removeRecursively();
+        });
+        tab()->navigate(p("clipboard-content"));
+        tab()->focusView();
+        const QString text = QStringLiteral("한글 clipboard\nsecond line\t✓");
+        const QString url = QStringLiteral("https://example.com/test");
+        QImage image(8, 6, QImage::Format_ARGB32);
+        image.fill(QColor(12, 34, 56, 78));
+        auto *md = new QMimeData;
+        if (kind == QLatin1String("text"))
+            md->setText(text);
+        else if (kind == QLatin1String("image")) {
+            md->setImageData(image);
+            md->setText(QStringLiteral("image fallback"));
+        } else if (kind == QLatin1String("url"))
+            md->setUrls({QUrl(url)});
+        else if (kind == QLatin1String("binary"))
+            md->setData("application/octet-stream", "binary");
+        QGuiApplication::clipboard()->setMimeData(md);
+        const bool expectsDialog = kind != QLatin1String("empty") && kind != QLatin1String("binary");
+        int dialogs = 0;
+        if (expectsDialog) {
+            onNextPopup([&](QWidget *w) {
+                auto *box = qobject_cast<QMessageBox *>(w);
+                QVERIFY(box);
+                ++dialogs;
+                shot("clipboard-confirm", box);
+                // The file must contain what was offered even if another app copies during the dialog.
+                QGuiApplication::clipboard()->setText(QStringLiteral("changed during confirmation"));
+                box->button(accept ? QMessageBox::Yes : QMessageBox::Cancel)->click();
+            });
+        }
+        key(Qt::Key_V, Qt::ControlModifier);
+        QCOMPARE(dialogs, expectsDialog ? 1 : 0);
+        const QStringList files = QDir(p("clipboard-content")).entryList(QDir::Files);
+        if (!accept) {
+            QVERIFY(files.isEmpty());
+            return;
+        }
+        QCOMPARE(files.size(), 1);
+        const QString path = p(QStringLiteral("clipboard-content/") + files.first());
+        if (kind == QLatin1String("image")) {
+            QVERIFY(path.endsWith(QLatin1String(".png")));
+            QCOMPARE(QImage(path).convertToFormat(QImage::Format_ARGB32), image);
+        } else {
+            QVERIFY(path.endsWith(QLatin1String(".txt")));
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::ReadOnly));
+            QCOMPARE(file.readAll(), (kind == QLatin1String("url") ? url : text).toUtf8());
+        }
+        QTRY_COMPARE(tab()->selectedPaths(), QStringList{path});
     }
 
     void settingsWindow()

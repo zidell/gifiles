@@ -24,6 +24,8 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
+#include <QBuffer>
+#include <QImage>
 #include <QCloseEvent>
 #include <QDeadlineTimer>
 #include <QDesktopServices>
@@ -1938,11 +1940,48 @@ void MainWindow::copyToClipboard(bool cut)
 void MainWindow::paste(bool forceMove)
 {
     const QMimeData *md = QGuiApplication::clipboard()->mimeData();
-    if (!md || !md->hasUrls())
+    if (!md)
         return;
     const QStringList srcs = localPaths(md->urls());
-    if (srcs.isEmpty())
+    if (srcs.isEmpty()) {
+        if (forceMove)
+            return;
+        QByteArray data;
+        QString name;
+        // Images often also advertise text (a URL or HTML); prefer the actual image.
+        if (md->hasImage()) {
+            const QImage image = QGuiApplication::clipboard()->image();
+            QBuffer buffer(&data);
+            if (image.isNull() || !image.save(&buffer, "PNG")) {
+                QMessageBox::warning(this, QString(), Gifiles::tr("클립보드 이미지를 읽을 수 없습니다."));
+                return;
+            }
+            name = Gifiles::tr("클립보드 이미지.png");
+        } else if (md->hasText() && !md->text().isEmpty()) {
+            data = md->text().toUtf8();
+            name = Gifiles::tr("클립보드 텍스트.txt");
+        } else {
+            return;
+        }
+        // Snapshot both data and destination before the confirmation's nested event loop.
+        QPointer<BrowserTab> target = tab();
+        const QString dir = target->path();
+        if (QMessageBox::question(this, Gifiles::tr("클립보드에서 파일 생성"),
+                                  Gifiles::tr("클립보드 내용을 이 폴더에 파일로 저장할까요?\n%1").arg(name),
+                                  QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes)
+            return;
+        QString created;
+        UndoRecord rec;
+        const QString error = FileOps::makeFile(dir, name, data, &created, &rec);
+        if (!error.isEmpty()) {
+            QMessageBox::warning(this, QString(), error);
+            return;
+        }
+        App::instance()->recordDone(rec);
+        if (target && target->path() == dir)
+            target->selectPaths({created});
         return;
+    }
     const QByteArray effect = md->data(kWinDropEffect);
     const bool cut = forceMove || md->hasFormat(kCutMime) || (!effect.isEmpty() && (effect.at(0) & 2));
     runTransfer(srcs, tab()->path(), cut);
