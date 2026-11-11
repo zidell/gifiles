@@ -63,6 +63,7 @@
 #include <QSlider>
 #include <QStackedWidget>
 #include <QStyleOptionMenuItem>
+#include <QStyleOptionHeader>
 #include <QTemporaryDir>
 #include <QVideoFrame>
 #include <QVideoSink>
@@ -220,6 +221,43 @@ private slots:
         QApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         for (int i = bar.count(); i < ax->childCount(); ++i)
             QVERIFY(ax->child(i)->object() != button);
+    }
+
+    void headerSortArrowPointsInSortDirection()
+    {
+        // Qt's header passes SortDown for ascending and SortUp for descending.
+        // Check the rendered triangle, rather than just the stored sort order.
+        for (const auto indicator : {QStyleOptionHeader::SortDown, QStyleOptionHeader::SortUp}) {
+            QImage image(24, 24, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QStyleOptionHeader option;
+            option.rect = image.rect();
+            option.state = QStyle::State_Enabled;
+            option.palette = QApplication::palette();
+            option.sortIndicator = indicator;
+            QPainter painter(&image);
+            QApplication::style()->drawPrimitive(QStyle::PE_IndicatorHeaderArrow, &option, &painter);
+            painter.end();
+            int top = -1, bottom = -1, topWidth = 0, bottomWidth = 0;
+            for (int y = 0; y < image.height(); ++y) {
+                int width = 0;
+                for (int x = 0; x < image.width(); ++x)
+                    width += qAlpha(image.pixel(x, y)) > 0;
+                if (!width)
+                    continue;
+                if (top < 0) {
+                    top = y;
+                    topWidth = width;
+                }
+                bottom = y;
+                bottomWidth = width;
+            }
+            QVERIFY(bottom > top);
+            if (indicator == QStyleOptionHeader::SortDown)
+                QVERIFY(topWidth < bottomWidth); // ascending: tip at the top
+            else
+                QVERIFY(topWidth > bottomWidth); // descending: tip at the bottom
+        }
     }
 
     void initTestCase()

@@ -19,6 +19,7 @@
 #include <QPalette>
 #include <QStyleFactory>
 #include <QStyleOptionMenuItem>
+#include <QStyleOptionHeader>
 #include <QStyleHints>
 #include <QSvgRenderer>
 
@@ -150,6 +151,17 @@ public:
         if (pe == PE_FrameFocusRect && w && (qobject_cast<const QAbstractItemView *>(w) ||
                                              qobject_cast<const QAbstractItemView *>(w->parentWidget())))
             return;
+        if (pe == PE_IndicatorHeaderArrow) {
+            if (const auto *header = qstyleoption_cast<const QStyleOptionHeader *>(opt);
+                header && header->sortIndicator != QStyleOptionHeader::None) {
+                // Qt calls ascending SortDown. Show ascending as ▲ and descending as ▼.
+                QStyleOptionHeader arrow(*header);
+                arrow.sortIndicator = header->sortIndicator == QStyleOptionHeader::SortDown
+                    ? QStyleOptionHeader::SortUp : QStyleOptionHeader::SortDown;
+                QProxyStyle::drawPrimitive(pe, &arrow, p, w);
+                return;
+            }
+        }
         QProxyStyle::drawPrimitive(pe, opt, p, w);
     }
 };
