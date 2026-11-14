@@ -1816,8 +1816,26 @@ private slots:
         QCOMPARE(opened.size(), 1);
     }
 
-    // "최근 폴더": a section between the favorites and the volumes (its title alone while empty);
-    // a click opens one, the menu adds it to the favorites or takes it off the list.
+    void navigationDropsCurrentIndexOfPreviousFolder()
+    {
+        QVERIFY(QDir().mkpath(p("navigation/old")));
+        QVERIFY(QDir().mkpath(p("navigation/new")));
+        write(QStringLiteral("navigation/old/file.txt"), "data");
+        BrowserTab browser(p("navigation/old"), BrowserTab::List, false);
+        browser.selectPaths({p("navigation/old/file.txt")});
+        QTRY_COMPARE(browser.selectedPaths(), QStringList{p("navigation/old/file.txt")});
+        QVERIFY(browser.view()->currentIndex().isValid());
+        browser.navigate(p("navigation/new"));
+        QVERIFY(!browser.view()->currentIndex().isValid());
+        QVERIFY(browser.selectedPaths().isEmpty());
+        // The old root can disappear while events are processed by a modal dialog.
+        QVERIFY(QDir(p("navigation/old")).removeRecursively());
+        QVERIFY(QDir().mkpath(p("navigation/old")));
+        QTest::qWait(200);
+        QCOMPARE(browser.path(), p("navigation/new"));
+        QVERIFY(!browser.view()->currentIndex().isValid());
+    }
+
     void staleFolderScanIsBoundedAndIgnoresLateResult()
     {
         QThreadPool *pool = QThreadPool::globalInstance();
@@ -1853,6 +1871,8 @@ private slots:
         QCOMPARE(browser.path(), p("Beta"));
     }
 
+    // "최근 폴더": a section between the favorites and the volumes (its title alone while empty);
+    // a click opens one, the menu adds it to the favorites or takes it off the list.
     void sidebarShowsRecentFolders()
     {
         Sidebar *sb = m_sidebar;

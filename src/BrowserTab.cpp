@@ -53,6 +53,12 @@ public:
             return QFileIconProvider::icon(info.isDir() ? Folder : File);
         return QFileIconProvider::icon(info);
     }
+    QString type(const QFileInfo &info) const override
+    {
+        // getInfo() also asks for the type on the GUI thread. Qt's default MIME lookup can
+        // stat/open remote files even after icon() used a generic icon (confirmed by sample).
+        return util::usesGenericFileIcon(info.absoluteFilePath()) ? util::kindOf(info) : QFileIconProvider::type(info);
+    }
 };
 
 constexpr int kMacTextWeight = QFont::Light; // see applyFont
@@ -577,6 +583,18 @@ void BrowserTab::navigate(const QString &rawPath, bool pushHistory, const QStrin
     m_pendingRename = false;
     m_enterWhenLoaded.clear();
     const bool changed = path != m_path;
+    if (changed) {
+        // clearSelection() leaves currentIndex pointing into the old folder. If that folder is
+        // removed/recreated while a modal dialog runs, Qt's proxy may remove its mapping before
+        // another selection model asks for the old index's parent. Drop both current and range
+        // state before changing roots, including the hidden/recycled column views.
+        QSet<QItemSelectionModel *> selections{m_list->selectionModel(), m_columns->selectionModel()};
+        for (QAbstractItemView *v : m_columns->viewport()->findChildren<QAbstractItemView *>())
+            if (v->selectionModel())
+                selections.insert(v->selectionModel());
+        for (QItemSelectionModel *selection : selections)
+            selection->clear();
+    }
     setPathInternal(path, pushHistory);
     if (changed)
         applyFolderPrefs();

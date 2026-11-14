@@ -446,7 +446,10 @@ again; leave out what only mattered once.
   replacement editor before flushing and checks that typed text stays private.
 - **Remote UI metadata:** on macOS `util::userVolumes`, `volumeRoot` and `availableBytes` use
   `getfsstat(MNT_NOWAIT)`, including sidebar polling, status and column roots. Breadcrumb parents
-  are lexical; folder view keys skip remote canonicalization. Recent/favorite rendering never
+  are lexical; folder view keys skip remote canonicalization. BrowserIconProvider must override
+  both icon() and type(): Qt's default type() uses QMimeDatabase, which still stats/opens remote
+  files on the GUI thread after a generic icon was returned (confirmed by live sampling).
+  Recent/favorite rendering never
   stats a known remote path, and remote package classification uses suffixes instead of NSURL
   resource reads. Stale-folder scans run off-thread, one per tab; discard results after a path
   or filter change. Network tabs poll because native watches can miss changes; no extra synchronous
@@ -457,11 +460,14 @@ again; leave out what only mattered once.
   either alias. Remote paths use lexical identity without contacting the mount. Same basenames in
   different folders remain distinct.
 
+- **Navigation selection lifetime:** clear both current index and selected ranges before changing
+  browser roots, including hidden/recycled column selection models. clearSelection() alone keeps
+  a current index in the previous folder; deleting/recreating that folder during a modal dialog
+  exposed a QSortFilterProxyModel / QItemSelectionModel parent lookup crash. The widget regression
+  checks that no old current index remains when its parent disappears.
+
 ## Not verified yet
 
-- Qt 6.11.2 offscreen model removal: intermittent QSortFilterProxyModel / QItemSelectionModel
-  fault while a directory is removed/recreated during clipboard confirmation. Preserve it as an
-  open regression risk until a deterministic reproduction identifies the stale selection mapping.
 - Windows/Linux by hand on a real desktop (see Status), the Windows preview handlers with Office, Linux
   LibreOffice conversion, a real automatic update end to end on each OS, ejecting drives on Windows/Linux.
 - macOS by real input: terminal edge drags, a click into the Quick Look system view then Space,
