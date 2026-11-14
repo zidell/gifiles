@@ -26,6 +26,8 @@
 #include <QFileSystemModel>
 #include <QFileSystemWatcher>
 #include <QHeaderView>
+#include <QFutureWatcher>
+#include <QtConcurrent>
 #include <QKeyEvent>
 #include <QListView>
 #include <QStackedWidget>
@@ -212,7 +214,7 @@ QSettings &folderStore()
 
 QString folderKey(const QString &path)
 {
-    QString canon = QFileInfo(path).canonicalFilePath();
+    QString canon = util::usesGenericFileIcon(path) ? QString() : QFileInfo(path).canonicalFilePath();
     if (canon.isEmpty())
         canon = QDir::cleanPath(path);
     return QString::fromLatin1(QCryptographicHash::hash(canon.toUtf8(), QCryptographicHash::Sha1).toHex());
@@ -467,6 +469,15 @@ BrowserTab::BrowserTab(const QString &path, Mode mode, bool showHidden, QWidget 
     m_mode = mode;
     m_stack->setCurrentIndex(mode);
     navigate(path);
+    // Network filesystems do not reliably deliver native file-watch events. Poll in a worker,
+    // with one request in flight per tab even when the server stops responding.
+    auto *remotePoll = new QTimer(this);
+    remotePoll->setInterval(4000);
+    connect(remotePoll, &QTimer::timeout, this, [this] {
+        if (util::usesGenericFileIcon(m_path))
+            relistIfStale();
+    });
+    remotePoll->start();
     qApp->installEventFilter(this);
 }
 
@@ -611,7 +622,8 @@ void BrowserTab::setPathInternal(const QString &path, bool pushHistory)
         m_staleCheck->stop();
         if (const QStringList watched = m_folderWatch->directories(); !watched.isEmpty())
             m_folderWatch->removePaths(watched);
-        m_folderWatch->addPath(path);
+        if (!util::usesGenericFileIcon(path))
+            m_folderWatch->addPath(path);
     }
     m_proxy->setSearchRoot(path);
     if (pushHistory && changed) {
@@ -640,28 +652,50 @@ void BrowserTab::applyRoot()
 // later, re-rooting makes the model list the folder (and watch it) again.
 void BrowserTab::relistIfStale()
 {
+    if (m_relistRunning || m_path.isEmpty())
+        return;
     const QModelIndex root = m_fs->index(m_path);
-    if (!root.isValid() || m_fs->canFetchMore(root) || !QFileInfo(m_path).isDir())
+    if (!root.isValid() || m_fs->canFetchMore(root))
         return;
-    QStringList shown;
-    for (int r = 0; r < m_fs->rowCount(root); ++r)
-        shown << m_fs->fileName(m_fs->index(r, 0, root));
-    QStringList onDisk = QDir(m_path).entryList(m_fs->filter());
-    shown.sort();
-    onDisk.sort();
-    if (shown == onDisk)
-        return;
-    Log::write("browse", QStringLiteral("model stopped following %1: relisting").arg(m_path));
-    m_loadedFolders.remove(m_path);
-    setLoading(true);
-    m_fs->setRootPath(QString());
-    m_fs->setRootPath(m_path);
+    const QString path = m_path;
+    const QDir::Filters filter = m_fs->filter();
+    m_relistRunning = true;
+    auto *watcher = new QFutureWatcher<std::optional<QStringList>>(this);
+    connect(watcher, &QFutureWatcher<std::optional<QStringList>>::finished, this, [this, watcher, path, filter] {
+        const auto onDisk = watcher->result();
+        watcher->deleteLater();
+        m_relistRunning = false;
+        // A late scan must never re-root the folder the user navigated to meanwhile.
+        if (path != m_path || filter != m_fs->filter() || !onDisk)
+            return;
+        const QModelIndex root = m_fs->index(path);
+        if (!root.isValid() || m_fs->canFetchMore(root))
+            return;
+        QStringList shown;
+        for (int r = 0; r < m_fs->rowCount(root); ++r)
+            shown << m_fs->fileName(m_fs->index(r, 0, root));
+        shown.sort();
+        if (shown == *onDisk)
+            return;
+        Log::write("browse", QStringLiteral("model stopped following %1: relisting").arg(path));
+        m_loadedFolders.remove(path);
+        setLoading(true);
+        m_fs->setRootPath(QString());
+        m_fs->setRootPath(path);
+    });
+    watcher->setFuture(QtConcurrent::run([path, filter]() -> std::optional<QStringList> {
+        if (!QFileInfo(path).isDir())
+            return std::nullopt; // disconnected/missing is not an empty directory
+        QStringList names = QDir(path).entryList(filter);
+        names.sort();
+        return names;
+    }));
 }
 
 void BrowserTab::checkRoot()
 {
-    if (m_path.isEmpty())
-        return;
+    if (m_path.isEmpty() || util::usesGenericFileIcon(m_path))
+        return; // a disconnected remote root must not trigger synchronous ancestor probes
     const QModelIndex root = m_list->rootIndex();
     if (root.isValid() && QDir::cleanPath(m_proxy->filePath(root)) == QDir::cleanPath(m_path)) {
         m_rootGone->stop();
@@ -696,7 +730,7 @@ void BrowserTab::checkRoot()
 void BrowserTab::syncColumns()
 {
     m_syncingColumns = true;
-    QString volume = QStorageInfo(m_path).rootPath();
+    QString volume = util::volumeRoot(m_path);
     if (volume.isEmpty())
         volume = QDir::rootPath();
     const QModelIndex root = m_proxy->indexForPath(volume);

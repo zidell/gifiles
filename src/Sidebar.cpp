@@ -77,6 +77,8 @@ QPair<QString, QString> placeLook(const QString &path)
             return {QString::fromLatin1(k.glyph), k.label ? Gifiles::tr(k.label) : util::displayName(p)};
     if (p == QLatin1String("/Applications"))
         return {QStringLiteral("apps"), Gifiles::tr("응용 프로그램")};
+    if (util::usesGenericFileIcon(p))
+        return {QStringLiteral("folder"), util::displayName(p)};
     const QFileInfo fi(p);
     if (!fi.isDir() || util::isPackage(fi))
         return {QStringLiteral("documents"), util::displayName(p)};
@@ -240,7 +242,7 @@ void Sidebar::rebuild()
     };
     m_favorites = section(Gifiles::tr("즐겨찾기"), "favorites");
     for (const QString &p : favorites())
-        if (QFileInfo::exists(p))
+        if (util::usesGenericFileIcon(p) || QFileInfo::exists(p))
             addPlace(m_favorites, p);
     // Shown while sidebar.recent_folders > 0, the title alone until the first folder comes in.
     if (Settings::instance()->value(Settings::RecentFoldersCount).toInt() > 0) {
@@ -250,14 +252,12 @@ void Sidebar::rebuild()
     }
     m_locations = section(Gifiles::tr("위치"), "locations");
     m_volumeRoots.clear();
-    for (const QStorageInfo &si : QStorageInfo::mountedVolumes()) {
-        if (!util::isUserVolume(si))
-            continue;
-        QString label = si.displayName();
-        if (label.isEmpty() || label == si.rootPath())
-            label = si.rootPath() == QLatin1String("/") ? Gifiles::tr("컴퓨터") : util::displayName(si.rootPath());
-        addPlace(m_locations, si.rootPath(), label);
-        m_volumeRoots << si.rootPath();
+    for (const util::Volume &si : util::userVolumes()) {
+        QString label = si.label;
+        if (label.isEmpty() || label == si.root)
+            label = si.root == QLatin1String("/") ? Gifiles::tr("컴퓨터") : util::displayName(si.root);
+        addPlace(m_locations, si.root, label);
+        m_volumeRoots << si.root;
     }
     const QStringList folded = QSettings().value(kFoldedKey).toStringList();
     for (QTreeWidgetItem *section : sections())
@@ -281,9 +281,8 @@ QList<QTreeWidgetItem *> Sidebar::sections() const
 void Sidebar::refreshVolumes()
 {
     QStringList roots;
-    for (const QStorageInfo &si : QStorageInfo::mountedVolumes())
-        if (util::isUserVolume(si))
-            roots << si.rootPath();
+    for (const util::Volume &si : util::userVolumes())
+        roots << si.root;
     if (roots != m_volumeRoots)
         rebuild();
 }

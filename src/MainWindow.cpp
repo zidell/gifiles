@@ -1830,9 +1830,9 @@ void MainWindow::updateStatus()
     QString s = Gifiles::tr("%1개 항목").arg(n);
     if (sel > 0)
         s += Gifiles::tr(", %1개 선택됨").arg(sel);
-    const QStorageInfo si(t->path());
-    if (si.isValid())
-        s += Gifiles::tr(", %1 사용 가능").arg(util::humanSize(si.bytesAvailable()));
+    const qint64 available = util::availableBytes(t->path());
+    if (available >= 0)
+        s += Gifiles::tr(", %1 사용 가능").arg(util::humanSize(available));
     m_statusLabel->setText(s);
 }
 

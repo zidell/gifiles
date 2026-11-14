@@ -8,6 +8,7 @@
 #include "TestShell.h"
 
 #include "App.h"
+#include "BrowserTab.h"
 #include "AccessibleTabs.h"
 #include "Log.h"
 #include "OpenWith.h"
@@ -51,6 +52,11 @@
 #include <QMimeData>
 #include <QSignalSpy>
 #include <QTimer>
+#include <QFutureWatcher>
+#include <QFileSystemModel>
+#include <QSemaphore>
+#include <QThreadPool>
+#include <QtConcurrent>
 #include <QPainter>
 #include <QPdfWriter>
 #include <QPlainTextEdit>
@@ -1812,6 +1818,41 @@ private slots:
 
     // "최근 폴더": a section between the favorites and the volumes (its title alone while empty);
     // a click opens one, the menu adds it to the favorites or takes it off the list.
+    void staleFolderScanIsBoundedAndIgnoresLateResult()
+    {
+        QThreadPool *pool = QThreadPool::globalInstance();
+        const int oldMax = pool->maxThreadCount();
+        auto gate = std::make_shared<QSemaphore>();
+        const auto restore = qScopeGuard([=] {
+            gate->release(); // also release on a failed assertion
+            pool->setMaxThreadCount(oldMax);
+        });
+        BrowserTab browser(p("Alpha"), BrowserTab::List, false);
+        auto *fs = browser.findChild<QFileSystemModel *>();
+        QVERIFY(fs);
+        QSignalSpy loaded(fs, &QFileSystemModel::directoryLoaded);
+        QTRY_VERIFY(!loaded.isEmpty());
+        QTimer *stale = nullptr;
+        for (QTimer *timer : browser.findChildren<QTimer *>())
+            if (timer->isSingleShot() && timer->interval() == 1000)
+                stale = timer;
+        QVERIFY(stale);
+        pool->setMaxThreadCount(1);
+        auto started = std::make_shared<QSemaphore>();
+        const auto blocker = QtConcurrent::run([gate, started] { started->release(); gate->acquire(); });
+        QTRY_VERIFY(started->available() > 0);
+        // A delayed server/listing must not block navigation or enqueue a scan per timer tick.
+        QVERIFY(QMetaObject::invokeMethod(stale, "timeout", Qt::DirectConnection));
+        QVERIFY(QMetaObject::invokeMethod(stale, "timeout", Qt::DirectConnection));
+        QCOMPARE(browser.findChildren<QFutureWatcherBase *>().size(), 1);
+        browser.navigate(p("Beta"));
+        QCOMPARE(browser.path(), p("Beta"));
+        gate->release();
+        QTRY_VERIFY(browser.findChildren<QFutureWatcherBase *>().isEmpty());
+        QCOMPARE(fs->rootPath(), p("Beta"));
+        QCOMPARE(browser.path(), p("Beta"));
+    }
+
     void sidebarShowsRecentFolders()
     {
         Sidebar *sb = m_sidebar;
@@ -2462,6 +2503,19 @@ private slots:
         press(Qt::Key_A, Qt::ControlModifier, QString()); // a command key: recorded
         QCOMPARE(Log::recentKey(), QKeySequence(Qt::CTRL | Qt::Key_A).toString(QKeySequence::NativeText));
         QTest::qWait(1700); // the typing count is flushed after a pause
+        // Rename editors disappear on commit/model changes before the 1.5 s flush. Both a
+        // subsequent key and the timer must log the saved name without touching the dead object.
+        edit->setObjectName(QStringLiteral("renameEdit"));
+        press(Qt::Key_X, Qt::NoModifier, QStringLiteral("x"));
+        delete edit;
+        edit = new QLineEdit(&host);
+        edit->setObjectName(QStringLiteral("replacement"));
+        edit->show();
+        edit->setFocus();
+        QTRY_VERIFY(edit->hasFocus());
+        press(Qt::Key_Z, Qt::NoModifier, QStringLiteral("z"));
+        delete edit;
+        QTest::qWait(1700);
         auto *box = new QMessageBox(QMessageBox::Information, QStringLiteral("제목"), QStringLiteral("본문"), QMessageBox::Ok, &host);
         box->setAttribute(Qt::WA_DeleteOnClose);
         box->show();
@@ -2474,6 +2528,8 @@ private slots:
         const QString text = QString::fromUtf8(f.readAll());
         QVERIFY2(!text.contains(QStringLiteral("secret")), qPrintable(text)); // what was typed never is
         QVERIFY2(text.contains(QStringLiteral("[typing] 6 characters (QLineEdit)")), qPrintable(text));
+        QVERIFY(text.contains(QStringLiteral("[typing] 1 characters (QLineEdit#renameEdit)")));
+        QVERIFY(text.contains(QStringLiteral("[typing] 1 characters (QLineEdit#replacement)")));
         QVERIFY2(text.contains(QStringLiteral("[key] ") + Log::recentKey()), qPrintable(text));
         QVERIFY2(text.contains(QStringLiteral(" | 본문")) && text.contains(QStringLiteral("[dialog] ")), qPrintable(text)); // macOS boxes have no title
         QVERIFY(text.contains(QStringLiteral("[qt-warning] a warning for the log")));

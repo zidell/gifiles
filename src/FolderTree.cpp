@@ -278,13 +278,11 @@ QList<FolderTree::Drive> FolderTree::drives()
     auto same = [](const QString &a, const QString &b) { return QDir::cleanPath(a).compare(QDir::cleanPath(b), Qt::CaseInsensitive) == 0; };
     QList<Drive> out;
     bool merged = false;
-    for (const QStorageInfo &si : QStorageInfo::mountedVolumes()) {
-        if (!util::isUserVolume(si))
-            continue;
+    for (const util::Volume &si : util::userVolumes()) {
         Drive d;
-        d.root = si.rootPath();
+        d.root = si.root;
         d.path = QDir::toNativeSeparators(d.root);
-        d.label = si.displayName();
+        d.label = si.label;
         if (d.label.isEmpty() || d.label == d.root)
             d.label = d.root == QLatin1String("/") ? Gifiles::tr("컴퓨터") : util::displayName(d.root);
         if (defaults.size() == 1 && same(defaults.first(), d.root)) {

@@ -46,10 +46,16 @@ void PathBar::rebuild()
         delete it;
     }
     QStringList chain;
-    QDir d(m_path);
-    chain << d.absolutePath();
-    while (d.cdUp())
-        chain.prepend(d.absolutePath());
+    QString part = QDir::cleanPath(QFileInfo(m_path).absoluteFilePath());
+    chain << part;
+    // Breadcrumbs describe the path, without cdUp() stat calls on each remote ancestor.
+    for (;;) {
+        const QString parent = QFileInfo(part).absolutePath();
+        if (parent == part)
+            break;
+        chain.prepend(parent);
+        part = parent;
+    }
     for (int i = 0; i < chain.size(); ++i) {
         if (i > 0) {
             auto *sep = new QLabel(QStringLiteral("›"), m_crumbs);

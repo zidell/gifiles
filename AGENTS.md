@@ -440,8 +440,28 @@ again; leave out what only mattered once.
   with `HOME`, `CFFIXED_USER_HOME` and `GIFILES_CONFIG_DIR` pointed at a scratch `Users/demo` (no real paths
   or machine name), resized to 1600 px and pngquant'ed.
 
+- **Logging editor lifetimes:** a rename editor can be destroyed before the 1.5 s typing flush.
+  `Log::Watcher` keeps a QPointer for identity and captures its name while alive; the timer must
+  never dereference a saved raw widget pointer. The widget regression destroys both the old and
+  replacement editor before flushing and checks that typed text stays private.
+- **Remote UI metadata:** on macOS `util::userVolumes`, `volumeRoot` and `availableBytes` use
+  `getfsstat(MNT_NOWAIT)`, including sidebar polling, status and column roots. Breadcrumb parents
+  are lexical; folder view keys skip remote canonicalization. Recent/favorite rendering never
+  stats a known remote path, and remote package classification uses suffixes instead of NSURL
+  resource reads. Stale-folder scans run off-thread, one per tab; discard results after a path
+  or filter change. Network tabs poll because native watches can miss changes; no extra synchronous
+  watcher or missing-root ancestor probes on them. This does not replace QFileSystemModel's own
+  filesystem I/O; a real server disconnect/reconnect remains a separate manual verification.
+- **Recent folder identity:** deduplicate by canonical local path (Unicode normalized; case folded
+  on Windows), retaining the newest display spelling. Clean existing state on read and remove by
+  either alias. Remote paths use lexical identity without contacting the mount. Same basenames in
+  different folders remain distinct.
+
 ## Not verified yet
 
+- Qt 6.11.2 offscreen model removal: intermittent QSortFilterProxyModel / QItemSelectionModel
+  fault while a directory is removed/recreated during clipboard confirmation. Preserve it as an
+  open regression risk until a deterministic reproduction identifies the stale selection mapping.
 - Windows/Linux by hand on a real desktop (see Status), the Windows preview handlers with Office, Linux
   LibreOffice conversion, a real automatic update end to end on each OS, ejecting drives on Windows/Linux.
 - macOS by real input: terminal edge drags, a click into the Quick Look system view then Space,

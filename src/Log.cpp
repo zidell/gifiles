@@ -13,6 +13,7 @@
 #include <QMessageBox>
 #include <QMutex>
 #include <QPlainTextEdit>
+#include <QPointer>
 #include <QTimer>
 
 namespace Log {
@@ -65,7 +66,7 @@ bool isTyping(QObject *obj, const QKeyEvent *ke)
 
 class Watcher : public QObject {
 public:
-    Watcher()
+    Watcher() : QObject(qApp)
     {
         m_flush.setSingleShot(true);
         m_flush.setInterval(1500);
@@ -89,6 +90,7 @@ public:
                 if (m_typedIn != obj)
                     flushTyping();
                 m_typedIn = obj;
+                m_typedInName = widgetName(obj);
                 ++m_typed;
                 m_flush.start();
                 break;
@@ -118,14 +120,15 @@ private:
     void flushTyping()
     {
         if (m_typed > 0)
-            write("typing", QStringLiteral("%1 characters (%2)").arg(m_typed).arg(widgetName(m_typedIn)));
+            write("typing", QStringLiteral("%1 characters (%2)").arg(m_typed).arg(m_typedInName));
         m_typed = 0;
         m_typedIn = nullptr;
     }
 
     ulong m_lastStamp = 0;
     int m_typed = 0;
-    QObject *m_typedIn = nullptr;
+    QPointer<QObject> m_typedIn;
+    QString m_typedInName;
     QTimer m_flush;
 };
 

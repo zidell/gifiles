@@ -1238,6 +1238,57 @@ private slots:
         QVERIFY(r->folders().isEmpty());
     }
 
+    void recentFoldersDeduplicateAliasesAndMigrate()
+    {
+        RecentFolders *r = RecentFolders::instance();
+        r->clear();
+        const auto cleanup = qScopeGuard([r] { r->clear(); });
+        const QString base = scratch(QStringLiteral("recent-aliases"));
+        const QString a = QDir(base).filePath(QStringLiteral("one/project"));
+        const QString b = QDir(base).filePath(QStringLiteral("two/project"));
+        QVERIFY(QDir().mkpath(a));
+        QVERIFY(QDir().mkpath(b));
+        QString alias = a + QStringLiteral("/./");
+#ifndef Q_OS_WIN
+        const QString link = QDir(base).filePath(QStringLiteral("linked"));
+        QVERIFY(QFile::link(QFileInfo(a).absolutePath(), link));
+        alias = link + QStringLiteral("/project");
+#endif
+        // Already-stored duplicates are repaired without waiting for another visit/work event.
+        QSettings().setValue(QStringLiteral("recent/folders"), QStringList{alias, b, a, alias});
+        QCOMPARE(r->folders(), (QStringList{QDir::cleanPath(alias), b}));
+        QCOMPARE(QSettings().value(QStringLiteral("recent/folders")).toStringList().size(), 2);
+        r->note(a);
+        QCOMPARE(r->folders(), (QStringList{a, b})); // keep newest spelling; same names are distinct
+        r->note(alias);
+        QCOMPARE(r->folders(), (QStringList{QDir::cleanPath(alias), b}));
+        r->remove(a); // remove by either spelling
+        QCOMPARE(r->folders(), QStringList{b});
+    }
+
+    void cachedMountMetadata()
+    {
+#ifdef Q_OS_MACOS
+        const auto volumes = util::userVolumes();
+        QVERIFY(!volumes.isEmpty());
+        for (const auto &v : volumes) {
+            const QString child = QDir(v.root).filePath(QStringLiteral("gifiles-nonexistent-child"));
+            QCOMPARE(util::volumeRoot(child), v.root);
+            QVERIFY(util::availableBytes(child) >= 0);
+            if (util::usesGenericFileIcon(child)) {
+                // No stat/canonicalPath is needed even for a path that never existed on SSHFS.
+                RecentFolders *r = RecentFolders::instance();
+                const auto cleanup = qScopeGuard([r] { r->clear(); });
+                r->clear();
+                r->note(child);
+                QCOMPARE(r->folders(), QStringList{child});
+                r->remove(child);
+                QVERIFY(r->folders().isEmpty());
+            }
+        }
+#endif
+    }
+
     void recentFoldersCountSetting()
     {
         RecentFolders *r = RecentFolders::instance();

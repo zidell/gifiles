@@ -148,4 +148,5 @@ private:
     QTimer *m_rootGone = nullptr; // the open folder stayed missing: go to its parent
     QFileSystemWatcher *m_folderWatch = nullptr; // the open folder, besides the model's own watching
     QTimer *m_staleCheck = nullptr;
+    bool m_relistRunning = false;
 };

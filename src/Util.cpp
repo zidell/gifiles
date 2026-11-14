@@ -12,6 +12,7 @@
 #include <QKeySequence>
 #include <QLocale>
 #include <QRegularExpression>
+#include <QSet>
 #include <QStorageInfo>
 #include <QUrl>
 
@@ -57,6 +58,61 @@ bool usesGenericFileIcon(const QString &path)
 #else
     Q_UNUSED(path);
     return false;
+#endif
+}
+
+QList<Volume> userVolumes()
+{
+    QList<Volume> out;
+#ifdef Q_OS_MACOS
+    const int count = getfsstat(nullptr, 0, MNT_NOWAIT);
+    if (count < 0)
+        return out;
+    std::vector<struct statfs> mounts(count + 8);
+    const int n = getfsstat(mounts.data(), int(mounts.size() * sizeof(struct statfs)), MNT_NOWAIT);
+    for (int i = 0; i < n; ++i) {
+        const auto &m = mounts[i];
+        if (m.f_flags & MNT_DONTBROWSE)
+            continue;
+        const QString root = QString::fromUtf8(m.f_mntonname);
+        out << Volume{root, root == QLatin1String("/") ? Gifiles::tr("컴퓨터") : QFileInfo(root).fileName(),
+                      qint64(m.f_bavail) * qint64(m.f_bsize)};
+    }
+#else
+    for (const QStorageInfo &si : QStorageInfo::mountedVolumes())
+        if (isUserVolume(si))
+            out << Volume{si.rootPath(), si.displayName(), si.bytesAvailable()};
+#endif
+    return out;
+}
+
+QString volumeRoot(const QString &path)
+{
+#ifdef Q_OS_MACOS
+    QString root = QDir::rootPath();
+    for (const Volume &v : userVolumes())
+        if (v.root.size() > root.size() && isInside(path, v.root))
+            root = v.root;
+    return root;
+#else
+    return QStorageInfo(path).rootPath();
+#endif
+}
+
+qint64 availableBytes(const QString &path)
+{
+#ifdef Q_OS_MACOS
+    qsizetype longest = -1;
+    qint64 available = -1;
+    for (const Volume &v : userVolumes())
+        if (v.root.size() > longest && isInside(path, v.root)) {
+            longest = v.root.size();
+            available = v.available;
+        }
+    return available;
+#else
+    const QStorageInfo si(path);
+    return si.isValid() ? si.bytesAvailable() : -1;
 #endif
 }
 
@@ -270,6 +326,13 @@ int naturalCompare(QStringView a, QStringView b)
 bool isPackage(const QFileInfo &fi)
 {
 #ifdef Q_OS_MACOS
+    // Remote folders use lexical package suffixes; NSURL resource lookup can block on SSHFS.
+    if (usesGenericFileIcon(fi.absoluteFilePath())) {
+        static const QSet<QString> packages{QStringLiteral("app"), QStringLiteral("bundle"), QStringLiteral("framework"),
+                                            QStringLiteral("plugin"), QStringLiteral("kext"), QStringLiteral("pkg"),
+                                            QStringLiteral("rtfd"), QStringLiteral("photoslibrary")};
+        return packages.contains(fi.suffix().toLower()) && fi.isDir();
+    }
     return fi.isDir() && macIsPackage(fi.absoluteFilePath());
 #else
     Q_UNUSED(fi);
