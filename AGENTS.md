@@ -466,6 +466,21 @@ again; leave out what only mattered once.
   exposed a QSortFilterProxyModel / QItemSelectionModel parent lookup crash. The widget regression
   checks that no old current index remains when its parent disappears.
 
+- **Server-native trash on macOS SSHFS:** `SshTrash` discovers live sshfs argv through
+  `KERN_PROCARGS2` and matches active mount roots. fuse-t/SSHFS mounts without an unambiguous
+  connection fail closed; never send them to the client's trash. Revalidate mappings per request.
+  A job reuses an SSH/Swift helper per endpoint; fixed Foundation code invokes the Mac server's
+  native trash API. JSON lines carry paths, version and request id; user paths never enter a shell
+  command. The server needs Swift and the client's existing noninteractive SSH credentials.
+  `Step::Trash.to` / undone `Step::Create.from` can hold a versioned opaque receipt, even when the
+  server trash is outside the mounted share. Restore through `moveItem`/`SshTrash`, not QFile;
+  verify the current mount identity and refuse occupied originals. Failed replay steps stay on
+  their original undo/redo stack. Lost responses are ambiguous: no automatic retry or local fallback.
+  `GIFILES_TEST_SSH_TRASH_DIR` enables the owned-temp-file integration in unit_fileops (home and
+  external-volume mounts). SSHFS/fuse-t/NFS can negatively cache a name removed through the client
+  even after a native server restore; the integration waits for that separate cache to expire.
+  Windows/Linux retain their existing local trash path; SSHFS discovery is macOS-specific.
+
 ## Not verified yet
 
 - Windows/Linux by hand on a real desktop (see Status), the Windows preview handlers with Office, Linux

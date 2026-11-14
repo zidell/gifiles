@@ -14,8 +14,9 @@
 struct Step {
     enum Kind { Move, Copy, Trash, Mkdir, Extract, Create } kind;
     QString from; // Move/Copy: source, Trash: original location, Extract: archive
-                  // Create: trash location after undo
+                  // Create: trash location after undo (native path or opaque SshTrash receipt)
     QString to;   // Move/Copy: destination, Trash: location inside the trash, Mkdir: created folder,
+                  // Trash can also hold an opaque SshTrash receipt; restore only through moveItem.
                   // Extract: the extracted item, Create: new file
 
 };

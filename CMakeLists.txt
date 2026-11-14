@@ -32,6 +32,7 @@ qt_add_library(gifiles_core STATIC
     src/FolderTree.h src/FolderTree.cpp
     src/ItemDelegate.h src/ItemDelegate.cpp
     src/FileOps.h src/FileOps.cpp
+    src/SshTrash.h src/SshTrash.cpp
     src/Thumbnails.h src/Thumbnails.cpp
     src/Preview.h src/Preview.cpp
     src/Sidebar.h src/Sidebar.cpp

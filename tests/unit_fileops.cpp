@@ -7,12 +7,17 @@
 
 #include "FileOps.h"
 #include "Util.h"
+#include "SshTrash.h"
 
 #include <QDir>
 #include <QDirIterator>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QProcess>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QStorageInfo>
 #include <QTemporaryDir>
@@ -930,6 +935,188 @@ private slots:
 
     // ---------------------------------------------------------------- trash
 
+    void sshfsMountParsing()
+    {
+        const QString mount = d(QStringLiteral("mount with 공백"));
+        auto parsed = SshTrash::parseMount({QStringLiteral("/usr/local/bin/sshfs"), QStringLiteral("user@host:"), mount});
+        QVERIFY(parsed);
+        QCOMPARE(parsed->localRoot, mount);
+        QCOMPARE(parsed->host, QStringLiteral("user@host"));
+        QVERIFY(parsed->remoteRoot.isEmpty());
+        for (const QStringList &options : {QStringList{QStringLiteral("-p"), QStringLiteral("2222")},
+                 QStringList{QStringLiteral("-p2222")}, QStringList{QStringLiteral("-o"), QStringLiteral("reconnect,port=2222")},
+                 QStringList{QStringLiteral("-oport=2222")}}) {
+            QStringList args{QStringLiteral("sshfs"), QStringLiteral("user@[::1]:/Volumes/a b"), mount};
+            args << options;
+            parsed = SshTrash::parseMount(args);
+            QVERIFY(parsed);
+            QVERIFY(parsed->error.isEmpty());
+            QCOMPARE(parsed->host, QStringLiteral("user@[::1]"));
+            QCOMPARE(parsed->remoteRoot, QStringLiteral("/Volumes/a b"));
+            QCOMPARE(parsed->options, (QStringList{QStringLiteral("-p"), QStringLiteral("2222")}));
+        }
+        parsed = SshTrash::parseMount({QStringLiteral("sshfs"), QStringLiteral("host:"), mount,
+            QStringLiteral("-p2222"), QStringLiteral("-oport=3333")});
+        QVERIFY(parsed);
+        QVERIFY(!parsed->error.isEmpty());
+        parsed = SshTrash::parseMount({QStringLiteral("sshfs"), QStringLiteral("host:"), mount,
+            QStringLiteral("-o"), QStringLiteral("ssh_command=custom")});
+        QVERIFY(parsed);
+        QVERIFY(!parsed->error.isEmpty()); // recognized remote, never local fallback
+        for (const QStringList &options : {QStringList{QStringLiteral("-oProxyCommand=custom")},
+                QStringList{QStringLiteral("-F"), QStringLiteral("relative-config")}}) {
+            QStringList args{QStringLiteral("sshfs"), QStringLiteral("host:"), mount};
+            args << options;
+            parsed = SshTrash::parseMount(args);
+            QVERIFY(parsed);
+            QVERIFY(!parsed->error.isEmpty());
+        }
+        QVERIFY(!SshTrash::parseMount({QStringLiteral("other"), QStringLiteral("host:"), mount}));
+        QVERIFY(!SshTrash::parseMount({QStringLiteral("sshfs"), QStringLiteral("host:"), QStringLiteral("relative")}));
+    }
+
+    void sshTrashFailureNeverUsesClientTrash()
+    {
+        const QString path = file(T(QStringLiteral("a.txt")), "keep");
+        SshTrash::Mount mount{m_dir, QStringLiteral("fixture"), m_dir, {}, {}};
+        int launches = 0;
+        SshTrash::Session session(QList<SshTrash::Mount>{mount}, [&](QProcess &p, const auto &, const auto &) {
+            ++launches;
+            p.start(QCoreApplication::applicationFilePath(), {QStringLiteral("-help")}); // no protocol response
+        });
+        QString location = QStringLiteral("unchanged"), error;
+        QCOMPARE(session.trash(path, &location, &error), SshTrash::Result::Failed);
+        QCOMPARE(location, QStringLiteral("unchanged"));
+        QCOMPARE(readFile(path), QByteArray("keep"));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(session.trash(path, &location, &error), SshTrash::Result::Failed);
+        QCOMPARE(launches, 1); // a lost reply must not automatically rerun trash
+        QCOMPARE(readFile(path), QByteArray("keep"));
+        QVERIFY(!session.restore(QStringLiteral("gifiles-ssh-trash:broken"), path, &error));
+        QCOMPARE(launches, 1);
+        QCOMPARE(session.trash(m_dir + QStringLiteral("-other/a"), &location, &error), SshTrash::Result::NotApplicable);
+        QCOMPARE(session.trash(m_dir, &location, &error), SshTrash::Result::Failed); // mount root
+        mount.error = QStringLiteral("unsupported");
+        SshTrash::Session unsupported(QList<SshTrash::Mount>{mount});
+        QCOMPARE(unsupported.trash(path, &location, &error), SshTrash::Result::Failed);
+        SshTrash::Session ambiguous(QList<SshTrash::Mount>{mount, mount});
+        QCOMPARE(ambiguous.trash(path, &location, &error), SshTrash::Result::Failed);
+    }
+
+    void sshTrashNativeHelperRoundTrip()
+    {
+#ifndef Q_OS_MACOS
+        QSKIP("the server helper uses macOS Foundation; client parsing/failure tests run everywhere");
+#else
+        if (!m_canTrash)
+            QSKIP("no native trash in this environment");
+        const QString server = mk(QStringLiteral("server"));
+        const QString client = d(QStringLiteral("mounted"));
+        SshTrash::Mount mount{client, QStringLiteral("fixture"), server, {}, {}};
+        int launches = 0;
+        SshTrash::Session session(QList<SshTrash::Mount>{mount}, [&](QProcess &p, const auto &, const QString &helper) {
+            ++launches;
+            p.start(QStringLiteral("/usr/bin/swift"), {QStringLiteral("-e"), helper});
+        });
+        for (const QString &name : {T(QStringLiteral("a ' ; $(no-command)\n한글.txt")), T(QStringLiteral("second.txt"))}) {
+            const QString original = file(QStringLiteral("server/") + name, "native data");
+            const QString local = QDir(client).filePath(name);
+            QString receipt, error;
+            QCOMPARE(session.trash(local, &receipt, &error), SshTrash::Result::Success);
+            QVERIFY(SshTrash::isLocation(receipt));
+            const auto info = QJsonDocument::fromJson(QByteArray::fromBase64(receipt.section(QLatin1Char(':'), 1).toLatin1(), QByteArray::Base64UrlEncoding)).object();
+            m_trashed << info.value(QStringLiteral("trash")).toString();
+            QCOMPARE(readFile(info.value(QStringLiteral("trash")).toString()), QByteArray("native data"));
+            QVERIFY(!util::exists(original));
+            SshTrash::Session ambiguous(QList<SshTrash::Mount>{mount, mount});
+            QVERIFY(!ambiguous.restore(receipt, local, &error));
+            QVERIFY(!session.restore(receipt, local + QStringLiteral("-different"), &error));
+            QVERIFY(writeFile(original, "made later"));
+            QVERIFY(!session.restore(receipt, local, &error)); // never overwrite an occupied original
+            QCOMPARE(readFile(original), QByteArray("made later"));
+            QVERIFY(QFile::remove(original));
+            QVERIFY2(session.restore(receipt, local, &error), qPrintable(error));
+            QCOMPARE(readFile(original), QByteArray("native data"));
+        }
+        QCOMPARE(launches, 1); // one compiled helper/connection for the entire job
+#endif
+    }
+
+    void sshTrashMountedIntegration()
+    {
+        const QString parent = qEnvironmentVariable("GIFILES_TEST_SSH_TRASH_DIR");
+        if (parent.isEmpty())
+            QSKIP("set GIFILES_TEST_SSH_TRASH_DIR to test an actual SSHFS mount with owned temporary files");
+        QTemporaryDir remote(QDir(parent).filePath(QStringLiteral(".gifiles-trash-test-XXXXXX")));
+        QVERIFY(remote.isValid());
+        auto path = [&](const QString &name) { return remote.filePath(name); };
+        UndoRecord outstanding;
+        const auto cleanup = qScopeGuard([&] {
+            SshTrash::Session session;
+            QString error;
+            for (const Step &step : outstanding.steps) {
+                if (step.kind == Step::Trash && SshTrash::isLocation(step.to))
+                    session.restore(step.to, step.from, &error);
+                if (step.kind == Step::Create && SshTrash::isLocation(step.from))
+                    session.restore(step.from, step.to, &error);
+            }
+        });
+        const QString a = path(QStringLiteral("a ' ; $(not-a-command)\n한글.txt"));
+        QVERIFY(writeFile(a, "server data"));
+        const QString folder = path(QStringLiteral("folder"));
+        QVERIFY(QDir().mkdir(folder));
+        QVERIFY(writeFile(QDir(folder).filePath(QStringLiteral("inside.txt")), "inside"));
+        QStringList sources{a, folder};
+#ifdef Q_OS_UNIX
+        const QString link = path(QStringLiteral("link"));
+        QVERIFY(QFile::link(QStringLiteral("missing-target"), link));
+        sources << link;
+#endif
+        OpResult r = run(makeJob(Job::Trash, sources));
+        outstanding = r.record;
+        QVERIFY2(r.errors.isEmpty(), qPrintable(r.errors.join(QLatin1Char('\n'))));
+        QCOMPARE(r.record.steps.size(), sources.size());
+        for (const Step &step : r.record.steps)
+            QVERIFY(SshTrash::isLocation(step.to));
+        OpResult u = run(replayJob(Job::Undo, r.record));
+        QVERIFY2(u.errors.isEmpty(), qPrintable(u.errors.join(QLatin1Char('\n'))));
+        outstanding = {};
+        QTRY_COMPARE_WITH_TIMEOUT(readFile(a), QByteArray("server data"), 15000);
+        QTRY_COMPARE_WITH_TIMEOUT(readFile(QDir(folder).filePath(QStringLiteral("inside.txt"))), QByteArray("inside"), 15000);
+#ifdef Q_OS_UNIX
+        QVERIFY(QFileInfo(path(QStringLiteral("link"))).isSymLink());
+#endif
+        OpResult re = run(replayJob(Job::Redo, u.record));
+        outstanding = re.record;
+        QVERIFY2(re.errors.isEmpty(), qPrintable(re.errors.join(QLatin1Char('\n'))));
+        // Failed restoration stays undoable, with both server trash and new original preserved.
+        QVERIFY(writeFile(a, "new occupant"));
+        u = run(replayJob(Job::Undo, re.record));
+        outstanding = u.rest;
+        QCOMPARE(u.errors.size(), 1);
+        QCOMPARE(u.rest.steps.size(), 1);
+        QCOMPARE(readFile(a), QByteArray("new occupant"));
+        QVERIFY(QFile::remove(a));
+        const auto retry = run(replayJob(Job::Undo, u.rest));
+        QVERIFY2(retry.errors.isEmpty(), qPrintable(retry.errors.join(QLatin1Char('\n'))));
+        outstanding = {};
+        // A client's just-deleted name can remain negatively cached by SSHFS/fuse-t/NFS
+        // after native server restoration. Wait for that cache, independently of the SSH reply.
+        QTRY_COMPARE_WITH_TIMEOUT(readFile(a), QByteArray("server data"), 90000);
+
+        QString made;
+        UndoRecord created;
+        QVERIFY(FileOps::makeFile(remote.path(), QStringLiteral("created.txt"), "created", &made, &created).isEmpty());
+        u = run(replayJob(Job::Undo, created));
+        outstanding = u.record;
+        QVERIFY2(u.errors.isEmpty(), qPrintable(u.errors.join(QLatin1Char('\n'))));
+        QVERIFY(SshTrash::isLocation(u.record.steps.first().from));
+        re = run(replayJob(Job::Redo, u.record));
+        QVERIFY2(re.errors.isEmpty(), qPrintable(re.errors.join(QLatin1Char('\n'))));
+        outstanding = {};
+        QTRY_COMPARE_WITH_TIMEOUT(readFile(made), QByteArray("created"), 15000);
+    }
+
     void trashAndUndoRedo()
     {
         if (!m_canTrash)
@@ -993,6 +1180,8 @@ private slots:
                              {Step{Step::Move, d(QStringLiteral("a.txt")), d(QStringLiteral("gone.txt"))}, Step{Step::Move, c, dd}}};
         const OpResult u = run(replayJob(Job::Undo, rec));
         QCOMPARE(u.errors.size(), 1);
+        QCOMPARE(u.record.steps.size(), 1);
+        QCOMPARE(u.rest.steps.size(), 1); // failed undo remains on the undo stack for retry
         QCOMPARE(u.created, QStringList{c});
         QCOMPARE(readFile(c), QByteArray("d"));
         QVERIFY(!util::exists(d(QStringLiteral("a.txt"))));

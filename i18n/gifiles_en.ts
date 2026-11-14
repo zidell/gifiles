@@ -2428,5 +2428,21 @@ Shell scripts work too. Example:
         <source>폴더 읽는 중… %1</source>
         <translation>Reading folder… %1</translation>
     </message>
+    <message>
+        <source>서버 휴지통 응답을 확인하지 못했습니다. 자동으로 다시 시도하지 않습니다.</source>
+        <translation>The server trash response could not be confirmed. The operation will not be retried automatically.</translation>
+    </message>
+    <message>
+        <source>이 SSHFS 연결의 휴지통을 사용할 수 없습니다.</source>
+        <translation>The trash is unavailable for this SSHFS connection.</translation>
+    </message>
+    <message>
+        <source>마운트 위치 자체는 휴지통으로 옮길 수 없습니다.</source>
+        <translation>The mount point itself cannot be moved to the trash.</translation>
+    </message>
+    <message>
+        <source>서버 휴지통 기록이 올바르지 않습니다.</source>
+        <translation>The server trash record is invalid.</translation>
+    </message>
 </context>
 </TS>

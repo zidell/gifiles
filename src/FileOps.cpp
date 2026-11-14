@@ -1,5 +1,6 @@
 #include "FileOps.h"
 #include "Util.h"
+#include "SshTrash.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -17,6 +18,7 @@ struct Ctx {
     OpResult &res;
     const std::atomic<bool> &cancel;
     int done = 0;
+    SshTrash::Session sshTrash{};
 
     bool canceled()
     {
@@ -91,6 +93,8 @@ bool copyRecursive(const QString &src, const QString &dst, Ctx &ctx, QString *er
 
 bool moveItem(const QString &src, const QString &dst, Ctx &ctx, QString *err)
 {
+    if (SshTrash::isLocation(src))
+        return ctx.sshTrash.restore(src, dst, err);
     QFileInfo fi(src);
     // Never onto an existing item: a folder rename would fail and the cross-volume fallback below
     // would then remove what is there (undo after a new item took the old name).
@@ -120,8 +124,15 @@ bool moveItem(const QString &src, const QString &dst, Ctx &ctx, QString *err)
     return true;
 }
 
-bool trashItem(const QString &path, QString *inTrash, QString *err)
+bool trashItem(const QString &path, Ctx &ctx, QString *inTrash, QString *err)
 {
+    const auto remote = ctx.sshTrash.trash(path, inTrash, err);
+    if (remote == SshTrash::Result::Success)
+        return true;
+    if (remote == SshTrash::Result::Failed) {
+        *err = Gifiles::tr("휴지통으로 옮기지 못했습니다: %1 (%2)").arg(QFileInfo(path).fileName(), *err);
+        return false; // recognized SSHFS never falls back to the client's trash
+    }
     QFile f(path);
     if (!f.moveToTrash()) {
         *err = Gifiles::tr("휴지통으로 옮기지 못했습니다: %1 (%2)").arg(QFileInfo(path).fileName(), f.errorString());
@@ -268,7 +279,7 @@ void transfer(const Job &job, Ctx &ctx, bool move)
                 continue;
             } else {
                 QString inTrash, err;
-                if (!trashItem(target, &inTrash, &err)) {
+                if (!trashItem(target, ctx, &inTrash, &err)) {
                     ctx.res.errors << err;
                     continue;
                 }
@@ -323,7 +334,7 @@ void trash(const Job &job, Ctx &ctx)
             return;
         ctx.tick(QFileInfo(src).fileName());
         QString inTrash, err;
-        if (!trashItem(src, &inTrash, &err)) {
+        if (!trashItem(src, ctx, &inTrash, &err)) {
             ctx.res.errors << err;
             continue;
         }
@@ -341,7 +352,6 @@ void replay(const Job &job, Ctx &ctx, bool inverse)
     for (int k = 0; k < n; ++k) {
         if (ctx.canceled())
             break;
-        replayed[inverse ? n - 1 - k : k] = true;
         Step &s = rec.steps[inverse ? n - 1 - k : k];
         QString err;
         bool ok = true;
@@ -354,7 +364,7 @@ void replay(const Job &job, Ctx &ctx, bool inverse)
         case Step::Copy:
             if (inverse) {
                 QString t;
-                ok = trashItem(s.to, &t, &err);
+                ok = trashItem(s.to, ctx, &t, &err);
             } else {
                 ok = copyRecursive(s.from, s.to, ctx, &err);
                 if (ok)
@@ -367,14 +377,14 @@ void replay(const Job &job, Ctx &ctx, bool inverse)
                 if (ok)
                     ctx.res.created << s.from;
             } else {
-                ok = trashItem(s.from, &s.to, &err);
+                ok = trashItem(s.from, ctx, &s.to, &err);
             }
             break;
         case Step::Mkdir:
             if (inverse) {
                 if (!QDir().rmdir(s.to)) {
                     QString t;
-                    ok = trashItem(s.to, &t, &err);
+                    ok = trashItem(s.to, ctx, &t, &err);
                 }
             } else {
                 ok = QDir().mkdir(s.to);
@@ -385,14 +395,14 @@ void replay(const Job &job, Ctx &ctx, bool inverse)
             }
             break;
         case Step::Create:
-            ok = inverse ? trashItem(s.to, &s.from, &err) : moveItem(s.from, s.to, ctx, &err);
+            ok = inverse ? trashItem(s.to, ctx, &s.from, &err) : moveItem(s.from, s.to, ctx, &err);
             if (ok && !inverse)
                 ctx.res.created << s.to;
             break;
         case Step::Extract:
             if (inverse) {
                 QString t;
-                ok = trashItem(s.to, &t, &err);
+                ok = trashItem(s.to, ctx, &t, &err);
             } else {
                 ok = extractArchive(s.from, QFileInfo(s.from).absolutePath(), ctx, &s.to, &err);
                 if (ok)
@@ -402,8 +412,10 @@ void replay(const Job &job, Ctx &ctx, bool inverse)
         }
         if (!ok)
             ctx.res.errors << err;
+        else
+            replayed[inverse ? n - 1 - k : k] = true;
     }
-    // Canceled part-way: only what was replayed moves to the other stack.
+    // Failed or canceled part-way: only what was replayed moves to the other stack.
     ctx.res.record.label = ctx.res.rest.label = rec.label;
     for (int i = 0; i < n; ++i)
         (replayed[i] ? ctx.res.record : ctx.res.rest).steps << rec.steps[i];
