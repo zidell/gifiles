@@ -15,7 +15,6 @@ class QColumnView;
 class QFileSystemModel;
 class QFileSystemWatcher;
 class QListView;
-class QLabel;
 class QTreeView;
 class QTimer;
 class FileProxy;
@@ -92,9 +91,7 @@ protected:
 
 private:
     void setLoading(bool loading);
-    QLabel *m_loadingLabel = nullptr;
-    QTimer *m_loadingTimer = nullptr;
-    QElapsedTimer m_loadingElapsed;
+    QWidget *m_loadingOverlay = nullptr;
     QSet<QString> m_loadedFolders;
 
     void setPathInternal(const QString &path, bool pushHistory);

@@ -2424,10 +2424,6 @@ command 内のプレースホルダは実行時に置き換えられます (各�
         <translation>%1 個のフォルダ</translation>
     </message>
     <message>
-        <source>폴더 읽는 중… %1</source>
-        <translation>フォルダを読み込み中… %1</translation>
-    </message>
-    <message>
         <source>서버 휴지통 응답을 확인하지 못했습니다. 자동으로 다시 시도하지 않습니다.</source>
         <translation>サーバーのゴミ箱からの応答を確認できませんでした。自動的には再試行しません。</translation>
     </message>
@@ -2442,6 +2438,10 @@ command 内のプレースホルダは実行時に置き換えられます (各�
     <message>
         <source>서버 휴지통 기록이 올바르지 않습니다.</source>
         <translation>サーバーのゴミ箱の記録が正しくありません。</translation>
+    </message>
+    <message>
+        <source>폴더 읽는 중…</source>
+        <translation>フォルダを読み込み中…</translation>
     </message>
 </context>
 </TS>

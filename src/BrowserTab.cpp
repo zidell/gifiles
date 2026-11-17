@@ -13,7 +13,6 @@
 
 #include <QApplication>
 #include <QLineEdit>
-#include <QLabel>
 #include <QFileIconProvider>
 #include <QColumnView>
 #include <QCryptographicHash>
@@ -42,6 +41,55 @@
 #include <functional>
 
 namespace {
+
+// A child overlay never takes space from the file views or steals their input.
+class FolderLoadingOverlay : public QWidget {
+public:
+    explicit FolderLoadingOverlay(QWidget *parent) : QWidget(parent)
+    {
+        setObjectName(QStringLiteral("folderLoading"));
+        setAccessibleName(Gifiles::tr("폴더 읽는 중…"));
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setFocusPolicy(Qt::NoFocus);
+        m_timer.setInterval(80);
+        connect(&m_timer, &QTimer::timeout, this, [this] {
+            update(QRect(rect().center() - QPoint(18, 18), QSize(38, 38)));
+        });
+        hide();
+    }
+
+protected:
+    void showEvent(QShowEvent *event) override
+    {
+        QWidget::showEvent(event);
+        m_elapsed.start();
+        m_timer.start();
+    }
+    void hideEvent(QHideEvent *event) override
+    {
+        m_timer.stop();
+        QWidget::hideEvent(event);
+    }
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.translate(QRectF(rect()).center());
+        const int step = int(m_elapsed.elapsed() / 80) % 12;
+        const QColor foreground = palette().color(QPalette::Text);
+        for (int i = 0; i < 12; ++i) {
+            QColor color = foreground;
+            color.setAlphaF(0.15 + 0.85 * ((i + 12 - step) % 12) / 11.0);
+            p.setPen(QPen(color, 3, Qt::SolidLine, Qt::RoundCap));
+            p.drawLine(QPointF(0, -9), QPointF(0, -15));
+            p.rotate(30);
+        }
+    }
+
+private:
+    QTimer m_timer;
+    QElapsedTimer m_elapsed;
+};
 
 class BrowserIconProvider : public QObject, public QFileIconProvider {
 public:
@@ -393,17 +441,11 @@ BrowserTab::BrowserTab(const QString &path, Mode mode, bool showHidden, QWidget 
     m_stack->addWidget(m_columns);
     auto *l = new QVBoxLayout(this);
     l->setContentsMargins(0, 0, 0, 0);
-    m_loadingLabel = new QLabel(this);
-    m_loadingLabel->setObjectName(QStringLiteral("folderLoading"));
-    m_loadingLabel->setContentsMargins(12, 6, 12, 6);
-    m_loadingLabel->hide();
-    l->addWidget(m_loadingLabel);
     l->addWidget(m_stack);
-    m_loadingTimer = new QTimer(this);
-    m_loadingTimer->setInterval(1000);
-    connect(m_loadingTimer, &QTimer::timeout, this, [this] {
-        m_loadingLabel->setText(Gifiles::tr("폴더 읽는 중… %1").arg(util::elapsedTime(m_loadingElapsed.elapsed())));
-    });
+    m_loadingOverlay = new FolderLoadingOverlay(m_stack);
+    m_loadingOverlay->setGeometry(m_stack->rect());
+    m_stack->installEventFilter(this);
+    connect(m_stack, &QStackedWidget::currentChanged, this, [this] { m_loadingOverlay->raise(); });
     connect(m_fs, &QFileSystemModel::directoryLoaded, this, [this](const QString &folder) {
         m_loadedFolders.insert(QDir::cleanPath(folder));
         if (QDir::cleanPath(folder) == m_path)
@@ -610,15 +652,9 @@ void BrowserTab::navigate(const QString &rawPath, bool pushHistory, const QStrin
 
 void BrowserTab::setLoading(bool loading)
 {
-    if (loading) {
-        if (!m_loadingTimer->isActive())
-            m_loadingElapsed.start();
-        m_loadingLabel->setText(Gifiles::tr("폴더 읽는 중… %1").arg(util::elapsedTime(m_loadingElapsed.elapsed())));
-        m_loadingTimer->start();
-    } else {
-        m_loadingTimer->stop();
-    }
-    m_loadingLabel->setVisible(loading);
+    m_loadingOverlay->setVisible(loading);
+    if (loading)
+        m_loadingOverlay->raise();
 }
 
 void BrowserTab::setPathInternal(const QString &path, bool pushHistory)
@@ -631,8 +667,6 @@ void BrowserTab::setPathInternal(const QString &path, bool pushHistory)
         m_prefsTimer->stop();
         saveFolderPrefs();
     }
-    if (changed)
-        m_loadingTimer->stop();
     m_path = path;
     setLoading(!m_loadedFolders.contains(path));
     m_fs->setRootPath(path);
@@ -1195,6 +1229,8 @@ bool BrowserTab::listLeft(bool recursive)
 
 bool BrowserTab::eventFilter(QObject *obj, QEvent *ev)
 {
+    if (obj == m_stack && ev->type() == QEvent::Resize)
+        m_loadingOverlay->setGeometry(m_stack->rect());
     auto *widget = qobject_cast<QWidget *>(obj);
     if (!widget || !isAncestorOf(widget))
         return false;

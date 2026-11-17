@@ -2425,10 +2425,6 @@ Shell scripts work too. Example:
         <translation>%1 folders</translation>
     </message>
     <message>
-        <source>폴더 읽는 중… %1</source>
-        <translation>Reading folder… %1</translation>
-    </message>
-    <message>
         <source>서버 휴지통 응답을 확인하지 못했습니다. 자동으로 다시 시도하지 않습니다.</source>
         <translation>The server trash response could not be confirmed. The operation will not be retried automatically.</translation>
     </message>
@@ -2443,6 +2439,10 @@ Shell scripts work too. Example:
     <message>
         <source>서버 휴지통 기록이 올바르지 않습니다.</source>
         <translation>The server trash record is invalid.</translation>
+    </message>
+    <message>
+        <source>폴더 읽는 중…</source>
+        <translation>Reading folder…</translation>
     </message>
 </context>
 </TS>

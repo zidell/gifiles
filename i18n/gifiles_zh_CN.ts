@@ -2424,10 +2424,6 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
         <translation>%1 个文件夹</translation>
     </message>
     <message>
-        <source>폴더 읽는 중… %1</source>
-        <translation>正在读取文件夹… %1</translation>
-    </message>
-    <message>
         <source>서버 휴지통 응답을 확인하지 못했습니다. 자동으로 다시 시도하지 않습니다.</source>
         <translation>无法确认服务器回收站的响应。不会自动重试此操作。</translation>
     </message>
@@ -2442,6 +2438,10 @@ command 中的占位符在运行时替换 (每个路径都按 shell 加引号:�
     <message>
         <source>서버 휴지통 기록이 올바르지 않습니다.</source>
         <translation>服务器回收站记录无效。</translation>
+    </message>
+    <message>
+        <source>폴더 읽는 중…</source>
+        <translation>正在读取文件夹…</translation>
     </message>
 </context>
 </TS>
