@@ -491,5 +491,10 @@ again; leave out what only mattered once.
 - macOS by real input: terminal edge drags, a click into the Quick Look system view then Space,
   menu letters and Cmd+J under the Korean input source, BTT drags after the hit-test fix, Claude Code's faint
   text on the real screen (measured offscreen only).
+- **Windows config.toml save (CI):** replacing it failed with `Access is denied` for 35 s straight
+  (`selectionMenuKeepsBuiltins`, run 45646099500). `Settings::save` now retries every 200 ms for ~35 s, one
+  retry at a time, and on Windows writes into the file when the replace is refused (`fe54725`); CI then
+  passed. What held the file (our own QFile without FILE_SHARE_DELETE, or a scanner) was never seen: on a
+  Windows machine, reproduce and check with Sysinternals `handle.exe` before changing this again.
 - i18n: translations were drafted by agents and need a native read (ja, zh_CN especially); dates use the
   Korean pattern in every language (`util::humanDate`).
