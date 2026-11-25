@@ -39,6 +39,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSaveFile>
+#include <algorithm>
 #include <QSignalBlocker>
 #include <QSpinBox>
 #include <QStackedWidget>
@@ -876,6 +877,8 @@ QString Settings::renderEffective(QStringList &problems)
 
 void Settings::save()
 {
+    if (m_saveRetryPending)
+        return; // the retry already waiting writes the values as they are then
     const QString path = configPath();
     QDir().mkpath(QFileInfo(path).absolutePath());
     const QByteArray bytes = render().toUtf8();
@@ -883,12 +886,17 @@ void Settings::save()
     if (f.open(QIODevice::WriteOnly) && f.write(bytes) == bytes.size() && f.commit()) {
         m_written = bytes;
         m_saveRetries = 0;
-    } else if (m_saveRetries < 10) {
+    } else if (m_saveRetries < 40) {
         // Windows: replacing the file fails while another process (the indexer, a virus scanner,
-        // our own watcher) still has it open. Try again shortly with what is current then.
-        // An edit made outside meanwhile is newer than ours: it wins, read it instead of writing over it.
+        // our own watcher) still has it open, on CI for more than 5 s. Try again with what is
+        // current then, backing off to once a second for about half a minute; saves asked for
+        // meanwhile wait for this retry instead of each starting their own (that used up the
+        // tries at once and dropped the change). An edit made outside meanwhile is newer than
+        // ours: it wins, read it instead of writing over it.
         ++m_saveRetries;
-        QTimer::singleShot(100 * m_saveRetries, this, [this, known = m_written] {
+        m_saveRetryPending = true;
+        QTimer::singleShot(std::min(100 * m_saveRetries, 1000), this, [this, known = m_written] {
+            m_saveRetryPending = false;
             QFile current(configPath());
             if (current.open(QIODevice::ReadOnly) && current.readAll() != known) {
                 m_saveRetries = 0;

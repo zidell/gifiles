@@ -879,6 +879,29 @@ private slots:
                      qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults())));
     }
 
+    // A busy config.toml (Windows: a scanner holding it; here: a read-only folder) delays the save,
+    // it doesn't lose it, however long it stays busy (the old retries gave up after 5.5 s).
+    void saveSurvivesABusyFile()
+    {
+#ifdef Q_OS_WIN
+        QSKIP("read-only folders don't stop a replace on Windows");
+#else
+        Settings *s = Settings::instance();
+        const QString dir = QFileInfo(Settings::configPath()).absolutePath();
+        const auto perms = QFile::permissions(dir);
+        const auto restore = qScopeGuard([&] {
+            QFile::setPermissions(dir, perms);
+            s->remove(Settings::IconSize);
+        });
+        QVERIFY(QFile::setPermissions(dir, QFileDevice::ReadOwner | QFileDevice::ExeOwner));
+        s->setValue(Settings::IconSize, 114);
+        QTest::qWait(7000); // busy longer than the old tries lasted (5.5 s; CI's scanner did that)
+        QVERIFY(!readText(Settings::configPath()).contains(QStringLiteral("\nicon_size = 114\n")));
+        QVERIFY(QFile::setPermissions(dir, perms));
+        QTRY_VERIFY_WITH_TIMEOUT(readText(Settings::configPath()).contains(QStringLiteral("\nicon_size = 114\n")), 5000);
+#endif
+    }
+
     // What the app writes, it reads back as the same values (values with every kind of quoting trouble).
     void renderRoundTrip()
     {

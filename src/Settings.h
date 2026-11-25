@@ -102,6 +102,7 @@ private:
     QMap<QString, QVariant> m_values; // "table/name" -> value, only what the file sets
     QStringList m_problems;
     int m_saveRetries = 0; // a save that failed (file busy on Windows) is tried again
+    bool m_saveRetryPending = false; // one retry at a time; it writes what is current when it runs
     QByteArray m_written; // the file as we last wrote or read it, to tell outside edits from our own
     QFileSystemWatcher *m_watcher = nullptr;
 };
