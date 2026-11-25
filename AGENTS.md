@@ -421,6 +421,9 @@ again; leave out what only mattered once.
   (`Theme::lightModeColor`; one flat L 0.52 erased the emphasis); the selection bar is the accent at L 0.42 dark /
   0.88 light (`Theme::nameSelectionColor`); Linux dark selection uses 68% of the accent RGB. Defaults come
   from Mdir III 3.10's own files (`M.CFG`, `M.DOC`), regrouped by purpose.
+- **Linux weights and buttons:** bold names (folders, BoldNames) use SemiBold off macOS
+  (`ItemDelegate::nameBoldWeight`): Bold in Pretendard/Noto Sans reads far heavier than on the Mac. Default
+  buttons on Linux fill with `Theme::fillUnderWhite(accent)` (4.5:1 under white; Breeze's #3DAEE9 is too light).
 - **Fonts on macOS:** Qt's CoreText path always applies grayscale smoothing; no setting changed a pixel, so
   the file views use `QFont::Light` (renders like Regular).
 - **Folder tree numbers** (developer's Mac, Release): 115 600 folders scanned in 8.3 s, cache load and

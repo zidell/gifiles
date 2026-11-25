@@ -20,7 +20,7 @@ public:
     struct Colors {
         bool dark;
         QColor bg, sidebarBg, text, secondary, tertiary, separator, accent, selection, nameSelection, selText, selInactive,
-            hover, inputBg, segmentChecked, menuBg, menuSelection, scroll, scrollHover, tile, altRow, danger;
+            primary, hover, inputBg, segmentChecked, menuBg, menuSelection, scroll, scrollHover, tile, altRow, danger;
         // The folder tree (`): NCD's blue screen with white text, the same in light and dark mode.
         QColor treeBg, treeText, treeSecondary, treeLine, treeSelection, treeSelText, treeInput, treeHover;
     };
@@ -52,6 +52,9 @@ public:
     // The one selection bar under names that keep their own colors: the accent's hue, deep in dark
     // mode (names are light there) and pale in light mode (names are dark there).
     static QColor nameSelectionColor(const QColor &accent, bool dark);
+    // A fill under white text (default buttons): `color`, made darker in perceived lightness until
+    // white on it reaches a 4.5:1 contrast. KDE's Breeze accent (#3DAEE9) is too light for that.
+    static QColor fillUnderWhite(const QColor &color);
     static QColor selectionTextColor();
     // The color picker's live preview: these extensions (or folders) show `darkModeColor` until it's
     // called with an invalid color; repaints the file views.

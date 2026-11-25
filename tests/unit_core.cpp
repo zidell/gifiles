@@ -1190,6 +1190,25 @@ private slots:
         }
     }
 
+    // Default buttons' fill (Linux): a light accent like Breeze's #3DAEE9 is darkened just enough for
+    // 4.5:1 against the white label, keeping its hue; an accent dark enough already stays as it is.
+    void fillUnderWhiteReachesContrast()
+    {
+        auto contrast = [](const QColor &c) {
+            auto lin = [](double v) { return v <= 0.04045 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
+            return 1.05 / (0.2126 * lin(c.redF()) + 0.7152 * lin(c.greenF()) + 0.0722 * lin(c.blueF()) + 0.05);
+        };
+        for (const QColor &c : {QColor(QStringLiteral("#3DAEE9")), QColor(QStringLiteral("#0A84FF")), QColor(Qt::yellow)}) {
+            const QColor out = Theme::fillUnderWhite(c);
+            QVERIFY2(contrast(out) >= 4.5 && contrast(out) < 4.9, qPrintable(c.name() + QStringLiteral(" -> ") + out.name()));
+            const Lab in = oklab(c), o = oklab(out);
+            double dh = std::abs(std::atan2(in.b, in.a) - std::atan2(o.b, o.a));
+            dh = std::min(dh, 2 * 3.14159265358979323846 - dh);
+            QVERIFY2(dh < 0.08, qPrintable(c.name() + QStringLiteral(" -> ") + out.name()));
+        }
+        QCOMPARE(Theme::fillUnderWhite(QColor(QStringLiteral("#1D5A8C"))), QColor(QStringLiteral("#1D5A8C")));
+    }
+
     // ---------------------------------------------------------------- Recent folders
 
     // Only folders where something was done count, newest first; looking around doesn't.

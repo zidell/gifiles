@@ -277,8 +277,8 @@ QMenu::separator { height: 1px; background: {separator}; margin: 4px 8px; }
 /* dialogs & controls */
 QPushButton { background: {inputBg}; border: none; border-radius: 7px; padding: 6px 16px; min-width: 64px; }
 QPushButton:hover { background: {selInactive}; }
-QPushButton:default, QPushButton#primary { background: {accent}; color: {selText}; }
-QPushButton#primary:hover { background: {accent}; }
+QPushButton:default, QPushButton#primary { background: {primary}; color: {selText}; }
+QPushButton#primary:hover { background: {primary}; }
 QPushButton[small="true"] { padding: 2px 10px; min-width: 0; border-radius: 5px; font-size: 11px; }
 QPushButton[link="true"] { background: transparent; color: {accent}; border: 1px solid transparent; border-radius: 2px; padding: 0 2px; min-width: 0; font-size: 11px; text-decoration: underline; }
 QPushButton[link="true"]:hover { background: transparent; color: {accent}; }
@@ -405,6 +405,10 @@ void Theme::apply()
 #endif
 #endif
     c.selText = QColor(Qt::white);
+    c.primary = c.accent;
+#ifdef Q_OS_LINUX
+    c.primary = fillUnderWhite(c.accent); // white labels on a light system accent
+#endif
     c.nameSelection = nameSelectionColor(c.accent, dark);
     c.menuSelection = c.accent;
 #ifdef Q_OS_WIN
@@ -484,7 +488,7 @@ void Theme::apply()
     QString qss = QString::fromUtf8(kStyleSheet);
     const QHash<QString, QColor> vars = {
         {"bg", c.bg}, {"sidebarBg", c.sidebarBg}, {"text", c.text}, {"secondary", c.secondary},
-        {"tertiary", c.tertiary}, {"separator", c.separator}, {"accent", c.accent}, {"selection", c.selection}, {"selText", c.selText},
+        {"tertiary", c.tertiary}, {"separator", c.separator}, {"accent", c.accent}, {"selection", c.selection}, {"selText", c.selText}, {"primary", c.primary},
         {"selInactive", c.selInactive}, {"hover", c.hover}, {"inputBg", c.inputBg},
         {"segmentChecked", c.segmentChecked}, {"menuBg", c.menuBg}, {"menuSelection", c.menuSelection}, {"scroll", c.scroll},
         {"scrollHover", c.scrollHover}, {"altRow", c.altRow}, {"danger", c.danger},
@@ -664,6 +668,27 @@ QColor Theme::selectionFill(const QColor &color)
     }
     return QColor::fromRgbF(float(fromLinear(qBound(0.0, rgb[0], 1.0))), float(fromLinear(qBound(0.0, rgb[1], 1.0))),
                             float(fromLinear(qBound(0.0, rgb[2], 1.0))));
+}
+
+QColor Theme::fillUnderWhite(const QColor &color)
+{
+    auto luminance = [](const QColor &c) {
+        return 0.2126 * toLinear(c.redF()) + 0.7152 * toLinear(c.greenF()) + 0.0722 * toLinear(c.blueF());
+    };
+    QColor out = color;
+    OkLch o = toOkLch(color);
+    for (int i = 0; i < 60 && 1.05 / (luminance(out) + 0.05) < 4.5; ++i) {
+        o.l -= 0.01;
+        bool fits = false;
+        auto rgb = fromOkLch(o, &fits);
+        for (int j = 0; j < 24 && !fits; ++j) { // darker can leave the gamut for vivid hues: ease chroma
+            o.c *= 0.95;
+            rgb = fromOkLch(o, &fits);
+        }
+        out = QColor::fromRgbF(float(fromLinear(qBound(0.0, rgb[0], 1.0))), float(fromLinear(qBound(0.0, rgb[1], 1.0))),
+                               float(fromLinear(qBound(0.0, rgb[2], 1.0))));
+    }
+    return out;
 }
 
 QColor Theme::nameSelectionColor(const QColor &accent, bool dark)

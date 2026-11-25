@@ -1,4 +1,5 @@
 #include "Settings.h"
+#include "ItemDelegate.h"
 #include "TerminalLauncher.h"
 #include "RecentFolders.h"
 #include "FolderTree.h"
@@ -1686,8 +1687,9 @@ QWidget *appearancePage(const std::function<QWidget *(QWidget *page)> &look)
                                  }, [](const QColor &c) { Theme::previewFolderColor(c); }, Gifiles::tr("기본"));
     auto tintFolder = [folderLabel, folderHex, shown] {
         const QString hex = folderHex->text();
-        folderLabel->setStyleSheet(QStringLiteral("QLabel { color: %1; font-weight: bold; }")
-                                       .arg(util::isHexColor(hex) ? shown(hex).name() : Theme::colors().text.name()));
+        folderLabel->setStyleSheet(QStringLiteral("QLabel { color: %1; font-weight: %2; }")
+                                       .arg(util::isHexColor(hex) ? shown(hex).name() : Theme::colors().text.name())
+                                       .arg(int(ItemDelegate::nameBoldWeight())));
     };
     tintFolder();
     QObject::connect(folderHex, &QLineEdit::textChanged, folderLabel, tintFolder);

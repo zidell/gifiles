@@ -113,13 +113,22 @@ bool ItemDelegate::isFolder(const QModelIndex &index) const
     return m_proxy->isDir(index) && !util::isPackage(QFileInfo(m_proxy->filePath(index.siblingAtColumn(0))));
 }
 
+QFont::Weight ItemDelegate::nameBoldWeight()
+{
+#ifdef Q_OS_MACOS
+    return QFont::Bold;
+#else
+    return QFont::DemiBold;
+#endif
+}
+
 QColor ItemDelegate::nameStyle(const QModelIndex &index, const QColor &plain, QFont *font) const
 {
     if (font && Settings::instance()->flag(Settings::BoldNames))
-        font->setBold(true);
+        font->setWeight(nameBoldWeight());
     if (isFolder(index)) {
         if (font)
-            font->setBold(true);
+            font->setWeight(nameBoldWeight());
         const QColor c = Theme::folderColor();
         return c.isValid() ? c : plain;
     }
@@ -252,7 +261,7 @@ QWidget *ItemDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem 
     editor->setObjectName(QStringLiteral("renameEdit")); // no padding: see updateEditorGeometry
     if (isFolder(index) || Settings::instance()->flag(Settings::BoldNames)) { // drawn bold: the text mustn't move when editing starts
         QFont f = editor->font();
-        f.setBold(true);
+        f.setWeight(nameBoldWeight());
         editor->setFont(f);
     }
     // If it closes without Return or Esc (its row went away), keep what was typed for

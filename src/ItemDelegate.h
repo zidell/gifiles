@@ -28,6 +28,9 @@ public:
     // The background of a selected item in an active view when config.toml file_colors.selection is
     // on: its file/folder color (as given, both themes), light gray without one; invalid when off.
     QColor selectionColor(const QModelIndex &index) const;
+    // The weight of bold names (folders, or all names with BoldNames): Bold on macOS; SemiBold
+    // elsewhere, where common UI fonts (Pretendard, Noto Sans, Segoe UI) draw Bold much heavier.
+    static QFont::Weight nameBoldWeight();
 
 signals:
     void renameRequested(const QString &path, const QString &newName) const;
@@ -39,7 +42,7 @@ protected:
 private:
     void paintItem(QPainter *p, const QStyleOptionViewItem &option, const QModelIndex &index) const;
     bool isFolder(const QModelIndex &index) const; // a real folder, not a package (.app)
-    // A name's color (folder blue, the file's kind, else `plain`); bolds `font` for folders.
+    // A name's color (folder blue, the file's kind, else `plain`); makes `font` bold for folders (nameBoldWeight).
     QColor nameStyle(const QModelIndex &index, const QColor &plain, QFont *font) const;
     QPixmap thumbnail(const QModelIndex &index) const;
     void paintTile(QPainter *p, const QStyleOptionViewItem &opt, const QModelIndex &index) const;
