@@ -38,6 +38,7 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 
+#include <QScopedValueRollback>
 #include <functional>
 
 namespace {
@@ -567,7 +568,13 @@ void BrowserTab::setMode(Mode mode, bool remember)
     }
     const QStringList sel = selectedPaths();
     m_mode = mode;
-    m_stack->setCurrentIndex(mode);
+    {
+        // Showing a page moves the focus into it, and an item view without a current index then
+        // makes its first item current: in the column view that would open that folder (seen while
+        // the open folder was still loading). syncColumns below sets the real current item.
+        const QScopedValueRollback guard(m_syncingColumns, true);
+        m_stack->setCurrentIndex(mode);
+    }
     if (mode == Columns) {
         syncColumns();
         if (!sel.isEmpty())
