@@ -77,6 +77,9 @@
 #include <QtTest>
 #include <QFileSystemModel>
 
+// Settings::save retries a busy config.toml for about 35 s (Windows CI's scanner holds it for seconds).
+constexpr int kConfigWait = 40000;
+
 // Shortcuts that use the physical Control key on the Mac differ per platform (see MainWindow.cpp).
 #ifdef Q_OS_MACOS
 constexpr Qt::KeyboardModifiers kTerminalMods = Qt::MetaModifier;                         // ⌃`
@@ -1502,7 +1505,7 @@ private slots:
             QFile cfg(Settings::configPath());
             return cfg.open(QIODevice::ReadOnly) && QString::fromUtf8(cfg.readAll()).contains(QStringLiteral("\"열기\" = [\"Ctrl+Shift+J\"]"));
         };
-        QTRY_VERIFY(saved()); // a busy file on Windows is saved on a retry
+        QTRY_VERIFY_WITH_TIMEOUT(saved(), kConfigWait); // a busy file on Windows is saved on a retry
         m_win->activateWindow();
         QVERIFY(QTest::qWaitForWindowActive(m_win));
         tab()->focusView();

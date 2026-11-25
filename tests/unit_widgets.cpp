@@ -81,6 +81,9 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
+// Settings::save retries a busy config.toml for about 35 s (Windows CI's scanner holds it for seconds).
+constexpr int kConfigWait = 40000;
+
 #ifdef Q_OS_MACOS
 constexpr Qt::KeyboardModifiers kTerminalMods = Qt::MetaModifier; // the Control key
 #else
@@ -2298,12 +2301,12 @@ private slots:
         // Windows may refuse to replace the file for a moment (a scanner still has it open); Settings::save then
         // writes again shortly after, so wait for it.
         QString text;
-        QTRY_VERIFY2(([&] {
+        QTRY_VERIFY2_WITH_TIMEOUT(([&] {
                          QFile cfg(Settings::configPath());
                          text = cfg.open(QIODevice::ReadOnly) ? QString::fromUtf8(cfg.readAll()) : QString();
                          return text.contains(QStringLiteral("{ label = \"내 스크립트\", key = \"R\", terminal = false, command = \"echo {files}\" }"));
                      }()),
-                     qPrintable(text));
+                     qPrintable(text), kConfigWait);
         QVERIFY(Settings::check(text).isEmpty());
         QVERIFY(!Settings::check(QStringLiteral("[selection_menu]\ncommands = [ { label = \"a\", key = \"ab\", command = \"x\" } ]\n")).isEmpty());
         QVERIFY(!Settings::check(QStringLiteral("[selection_menu]\ncommands = [ { id = \"nope\", label = \"a\", command = \"x\" } ]\n")).isEmpty());
@@ -2458,7 +2461,7 @@ private slots:
             QFile cfg(Settings::configPath());
             return cfg.open(QIODevice::ReadOnly) && QString::fromUtf8(cfg.readAll()).contains(QStringLiteral("\"열기\" = [\"Ctrl+Shift+J\"]"));
         };
-        QTRY_VERIFY(saved());
+        QTRY_VERIFY_WITH_TIMEOUT(saved(), kConfigWait);
         // A key taken by another action moves over; resetting gives the built-in keys back.
         QCOMPARE(sc->assign(QStringLiteral("열기"), QKeySequence(QStringLiteral("Ctrl+D"))), QStringList{QStringLiteral("복제")});
         QVERIFY(sc->keys(QStringLiteral("복제")).isEmpty());

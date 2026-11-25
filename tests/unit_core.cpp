@@ -43,6 +43,9 @@
 
 #include <cmath>
 
+// Settings::save retries a busy config.toml for about 35 s (Windows CI's scanner holds it for seconds).
+constexpr int kConfigWait = 40000;
+
 namespace {
 
 // GIFILES_CONFIG_DIR pointed elsewhere for the static functions (renderEffective, uiLanguage),
@@ -828,9 +831,9 @@ private slots:
         Settings *s = Settings::instance();
         QVERIFY(s);
         QCOMPARE(QDir::cleanPath(QFileInfo(Settings::configPath()).absolutePath()), QDir::cleanPath(m_configDir));
-        QTRY_VERIFY(QFileInfo::exists(Settings::configPath()));
-        QTRY_VERIFY2(readText(Settings::configPath()) == Settings::renderDefaults(),
-                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults())));
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(Settings::configPath()), kConfigWait);
+        QTRY_VERIFY2_WITH_TIMEOUT(readText(Settings::configPath()) == Settings::renderDefaults(),
+                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults())), kConfigWait);
         QVERIFY(s->problems().isEmpty());
         // Defaults for known keys, nothing for unknown ones.
         QCOMPARE(s->value(Settings::IconSize).toInt(), 96);
@@ -866,8 +869,8 @@ private slots:
         apps.sort();
         QCOMPARE(apps, (QStringList{QStringLiteral("md"), QStringLiteral("tar.gz")}));
         // A Windows replace can be deferred while the watcher/scanner holds the file.
-        QTRY_VERIFY(readText(Settings::configPath()).contains(QStringLiteral("\nmd = \"/Apps/Edit.app\"\n")));
-        QTRY_VERIFY(readText(Settings::configPath()).contains(QStringLiteral("\n\"tar.gz\" = \"/Apps/Unpack.app\"\n")));
+        QTRY_VERIFY_WITH_TIMEOUT(readText(Settings::configPath()).contains(QStringLiteral("\nmd = \"/Apps/Edit.app\"\n")), kConfigWait);
+        QTRY_VERIFY_WITH_TIMEOUT(readText(Settings::configPath()).contains(QStringLiteral("\n\"tar.gz\" = \"/Apps/Unpack.app\"\n")), kConfigWait);
         const QString text = readText(Settings::configPath());
         QVERIFY(Settings::check(text).isEmpty());
         s->remove(QStringLiteral("open_with/md"));
@@ -875,8 +878,8 @@ private slots:
         QVERIFY(s->keys(QStringLiteral("open_with")).isEmpty());
         s->remove(Settings::IconSize);
         QCOMPARE(s->value(Settings::IconSize).toInt(), 96);
-        QTRY_VERIFY2(readText(Settings::configPath()) == Settings::renderDefaults(),
-                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults())));
+        QTRY_VERIFY2_WITH_TIMEOUT(readText(Settings::configPath()) == Settings::renderDefaults(),
+                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults())), kConfigWait);
     }
 
     // A busy config.toml (Windows: a scanner holding it; here: a read-only folder) delays the save,
@@ -920,7 +923,7 @@ private slots:
         s->setValue(Settings::FolderColor, QStringLiteral("#ABCDEF"));
         s->setValue(QStringLiteral("shortcuts/열기"), QStringList{QStringLiteral("Ctrl+Shift+O")});
         // On Windows a save can find the file still held (the watcher, a scanner) and land on a retry.
-        QTRY_VERIFY(readText(Settings::configPath()).contains(QStringLiteral("Ctrl+Shift+O")));
+        QTRY_VERIFY_WITH_TIMEOUT(readText(Settings::configPath()).contains(QStringLiteral("Ctrl+Shift+O")), kConfigWait);
         const QString text = readText(Settings::configPath());
         QVERIFY2(Settings::check(text).isEmpty(), qPrintable(Settings::check(text).join(QLatin1Char('\n'))));
         toml::Document d;
@@ -940,8 +943,8 @@ private slots:
         for (const char *k : {Settings::TermShell, Settings::Favorites, Settings::SelectionCommands, Settings::FolderColor})
             s->remove(QLatin1String(k));
         s->remove(QStringLiteral("shortcuts/열기"));
-        QTRY_VERIFY2(readText(Settings::configPath()) == Settings::renderDefaults(),
-                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults()))); // a save may land on a retry (Windows)
+        QTRY_VERIFY2_WITH_TIMEOUT(readText(Settings::configPath()) == Settings::renderDefaults(),
+                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults())), kConfigWait); // a save may land on a retry (Windows)
     }
 
     // An edit made outside the app applies at once; a wrong value is reported and the old one kept.
@@ -989,8 +992,8 @@ private slots:
         // The app's next save writes the whole explained file again.
         s->setValue(Settings::IconSize, 100);
         s->remove(Settings::IconSize);
-        QTRY_VERIFY2(readText(Settings::configPath()) == Settings::renderDefaults(),
-                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults()))); // a save may land on a retry (Windows)
+        QTRY_VERIFY2_WITH_TIMEOUT(readText(Settings::configPath()) == Settings::renderDefaults(),
+                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults())), kConfigWait); // a save may land on a retry (Windows)
     }
 
     // A save that failed is tried again later; an edit made outside meanwhile wins over that retry.
@@ -1016,8 +1019,8 @@ private slots:
         s->remove(Settings::Stripes);
         s->setValue(Settings::IconSize, 100);
         s->remove(Settings::IconSize);
-        QTRY_VERIFY2(readText(Settings::configPath()) == Settings::renderDefaults(),
-                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults()))); // a save may land on a retry (Windows)
+        QTRY_VERIFY2_WITH_TIMEOUT(readText(Settings::configPath()) == Settings::renderDefaults(),
+                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults())), kConfigWait); // a save may land on a retry (Windows)
 #endif
     }
 
@@ -1038,8 +1041,8 @@ private slots:
         s->remove(key);
         s->remove(app);
         s->remove(Settings::IconSize);
-        QTRY_VERIFY2(readText(Settings::configPath()) == Settings::renderDefaults(),
-                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults()))); // a save may land on a retry (Windows)
+        QTRY_VERIFY2_WITH_TIMEOUT(readText(Settings::configPath()) == Settings::renderDefaults(),
+                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults())), kConfigWait); // a save may land on a retry (Windows)
         QCOMPARE(keys, QStringList{QStringLiteral("F3")});
         QCOMPARE(kept, QStringLiteral("/Apps/Edit.app"));
     }
