@@ -19,6 +19,7 @@
 #include <QPalette>
 #include <QStyleFactory>
 #include <QStyleOptionMenuItem>
+#include <QStyleOptionHeader>
 #include <QStyleHints>
 #include <QSvgRenderer>
 
@@ -150,6 +151,26 @@ public:
         if (pe == PE_FrameFocusRect && w && (qobject_cast<const QAbstractItemView *>(w) ||
                                              qobject_cast<const QAbstractItemView *>(w->parentWidget())))
             return;
+        if (pe == PE_IndicatorHeaderArrow) {
+            // Drawn here: which way Fusion points SortUp/SortDown changed between Qt 6.10 and 6.11.
+            // Qt calls ascending SortDown; Finder shows ascending as ▲ and descending as ▼.
+            if (const auto *header = qstyleoption_cast<const QStyleOptionHeader *>(opt);
+                header && header->sortIndicator != QStyleOptionHeader::None) {
+                const bool ascending = header->sortIndicator == QStyleOptionHeader::SortDown;
+                const QPointF c = QRectF(opt->rect).center();
+                const qreal hw = 4, hh = 2.5; // half width, half height
+                const QPolygonF tri = ascending
+                    ? QPolygonF{{c.x() - hw, c.y() + hh}, {c.x() + hw, c.y() + hh}, {c.x(), c.y() - hh}}
+                    : QPolygonF{{c.x() - hw, c.y() - hh}, {c.x() + hw, c.y() - hh}, {c.x(), c.y() + hh}};
+                p->save();
+                p->setRenderHint(QPainter::Antialiasing);
+                p->setPen(Qt::NoPen);
+                p->setBrush(opt->palette.color(QPalette::ButtonText));
+                p->drawPolygon(tri);
+                p->restore();
+                return;
+            }
+        }
         QProxyStyle::drawPrimitive(pe, opt, p, w);
     }
 };

@@ -2525,12 +2525,20 @@ private slots:
         QVERIFY(makeFixture(QStringLiteral("loading")));
         QVERIFY(QDir().mkpath(p("loading/empty")));
         QVERIFY(QDir().mkpath(p("loading/other")));
-        tab()->navigate(p("loading/empty"));
         auto *overlay = tab()->findChild<QWidget *>(QStringLiteral("folderLoading"));
         auto *fs = tab()->findChild<QFileSystemModel *>();
         QVERIFY(overlay);
         QVERIFY(fs);
-        QVERIFY(!overlay->isHidden());
+        // An empty folder can finish loading while the checks below run (mode switches reach the
+        // event loop through icons and previews on CI): from then on the spinner must be gone.
+        bool emptyLoaded = false;
+        const QString empty = QDir::cleanPath(p("loading/empty"));
+        const auto watch = connect(fs, &QFileSystemModel::directoryLoaded, this, [&](const QString &folder) {
+            emptyLoaded = emptyLoaded || QDir::cleanPath(QDir::fromNativeSeparators(folder)) == empty;
+        });
+        const auto unwatch = qScopeGuard([watch] { disconnect(watch); });
+        tab()->navigate(p("loading/empty"));
+        QCOMPARE(overlay->isHidden(), emptyLoaded);
         QCOMPARE(overlay->accessibleName(), QStringLiteral("폴더 읽는 중…"));
         QVERIFY(!qobject_cast<QLabel *>(overlay));
         QVERIFY(overlay->testAttribute(Qt::WA_TransparentForMouseEvents));
@@ -2544,14 +2552,14 @@ private slots:
         QCOMPARE(overlay->geometry(), stack->rect());
         for (const auto mode : {BrowserTab::Gallery, BrowserTab::Columns, BrowserTab::List}) {
             tab()->setMode(mode);
-            QVERIFY(!overlay->isHidden());
+            QCOMPARE(overlay->isHidden(), emptyLoaded);
             QCOMPARE(overlay->geometry(), stack->rect());
             QCOMPARE(stack->children().last(), overlay);
         }
         // A late completion for a different folder must not hide the current request.
         QVERIFY(QMetaObject::invokeMethod(fs, "directoryLoaded", Qt::DirectConnection,
                                          Q_ARG(QString, m_tmp.path())));
-        QVERIFY(!overlay->isHidden());
+        QCOMPARE(overlay->isHidden(), emptyLoaded);
         QTRY_VERIFY(overlay->isHidden()); // an empty folder also completes
         tab()->navigate(p("loading"));
         QTRY_VERIFY(overlay->isHidden());
