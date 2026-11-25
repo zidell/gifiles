@@ -69,6 +69,19 @@ bool writeText(const QString &path, const QString &text)
     return f.write(bytes) == bytes.size();
 }
 
+// Where config.toml differs from the defaults: the first differing line of each, for a failure
+// message (QCOMPARE cuts long strings off before any difference shows).
+QString firstDifference(const QString &actual, const QString &expected)
+{
+    const QStringList a = actual.split(QLatin1Char('\n')), e = expected.split(QLatin1Char('\n'));
+    for (qsizetype i = 0; i < std::max(a.size(), e.size()); ++i) {
+        const QString x = a.value(i, QStringLiteral("<end>")), y = e.value(i, QStringLiteral("<end>"));
+        if (x != y)
+            return QStringLiteral("line %1: actual [%2] expected [%3]").arg(i + 1).arg(x, y);
+    }
+    return {};
+}
+
 QString readText(const QString &path)
 {
     QFile f(path);
@@ -816,7 +829,8 @@ private slots:
         QVERIFY(s);
         QCOMPARE(QDir::cleanPath(QFileInfo(Settings::configPath()).absolutePath()), QDir::cleanPath(m_configDir));
         QTRY_VERIFY(QFileInfo::exists(Settings::configPath()));
-        QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults());
+        QTRY_VERIFY2(readText(Settings::configPath()) == Settings::renderDefaults(),
+                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults())));
         QVERIFY(s->problems().isEmpty());
         // Defaults for known keys, nothing for unknown ones.
         QCOMPARE(s->value(Settings::IconSize).toInt(), 96);
@@ -861,7 +875,8 @@ private slots:
         QVERIFY(s->keys(QStringLiteral("open_with")).isEmpty());
         s->remove(Settings::IconSize);
         QCOMPARE(s->value(Settings::IconSize).toInt(), 96);
-        QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults());
+        QTRY_VERIFY2(readText(Settings::configPath()) == Settings::renderDefaults(),
+                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults())));
     }
 
     // What the app writes, it reads back as the same values (values with every kind of quoting trouble).
@@ -902,7 +917,8 @@ private slots:
         for (const char *k : {Settings::TermShell, Settings::Favorites, Settings::SelectionCommands, Settings::FolderColor})
             s->remove(QLatin1String(k));
         s->remove(QStringLiteral("shortcuts/열기"));
-        QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults()); // a save may land on a retry (Windows)
+        QTRY_VERIFY2(readText(Settings::configPath()) == Settings::renderDefaults(),
+                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults()))); // a save may land on a retry (Windows)
     }
 
     // An edit made outside the app applies at once; a wrong value is reported and the old one kept.
@@ -950,7 +966,8 @@ private slots:
         // The app's next save writes the whole explained file again.
         s->setValue(Settings::IconSize, 100);
         s->remove(Settings::IconSize);
-        QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults()); // a save may land on a retry (Windows)
+        QTRY_VERIFY2(readText(Settings::configPath()) == Settings::renderDefaults(),
+                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults()))); // a save may land on a retry (Windows)
     }
 
     // A save that failed is tried again later; an edit made outside meanwhile wins over that retry.
@@ -976,7 +993,8 @@ private slots:
         s->remove(Settings::Stripes);
         s->setValue(Settings::IconSize, 100);
         s->remove(Settings::IconSize);
-        QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults()); // a save may land on a retry (Windows)
+        QTRY_VERIFY2(readText(Settings::configPath()) == Settings::renderDefaults(),
+                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults()))); // a save may land on a retry (Windows)
 #endif
     }
 
@@ -997,7 +1015,8 @@ private slots:
         s->remove(key);
         s->remove(app);
         s->remove(Settings::IconSize);
-        QTRY_COMPARE(readText(Settings::configPath()), Settings::renderDefaults()); // a save may land on a retry (Windows)
+        QTRY_VERIFY2(readText(Settings::configPath()) == Settings::renderDefaults(),
+                     qPrintable(firstDifference(readText(Settings::configPath()), Settings::renderDefaults()))); // a save may land on a retry (Windows)
         QCOMPARE(keys, QStringList{QStringLiteral("F3")});
         QCOMPARE(kept, QStringLiteral("/Apps/Edit.app"));
     }
