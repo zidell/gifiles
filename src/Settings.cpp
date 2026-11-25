@@ -883,19 +883,29 @@ void Settings::save()
     QDir().mkpath(QFileInfo(path).absolutePath());
     const QByteArray bytes = render().toUtf8();
     QSaveFile f(path);
-    if (f.open(QIODevice::WriteOnly) && f.write(bytes) == bytes.size() && f.commit()) {
+    bool saved = f.open(QIODevice::WriteOnly) && f.write(bytes) == bytes.size() && f.commit();
+#ifdef Q_OS_WIN
+    if (!saved && QFileInfo::exists(path)) {
+        // Replacing needs delete access, which a process holding the file open usually doesn't
+        // share (Qt's own QFile, scanners), while writing into it is usually allowed.
+        QFile direct(path);
+        saved = direct.open(QIODevice::WriteOnly | QIODevice::Truncate) && direct.write(bytes) == bytes.size()
+                && direct.flush();
+    }
+#endif
+    if (saved) {
         m_written = bytes;
         m_saveRetries = 0;
-    } else if (m_saveRetries < 40) {
-        // Windows: replacing the file fails while another process (the indexer, a virus scanner,
-        // our own watcher) still has it open, on CI for more than 5 s. Try again with what is
-        // current then, backing off to once a second for about half a minute; saves asked for
-        // meanwhile wait for this retry instead of each starting their own (that used up the
-        // tries at once and dropped the change). An edit made outside meanwhile is newer than
-        // ours: it wins, read it instead of writing over it.
+    } else if (m_saveRetries < 175) {
+        // Windows: the file can stay busy (the indexer, a virus scanner) for more than 5 s on CI.
+        // Try again every 200 ms with what is current then, for about half a minute: short gaps
+        // catch the moments it is free, which a slower back-off missed. Saves asked for meanwhile
+        // wait for this retry instead of each starting their own (that used up the tries at once
+        // and dropped the change). An edit made outside meanwhile is newer than ours: it wins,
+        // read it instead of writing over it.
         ++m_saveRetries;
         m_saveRetryPending = true;
-        QTimer::singleShot(std::min(100 * m_saveRetries, 1000), this, [this, known = m_written] {
+        QTimer::singleShot(std::min(100 * m_saveRetries, 200), this, [this, known = m_written] {
             m_saveRetryPending = false;
             QFile current(configPath());
             if (current.open(QIODevice::ReadOnly) && current.readAll() != known) {
