@@ -273,6 +273,7 @@ class Unit : public QObject {
 private slots:
     void linuxRemoteMountClassification()
     {
+#ifdef Q_OS_LINUX
         const auto mounts = LinuxMounts::parse(
             "1 0 8:1 / / rw - ext4 /dev/root rw\n"
             "2 1 0:2 / /mnt/Drive\\040Files rw shared:4 - fuse.rclone gdrive: rw\n"
@@ -293,6 +294,11 @@ private slots:
         QVERIFY(!LinuxMounts::containing(mounts, QStringLiteral("/mnt/ssh/../../tmp/file")).remote);
         QCOMPARE(LinuxMounts::containing(mounts, QStringLiteral("/mnt/ssh/local/file")).root,
                  QStringLiteral("/mnt/ssh/local"));
+#else
+        // QDir uses the host's path rules: backslashes are legal Linux filenames,
+        // whereas Windows normalizes them into directory separators.
+        QSKIP("Linux mountinfo paths require Linux path semantics");
+#endif
     }
 
     void linuxMountedRemoteMetadata()
