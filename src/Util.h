@@ -31,9 +31,9 @@ QString uniqueCopyName(const QString &dir, const QString &name, bool forceCopy);
 // "name", "name 2", "name 3"...
 QString uniquePlainName(const QString &dir, const QString &name);
 
-// macOS remote mounts use generic icons: native icon lookup performs synchronous network I/O.
+// macOS/Linux remote mounts use generic icons: native icon lookup performs synchronous network I/O.
 bool usesGenericFileIcon(const QString &path);
-// Cached mount metadata on macOS: never contacts a network filesystem.
+// Kernel mount metadata on macOS/Linux: remote volumes never require filesystem probes.
 struct Volume { QString root; QString label; qint64 available = -1; };
 QList<Volume> userVolumes();
 QString volumeRoot(const QString &path);

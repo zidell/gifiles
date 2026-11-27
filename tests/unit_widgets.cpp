@@ -188,6 +188,34 @@ class Widgets : public QObject {
     }
 
 private slots:
+    void mountedRemoteFoldersStayResponsive()
+    {
+        // Explicit opt-in only: CI and normal tests must never contact a user's server.
+        const QStringList paths = qEnvironmentVariable("GIFILES_TEST_REMOTE_FOLDERS").split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        if (paths.isEmpty())
+            QSKIP("Set GIFILES_TEST_REMOTE_FOLDERS to newline-separated mounted test folders");
+        for (const QString &path : paths) {
+            QVERIFY(util::usesGenericFileIcon(path));
+            BrowserTab browser(path, BrowserTab::List, false);
+            auto *fs = browser.findChild<QFileSystemModel *>();
+            QVERIFY(fs);
+            QSignalSpy loaded(fs, &QFileSystemModel::directoryLoaded);
+            QTRY_VERIFY_WITH_TIMEOUT(!loaded.isEmpty(), 30000);
+            const QModelIndex root = fs->index(path);
+            QVERIFY(root.isValid());
+            for (int row = 0; row < fs->rowCount(root); ++row) {
+                const auto index = fs->index(row, 0, root);
+                QVERIFY(!fs->fileIcon(index).isNull());
+                fs->type(index); // both native icons and type lookup used to sniff remote contents
+            }
+            QCOMPARE(util::availableBytes(path), qint64(-1));
+            bool ticked = false;
+            QTimer::singleShot(0, &browser, [&] { ticked = true; });
+            QTRY_VERIFY(ticked);
+            QCOMPARE(browser.path(), path);
+        }
+    }
+
     void tabAccessibilityIncludesRealCloseButtons()
     {
         installAccessibleTabs();

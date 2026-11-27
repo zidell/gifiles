@@ -458,6 +458,13 @@ again; leave out what only mattered once.
   or filter change. Network tabs poll because native watches can miss changes; no extra synchronous
   watcher or missing-root ancestor probes on them. This does not replace QFileSystemModel's own
   filesystem I/O; a real server disconnect/reconnect remains a separate manual verification.
+  Linux uses `/proc/self/mountinfo` (`LinuxMounts.h`) to classify FUSE (including SSHFS/rclone),
+  NFS and SMB without probing the share. The same generic-icon/type protection and remote
+  polling apply there. Never use `QStorageInfo` on these mounts in status/sidebar rendering:
+  `statfs` can itself wait for Drive's API. Remote available space is omitted. A live KDE hang
+  was traced to BrowserIconProvider → KDE KIO MIME sniffing → read() of an uncached Drive PNG;
+  the previous non-macOS classifier always returned false, bypassing every remote safeguard.
+  Folder-loading spinners use an 18 px painted diameter on all platforms.
 - **Recent folder identity:** deduplicate by canonical local path (Unicode normalized; case folded
   on Windows), retaining the newest display spelling. Clean existing state on read and remove by
   either alias. Remote paths use lexical identity without contacting the mount. Same basenames in

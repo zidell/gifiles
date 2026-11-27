@@ -1,4 +1,8 @@
 #include "Util.h"
+#ifdef Q_OS_LINUX
+#include "LinuxMounts.h"
+#include <QFile>
+#endif
 #ifdef Q_OS_MACOS
 #include "MacWindow.h"
 #endif
@@ -25,6 +29,27 @@
 #endif
 
 namespace util {
+
+#ifdef Q_OS_LINUX
+namespace {
+const QList<LinuxMounts::Mount> &linuxMounts()
+{
+    // Re-read kernel metadata so a newly mounted share is protected immediately. Only
+    // reparse when it changed; each thread owns its cache (callers include worker threads).
+    thread_local QByteArray previous;
+    thread_local QList<LinuxMounts::Mount> mounts;
+    QFile file(QStringLiteral("/proc/self/mountinfo"));
+    if (!file.open(QIODevice::ReadOnly))
+        return mounts;
+    const QByteArray data = file.readAll();
+    if (data != previous) {
+        mounts = LinuxMounts::parse(data);
+        previous = data;
+    }
+    return mounts;
+}
+}
+#endif
 
 QString elapsedTime(qint64 milliseconds)
 {
@@ -55,6 +80,9 @@ bool usesGenericFileIcon(const QString &path)
         }
     }
     return remote;
+#elif defined(Q_OS_LINUX)
+    const auto &mounts = linuxMounts();
+    return mounts.isEmpty() || LinuxMounts::containing(mounts, path).remote;
 #else
     Q_UNUSED(path);
     return false;
@@ -78,6 +106,22 @@ QList<Volume> userVolumes()
         out << Volume{root, root == QLatin1String("/") ? Gifiles::tr("컴퓨터") : QFileInfo(root).fileName(),
                       qint64(m.f_bavail) * qint64(m.f_bsize)};
     }
+#elif defined(Q_OS_LINUX)
+    const auto mounts = linuxMounts();
+    for (const auto &mount : mounts) {
+        if (mount.remote) {
+            // Keep implementation mounts (document portal, AppImage, automount triggers)
+            // out of the sidebar, and ignore mounts hidden by a later overmount.
+            if (mount.type != "autofs" && mount.type != "fuse.portal" && mount.type != "fuse.dwarfs"
+                && LinuxMounts::containing(mounts, mount.root).remote)
+                out << Volume{mount.root, QFileInfo(mount.root).fileName(), -1};
+        } else if (mount.root == QLatin1String("/") || mount.root.startsWith(QLatin1String("/media/"))
+                   || mount.root.startsWith(QLatin1String("/run/media/")) || mount.root.startsWith(QLatin1String("/mnt/"))) {
+            const QStorageInfo si(mount.root);
+            if (si.rootPath() == mount.root && isUserVolume(si))
+                out << Volume{si.rootPath(), si.displayName(), si.bytesAvailable()};
+        }
+    }
 #else
     for (const QStorageInfo &si : QStorageInfo::mountedVolumes())
         if (isUserVolume(si))
@@ -94,6 +138,8 @@ QString volumeRoot(const QString &path)
         if (v.root.size() > root.size() && isInside(path, v.root))
             root = v.root;
     return root;
+#elif defined(Q_OS_LINUX)
+    return LinuxMounts::containing(linuxMounts(), path).root;
 #else
     return QStorageInfo(path).rootPath();
 #endif
@@ -110,6 +156,11 @@ qint64 availableBytes(const QString &path)
             available = v.available;
         }
     return available;
+#elif defined(Q_OS_LINUX)
+    if (usesGenericFileIcon(path))
+        return -1; // statfs on FUSE can wait for a network request (Drive quota, SSH disconnect).
+    const QStorageInfo si(path);
+    return si.isValid() ? si.bytesAvailable() : -1;
 #else
     const QStorageInfo si(path);
     return si.isValid() ? si.bytesAvailable() : -1;

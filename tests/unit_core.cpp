@@ -19,6 +19,7 @@
 #include "Theme.h"
 #include "Toml.h"
 #include "Util.h"
+#include "LinuxMounts.h"
 
 #include <QApplication>
 #include <QDir>
@@ -270,6 +271,49 @@ class Unit : public QObject {
     }
 
 private slots:
+    void linuxRemoteMountClassification()
+    {
+        const auto mounts = LinuxMounts::parse(
+            "1 0 8:1 / / rw - ext4 /dev/root rw\n"
+            "2 1 0:2 / /mnt/Drive\\040Files rw shared:4 - fuse.rclone gdrive: rw\n"
+            "3 1 0:3 / /mnt/ssh rw - fuse.sshfs host: rw\n"
+            "4 1 8:2 / /mnt/ssh/local rw - ext4 /dev/other rw\n"
+            "5 1 0:5 / /mnt/nfs rw - nfs4 server:/ rw\n"
+            "6 1 0:6 / /mnt/smb rw - cifs //server/share rw\n"
+            "7 1 0:7 / /mnt/tab\\011slash\\134name rw - fuse.rclone remote: rw\n"
+            "malformed\n");
+        QCOMPARE(mounts.size(), 7);
+        QVERIFY(LinuxMounts::containing(mounts, QStringLiteral("/mnt/Drive Files/missing.png")).remote);
+        QVERIFY(LinuxMounts::containing(mounts, QStringLiteral("/mnt/ssh/missing")).remote);
+        QVERIFY(LinuxMounts::containing(mounts, QStringLiteral("/mnt/nfs/file")).remote);
+        QVERIFY(LinuxMounts::containing(mounts, QStringLiteral("/mnt/smb/file")).remote);
+        QVERIFY(LinuxMounts::containing(mounts, QStringLiteral("/mnt/tab\tslash\\name/file")).remote);
+        QVERIFY(!LinuxMounts::containing(mounts, QStringLiteral("/mnt/ssh/local/file")).remote);
+        QVERIFY(!LinuxMounts::containing(mounts, QStringLiteral("/mnt/ssh-other/file")).remote);
+        QVERIFY(!LinuxMounts::containing(mounts, QStringLiteral("/mnt/ssh/../../tmp/file")).remote);
+        QCOMPARE(LinuxMounts::containing(mounts, QStringLiteral("/mnt/ssh/local/file")).root,
+                 QStringLiteral("/mnt/ssh/local"));
+    }
+
+    void linuxMountedRemoteMetadata()
+    {
+#ifdef Q_OS_LINUX
+        QFile file(QStringLiteral("/proc/self/mountinfo"));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const auto mounts = LinuxMounts::parse(file.readAll());
+        QVERIFY(!mounts.isEmpty());
+        for (const auto &mount : mounts) {
+            if (!mount.remote || !LinuxMounts::containing(mounts, mount.root).remote)
+                continue;
+            // No filesystem access, including for nonexistent children on disconnected shares.
+            const QString child = mount.root + QStringLiteral("/gifiles-nonexistent-child");
+            QVERIFY2(util::usesGenericFileIcon(child), qPrintable(child));
+            QCOMPARE(util::volumeRoot(child), mount.root);
+            QCOMPARE(util::availableBytes(child), qint64(-1));
+        }
+#endif
+    }
+
     void elapsedTimeIncludesDays()
     {
         QCOMPARE(util::elapsedTime(0), QStringLiteral("00:00:00"));

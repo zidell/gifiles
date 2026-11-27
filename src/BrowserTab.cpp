@@ -54,7 +54,7 @@ public:
         setFocusPolicy(Qt::NoFocus);
         m_timer.setInterval(80);
         connect(&m_timer, &QTimer::timeout, this, [this] {
-            update(QRect(rect().center() - QPoint(18, 18), QSize(38, 38)));
+            update(QRect(rect().center() - QPoint(10, 10), QSize(21, 21)));
         });
         hide();
     }
@@ -81,8 +81,8 @@ protected:
         for (int i = 0; i < 12; ++i) {
             QColor color = foreground;
             color.setAlphaF(0.15 + 0.85 * ((i + 12 - step) % 12) / 11.0);
-            p.setPen(QPen(color, 3, Qt::SolidLine, Qt::RoundCap));
-            p.drawLine(QPointF(0, -9), QPointF(0, -15));
+            p.setPen(QPen(color, 2, Qt::SolidLine, Qt::RoundCap));
+            p.drawLine(QPointF(0, -5), QPointF(0, -8));
             p.rotate(30);
         }
     }
